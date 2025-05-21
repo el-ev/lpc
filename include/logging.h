@@ -4,58 +4,54 @@
 #include <concepts>
 #include <iostream>
 #include <optional>
+#include <source_location>
 #include <sstream>
-#include <string>
 
 namespace lpc {
 
-enum class LogLevel {
+enum class LogLevel : uint8_t {
     DEBUG,
     INFO,
     WARN,
     ERROR,
 };
 
-#define LOG_TRACE(...) LOG(::lpc::LogLevel::TRACE, __VA_ARGS__)
-#define LOG_DEBUG(...) LOG(::lpc::LogLevel::DEBUG, __VA_ARGS__)
-#define LOG_INFO(...) LOG(::lpc::LogLevel::INFO, __VA_ARGS__)
-#define LOG_ERROR(...) LOG(::lpc::LogLevel::ERROR, __VA_ARGS__)
-
 #define LOG(level, ...)                                                        \
-    ::lpc::Logger::_vlog(level,                                                \
-        "[" __FILE__ ":" + std::to_string(__LINE__) + "] ", __VA_ARGS__)
+    ::lpc::Logger::vlog(level, std::source_location::current(), __VA_ARGS__)
 
 template <typename T>
 concept Streamable = requires(std::ostream& os, T value) {
     { os << value } -> std::convertible_to<std::ostream&>;
 };
 
-inline constexpr std::string_view logLevelToString(LogLevel level) noexcept {
+constexpr std::ostream& operator<<(std::ostream& os, LogLevel level) {
     switch (level) {
-    case LogLevel::DEBUG: return "[DEBUG]";
-    case LogLevel::INFO : return "[INFO]";
-    case LogLevel::WARN : return "[WARN]";
-    case LogLevel::ERROR: return "[ERROR]";
+    case LogLevel::DEBUG: os << "[DEBUG]"; break;
+    case LogLevel::INFO : os << "[INFO ]"; break;
+    case LogLevel::WARN : os << "[WARN ]"; break;
+    case LogLevel::ERROR: os << "[ERROR]"; break;
     }
-    return "[UNKNOWN]";
+    return os;
 }
+
+const size_t DEFAULT_MAX_BUFFER_SIZE = 1024;
 
 class Logger;
 class LoggerConfig {
 private:
-    LogLevel filter;
-    std::reference_wrapper<std::ostream> output;
-    size_t max_buffer_size;
-    bool always_flush;
+    LogLevel _filter;
+    std::reference_wrapper<std::ostream> _output;
+    size_t _max_buffer_size;
+    bool _always_flush;
 
     friend class Logger;
 
-    explicit LoggerConfig(LogLevel _filter, std::ostream& _output,
-        size_t _max_buffer_size, bool _always_flush)
-        : filter(_filter)
-        , output(_output)
-        , max_buffer_size(_max_buffer_size)
-        , always_flush(_always_flush) {
+    explicit LoggerConfig(LogLevel filter, std::ostream& output,
+        size_t max_buffer_size, bool always_flush)
+        : _filter(filter)
+        , _output(output)
+        , _max_buffer_size(max_buffer_size)
+        , _always_flush(always_flush) {
     }
 
     class LoggerConfigBuilder {
@@ -66,16 +62,17 @@ private:
         LogLevel _filter = LogLevel::DEBUG;
 #endif //
         std::reference_wrapper<std::ostream> _output { std::cout };
-        size_t _max_buffer_size = 1024;
+        size_t _max_buffer_size = DEFAULT_MAX_BUFFER_SIZE;
         bool _always_flush = false;
 
         explicit LoggerConfigBuilder() = default;
-        explicit LoggerConfigBuilder(const LoggerConfigBuilder&) = delete;
-        LoggerConfigBuilder& operator=(const LoggerConfigBuilder&) = delete;
 
         friend class LoggerConfig;
 
     public:
+        explicit LoggerConfigBuilder(const LoggerConfigBuilder&) = delete;
+        LoggerConfigBuilder& operator=(const LoggerConfigBuilder&) = delete;
+
         [[nodiscard]] LoggerConfigBuilder& filter(LogLevel f) noexcept {
             _filter = f;
             return *this;
@@ -109,67 +106,69 @@ class Logger {
 private:
     using LoggerBuilder = LoggerConfig::LoggerConfigBuilder;
 
-    LoggerConfig config;
-    std::ostream& out;
-    std::stringstream buf;
-
-    explicit Logger(const Logger& Logger) = delete;
-    Logger& operator=(const Logger& Logger) = delete;
+    LoggerConfig _config;
+    std::ostream& _out;
+    std::stringstream _buf;
 
 public:
-    explicit Logger(Logger&& other) = default;
+    explicit Logger(const Logger& logger) = delete;
+    Logger& operator=(const Logger& logger) = delete;
+
+    Logger(Logger&& other) = default;
+    Logger& operator=(Logger&& other) = delete;
+
     explicit Logger(LoggerConfig config)
-        : config(config)
-        , out(config.output.get())
-        , buf() {
+        : _config(config)
+        , _out(_config._output.get()) {
     }
 
-    static void set_logger(Logger&& _logger) noexcept;
+    static void set_logger(Logger&& logger) noexcept;
     void make_active() noexcept;
 
     void flush() {
-        if (buf.str().size() > 0) {
-            out << buf.str();
-            buf.str("");
+        if (_buf.str().size() > 0) {
+            _out << _buf.str();
+            _buf.str("");
         }
     }
 
     ~Logger() {
         flush();
-        if (&out != &std::cout)
-            out.flush();
+        if (&_out != &std::cout)
+            _out.flush();
     }
 
-    template <Streamable T, Streamable... Args>
-    static void _vlog(
-        LogLevel level, const std::string& _place, T&& _msg, Args&&... _args);
+    template <typename... Args>
+    static void vlog(LogLevel level, std::source_location loc, Args&&... args);
 
     [[nodiscard]] static LoggerBuilder builder() noexcept {
         return LoggerConfig::builder();
     }
 
 private:
-    template <typename... Args> void _vlog_impl(Args&&... args);
+    template <typename... Args>
+    void vlog_impl(Args&&... args);
 };
 
 extern std::optional<Logger> logger;
 
-template <typename... Args> void Logger::_vlog_impl(Args&&... args) {
-    ((buf << std::forward<Args>(args)), ...);
-    buf << std::endl;
-    if (config.always_flush || buf.str().size() >= config.max_buffer_size)
+template <typename... Args>
+void Logger::vlog_impl(Args&&... args) {
+    ((_buf << std::forward<Args>(args)), ...);
+    _buf << "\n";
+    if (_config._always_flush || _buf.str().size() >= _config._max_buffer_size)
         flush();
 }
 
-template <Streamable T, Streamable... Args>
-void Logger::_vlog(
-    LogLevel level, const std::string& _place, T&& _msg, Args&&... _args) {
-    if (!logger)
+template <typename... Args>
+void Logger::vlog(LogLevel level, std::source_location loc, Args&&... _args) {
+    auto format_source_location = [&]() {
+        return std::format("[{}:{}] ", loc.file_name(), loc.line());
+    };
+    if (!logger || level < logger->_config._filter)
         return;
-    if (level < logger->config.filter)
-        return;
-    logger->_vlog_impl(logLevelToString(level), _place, std::forward<T>(_msg),
-        std::forward<Args>(_args)...);
+    logger->vlog_impl(
+        level, format_source_location(), std::forward<Args>(_args)...);
 }
 } // namespace lpc
 

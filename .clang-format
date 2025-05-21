@@ -4,7 +4,6 @@ IndentWidth: 4
 ColumnLimit: 80
 AccessModifierOffset: -4
 
-#bracket on same line
 BreakBeforeBraces: Attach
 
 AllowShortCaseLabelsOnASingleLine: true
@@ -16,3 +15,5 @@ AlignConsecutiveShortCaseStatements:
 AllowShortIfStatementsOnASingleLine: false
 AllowShortBlocksOnASingleLine: false
 AllowShortFunctionsOnASingleLine: false
+
+BreakTemplateDeclarations: Yes
