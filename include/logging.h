@@ -2,6 +2,10 @@
 #define _LPC_LOGGING_H
 
 #include <concepts>
+#include <cstddef>
+#include <cstdint>
+#include <format>
+#include <functional>
 #include <iostream>
 #include <optional>
 #include <source_location>
@@ -126,7 +130,7 @@ public:
     void make_active() noexcept;
 
     void flush() {
-        if (_buf.str().size() > 0) {
+        if (!_buf.str().empty()) {
             _out << _buf.str();
             _buf.str("");
         }
@@ -161,14 +165,14 @@ void Logger::vlog_impl(Args&&... args) {
 }
 
 template <typename... Args>
-void Logger::vlog(LogLevel level, std::source_location loc, Args&&... _args) {
+void Logger::vlog(LogLevel level, std::source_location loc, Args&&... args) {
     auto format_source_location = [&]() {
         return std::format("[{}:{}] ", loc.file_name(), loc.line());
     };
     if (!logger || level < logger->_config._filter)
         return;
     logger->vlog_impl(
-        level, format_source_location(), std::forward<Args>(_args)...);
+        level, format_source_location(), std::forward<Args>(args)...);
 }
 } // namespace lpc
 
