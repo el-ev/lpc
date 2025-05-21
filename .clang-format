@@ -1,0 +1,14 @@
+BasedOnStyle: Google
+IndentWidth: 4
+
+ColumnLimit: 80
+AccessModifierOffset: -4
+
+
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortCaseExpressionOnASingleLine: true
+AlignConsecutiveShortCaseStatements:
+    Enabled: true
+    AlignCaseColons: true
+
+AllowShortIfStatementsOnASingleLine: false
