@@ -1,9 +1,11 @@
-BasedOnStyle: Google
+BasedOnStyle: WebKit
 IndentWidth: 4
 
 ColumnLimit: 80
 AccessModifierOffset: -4
 
+#bracket on same line
+BreakBeforeBraces: Attach
 
 AllowShortCaseLabelsOnASingleLine: true
 AllowShortCaseExpressionOnASingleLine: true
@@ -12,3 +14,5 @@ AlignConsecutiveShortCaseStatements:
     AlignCaseColons: true
 
 AllowShortIfStatementsOnASingleLine: false
+AllowShortBlocksOnASingleLine: false
+AllowShortFunctionsOnASingleLine: false
