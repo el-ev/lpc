@@ -7,7 +7,7 @@ namespace lpc {
 std::optional<Logger> logger;
 
 Logger LoggerConfig::LoggerConfigBuilder::build() noexcept {
-    // There are at least 17 characters in the log level string
+    // There are at least 17 characters in the log string
     if (_max_buffer_size <= 20)
         _always_flush = true;
     return Logger(

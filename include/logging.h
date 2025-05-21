@@ -142,7 +142,7 @@ public:
             _out.flush();
     }
 
-    template <typename... Args>
+    template <Streamable... Args>
     static void vlog(LogLevel level, std::source_location loc, Args&&... args);
 
     [[nodiscard]] static LoggerBuilder builder() noexcept {
@@ -164,7 +164,7 @@ void Logger::vlog_impl(Args&&... args) {
         flush();
 }
 
-template <typename... Args>
+template <Streamable... Args>
 void Logger::vlog(LogLevel level, std::source_location loc, Args&&... args) {
     auto format_source_location = [&]() {
         return std::format("[{}:{}] ", loc.file_name(), loc.line());
