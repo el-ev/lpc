@@ -11,8 +11,7 @@ import lpc.session;
 
 namespace lpc {
 
-std::vector<std::string_view> App::parse(
-    Session& session, std::vector<std::string_view> args) const {
+void App::parse(Session& session, std::vector<std::string_view> args) const {
     // first call all options that have default values, if any
     for (const auto& option : options) {
         if (option.default_value) {
@@ -30,7 +29,7 @@ std::vector<std::string_view> App::parse(
                     ++it;
                     std::copy(
                         it, args.end(), std::back_inserter(non_option_args));
-                    return non_option_args;
+                    break;
                 }
                 // it is a short option
                 auto opt = std::ranges::find_if(
@@ -97,7 +96,9 @@ std::vector<std::string_view> App::parse(
         // it's not an option
         non_option_args.push_back(*it);
     }
-    return non_option_args;
+
+    // check if there are any non-option arguments
+    session.set_input_files(std::move(non_option_args));
 }
 
 } // namespace lpc

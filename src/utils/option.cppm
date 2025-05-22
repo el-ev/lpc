@@ -90,9 +90,7 @@ export struct App {
         }
     }
 
-    // return terms that are not options and doesn't attach to any option
-    [[nodiscard]] std::vector<std::string_view> parse(
-        Session& session, std::vector<std::string_view> args) const;
+    void parse(Session& session, std::vector<std::string_view> args) const;
 };
 
 class AppBuilder {
@@ -103,8 +101,7 @@ public:
     explicit AppBuilder(const AppBuilder&) = delete;
     AppBuilder& operator=(const AppBuilder&) = delete;
 
-    explicit constexpr AppBuilder(std::string&& name,
-        std::string&& author,
+    explicit constexpr AppBuilder(std::string&& name, std::string&& author,
         std::optional<std::string>&& description = std::nullopt) noexcept
         : _app(std::move(name), std::move(author), std::move(description)) {
     }

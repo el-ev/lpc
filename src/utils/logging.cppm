@@ -109,8 +109,7 @@ public:
     void make_active() noexcept;
 
     ~Logger() {
-        if (&_out != &std::cout)
-            _out.flush();
+        _out.flush();
     }
 
     template <Streamable... Args>
