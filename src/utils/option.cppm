@@ -78,7 +78,6 @@ export struct App {
             std::println("Description: {}", *description);
         }
         std::println("Options:");
-        Info(options.size());
         for (const Option& option : options) {
             std::print("  --{}", option.long_name);
             if (option.short_name)
@@ -92,7 +91,7 @@ export struct App {
     }
 
     // return terms that are not options and doesn't attach to any option
-    std::optional<std::vector<std::string_view>> parse(
+    std::vector<std::string_view> parse(
         Session& session, std::vector<std::string_view> args);
 };
 
@@ -115,7 +114,7 @@ public:
 
         // the help option is specially handled
         _app.options.emplace_back(true, "help", false, std::nullopt,
-            "Display this help message.", nullptr);
+            "Display this help message", nullptr);
         return *this;
     }
 
@@ -179,5 +178,4 @@ constexpr AppBuilder App::builder(std::string&& name, std::string&& author,
 }
 
 export class HelpMessageDisplayedException : public std::exception { };
-
 } // namespace lpc

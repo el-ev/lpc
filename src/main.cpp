@@ -1,6 +1,7 @@
 #include <fstream>
 #include <iostream>
 #include <print>
+#include <stdexcept>
 #include <string>
 
 import lpc.logging;
@@ -21,19 +22,15 @@ auto main(int argc, char* argv[]) noexcept -> int {
                           "Output file path", Session::set_output_file)
                       .build();
 
-        std::optional<std::vector<std::string_view>> ret;
+        std::vector<std::string_view> files;
         try {
-            ret = app.parse(session, { argv + 1, argv + argc });
-        } catch (const HelpMessageDisplayedException& e) {
+            files = app.parse(session, { argv + 1, argv + argc });
+        } catch (const HelpMessageDisplayedException&) {
             return 0;
-        }
-
-        if (!ret.has_value()) {
-            Error("No input files.");
+        } catch (const std::invalid_argument&) {
             return 1;
         }
 
-        auto files = ret.value();
         if (files.empty()) {
             Error("No input files.");
             return 1;

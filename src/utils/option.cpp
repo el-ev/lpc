@@ -2,6 +2,7 @@ module;
 
 #include <format>
 #include <print>
+#include <stdexcept>
 
 module lpc.option;
 
@@ -10,7 +11,7 @@ import lpc.session;
 
 namespace lpc {
 
-std::optional<std::vector<std::string_view>> App::parse(
+std::vector<std::string_view> App::parse(
     Session& session, std::vector<std::string_view> args) {
     // first call all options that have default values, if any
     for (const auto& option : options) {
@@ -19,10 +20,9 @@ std::optional<std::vector<std::string_view>> App::parse(
         }
     }
     std::vector<std::string_view> non_option_args;
-    for (auto it = args.begin(); it != args.end();) {
+    for (auto it = args.begin(); it != args.end(); ++it) {
         size_t arg_len = it->length();
         if ((*it)[0] == '-') {
-            // it's an option
             // check if it's a short option
             if (arg_len == 2) {
                 if ((*it)[1] == '-') {
@@ -30,7 +30,7 @@ std::optional<std::vector<std::string_view>> App::parse(
                     ++it;
                     std::copy(
                         it, args.end(), std::back_inserter(non_option_args));
-                    return std::move(non_option_args);
+                    return non_option_args;
                 }
                 // it is a short option
                 auto opt = std::ranges::find_if(
@@ -44,10 +44,9 @@ std::optional<std::vector<std::string_view>> App::parse(
                         if (it == args.end()) {
                             Error(std::format(
                                 "Option {} requires a value", opt->long_name));
-                            return std::nullopt;
+                            throw std::invalid_argument("");
                         }
                         opt->callback(session, *it);
-                        ++it;
                     } else {
                         // no value required
                         if (!opt->callback && opt->long_name == "help") {
@@ -55,17 +54,16 @@ std::optional<std::vector<std::string_view>> App::parse(
                             throw HelpMessageDisplayedException();
                         }
                         opt->callback(session, "");
-                        ++it;
                     }
                     continue;
                 }
                 // unknown option
                 Error(std::format("Unknown option: {}", *it));
-                return std::nullopt;
+                throw std::invalid_argument("");
             }
             if ((*it)[1] != '-') {
                 Error(std::format("Invalid option: {}", *it));
-                return std::nullopt;
+                throw std::invalid_argument("");
             }
             // it is a long option
             auto opt = std::ranges::find_if(
@@ -79,10 +77,9 @@ std::optional<std::vector<std::string_view>> App::parse(
                     if (it == args.end()) {
                         Error(std::format(
                             "Option {} requires a value", opt->long_name));
-                        return std::nullopt;
+                        throw std::invalid_argument("");
                     }
                     opt->callback(session, *it);
-                    ++it;
                 } else {
                     // no value required
                     if (!opt->callback && opt->long_name == "help") {
@@ -90,19 +87,17 @@ std::optional<std::vector<std::string_view>> App::parse(
                         throw HelpMessageDisplayedException();
                     }
                     opt->callback(session, "");
-                    ++it;
                 }
                 continue;
             }
             // unknown option
             Error(std::format("Unknown option: {}", *it));
-            return std::nullopt;
+            throw std::invalid_argument("");
         }
         // it's not an option
         non_option_args.push_back(*it);
-        ++it;
     }
-    return std::move(non_option_args);
+    return non_option_args;
 }
 
 } // namespace lpc
