@@ -9,26 +9,23 @@ module;
 export module lpc.frontend.lexer;
 
 import lpc.logging;
-import lpc.session;
 import lpc.frontend.token;
 
 namespace lpc::frontend {
 
 export class Lexer {
 private:
-    Session& _session;
     std::string_view _file;
     std::string_view _source;
     std::string_view _cursor;
     std::size_t _line = 1;
     std::string_view::iterator _line_start;
     std::vector<Token> _tokens;
+    bool _failed = false;
 
 public:
-    explicit Lexer(Session& session, std::string_view file,
-        std::string_view source) noexcept
-        : _session(session)
-        , _file(file)
+    explicit Lexer(std::string_view file, std::string_view source) noexcept
+        : _file(file)
         , _source(source)
         , _cursor(source)
         , _line_start(source.begin()) {
@@ -36,7 +33,7 @@ public:
             if (auto token = advance()) {
                 _tokens.push_back(std::move(*token));
             } else if (!is_eof()) {
-                _session.fail();
+                _failed = true;
                 break;
             }
         }
@@ -63,6 +60,10 @@ public:
 
     [[nodiscard]] inline bool is_eof() const noexcept {
         return _cursor.empty();
+    }
+
+    [[nodiscard]] inline bool is_failed() const noexcept {
+        return _failed;
     }
 
 private:
