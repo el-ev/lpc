@@ -27,13 +27,12 @@ Checks: >
   -cppcoreguidelines-avoid-non-const-global-variables,
   -misc-include-cleaner,
   -misc-use-internal-linkage,
-  -readability-redundant-inline-specifier
+  -readability-redundant-inline-specifier,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic
 
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*'
 FormatStyle: file
-
-
 
 CheckOptions:
   - key: readability-identifier-length.MinimumVariableNameLength
