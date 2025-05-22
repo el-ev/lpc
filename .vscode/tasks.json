@@ -1,0 +1,16 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "LPC debug build",
+            "type": "shell",
+            "command": "${workspaceFolder}/scripts/build.sh",
+            "args": ["-d"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": []
+        }
+    ]
+}
