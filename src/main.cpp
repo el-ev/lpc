@@ -1,20 +1,21 @@
-#include "logging.h"
-
+import lpc.logging;
 #include <iostream>
 
 using namespace lpc;
 
 auto main(int argc, char* argv[]) -> int {
-    if (argc == 1)
-        std::cout << "No arguments provided.\n";
+    try {
+        if (argc == 1)
+            std::cout << "No arguments provided.\n";
 
-    Logger::builder()
-        .output(std::cerr)
-        .max_buffer_size(1024)
-        .build()
-        .make_active();
-    LOG(LogLevel::DEBUG, "Debug message");
-    LOG(LogLevel::ERROR, "Error message: ", 0.12f);
-    LOG(LogLevel::INFO, "Info message: ", reinterpret_cast<void*>(main));
+        Logger::builder().output(std::cerr).build().make_active();
+        Debug();
+        Info("Error message: ", 0.12f);
+        Warn("Info message: ", reinterpret_cast<void*>(main));
+    } catch (const std::exception& e) {
+        std::cerr << "Exception: " << e.what() << '\n';
+    } catch (...) {
+        std::cerr << "Unknown exception\n";
+    }
     return 0;
 }

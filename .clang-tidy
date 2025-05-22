@@ -25,7 +25,8 @@ Checks: >
   -hicpp-uppercase-literal-suffix,
   -cppcoreguidelines-pro-type-reinterpret-cast,
   -cppcoreguidelines-avoid-non-const-global-variables,
-  -misc-include-cleaner
+  -misc-include-cleaner,
+  -misc-use-internal-linkage
 
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*'

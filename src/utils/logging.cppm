@@ -1,15 +1,14 @@
-#ifndef _LPC_LOGGING_H
-#define _LPC_LOGGING_H
+module;
 
 #include <concepts>
-#include <cstddef>
 #include <cstdint>
 #include <format>
 #include <functional>
 #include <iostream>
 #include <optional>
 #include <source_location>
-#include <sstream>
+
+export module lpc.logging;
 
 namespace lpc {
 
@@ -18,14 +17,6 @@ enum class LogLevel : uint8_t {
     INFO,
     WARN,
     ERROR,
-};
-
-#define LOG(level, ...)                                                        \
-    ::lpc::Logger::vlog(level, std::source_location::current(), __VA_ARGS__)
-
-template <typename T>
-concept Streamable = requires(std::ostream& os, T value) {
-    { os << value } -> std::convertible_to<std::ostream&>;
 };
 
 constexpr std::ostream& operator<<(std::ostream& os, LogLevel level) {
@@ -38,23 +29,24 @@ constexpr std::ostream& operator<<(std::ostream& os, LogLevel level) {
     return os;
 }
 
-const size_t DEFAULT_MAX_BUFFER_SIZE = 1024;
+template <typename T>
+concept Streamable = requires(std::ostream& os, T value) {
+    { os << value } -> std::convertible_to<std::ostream&>;
+};
 
-class Logger;
+export class Logger;
 class LoggerConfig {
 private:
     LogLevel _filter;
     std::reference_wrapper<std::ostream> _output;
-    size_t _max_buffer_size;
     bool _always_flush;
 
     friend class Logger;
 
-    explicit LoggerConfig(LogLevel filter, std::ostream& output,
-        size_t max_buffer_size, bool always_flush)
+    explicit LoggerConfig(
+        LogLevel filter, std::ostream& output, bool always_flush)
         : _filter(filter)
         , _output(output)
-        , _max_buffer_size(max_buffer_size)
         , _always_flush(always_flush) {
     }
 
@@ -64,16 +56,13 @@ private:
         LogLevel _filter = LogLevel::INFO;
 #else // !NDEBUG
         LogLevel _filter = LogLevel::DEBUG;
-#endif //
+#endif // NDEBUG
         std::reference_wrapper<std::ostream> _output { std::cout };
-        size_t _max_buffer_size = DEFAULT_MAX_BUFFER_SIZE;
         bool _always_flush = false;
 
+    public:
         explicit LoggerConfigBuilder() = default;
 
-        friend class LoggerConfig;
-
-    public:
         explicit LoggerConfigBuilder(const LoggerConfigBuilder&) = delete;
         LoggerConfigBuilder& operator=(const LoggerConfigBuilder&) = delete;
 
@@ -84,11 +73,6 @@ private:
 
         [[nodiscard]] LoggerConfigBuilder& output(std::ostream& o) noexcept {
             _output = std::reference_wrapper<std::ostream>(o);
-            return *this;
-        }
-
-        [[nodiscard]] LoggerConfigBuilder& max_buffer_size(size_t m) noexcept {
-            _max_buffer_size = m;
             return *this;
         }
 
@@ -112,7 +96,6 @@ private:
 
     LoggerConfig _config;
     std::ostream& _out;
-    std::stringstream _buf;
 
 public:
     explicit Logger(const Logger& logger) = delete;
@@ -129,21 +112,14 @@ public:
     static void set_logger(Logger&& logger) noexcept;
     void make_active() noexcept;
 
-    void flush() {
-        if (!_buf.str().empty()) {
-            _out << _buf.str();
-            _buf.str("");
-        }
-    }
-
     ~Logger() {
-        flush();
         if (&_out != &std::cout)
             _out.flush();
     }
 
     template <Streamable... Args>
-    static void vlog(LogLevel level, std::source_location loc, Args&&... args);
+    static void vlog(
+        LogLevel level, const std::source_location& loc, Args&&... args);
 
     [[nodiscard]] static LoggerBuilder builder() noexcept {
         return LoggerConfig::builder();
@@ -158,22 +134,85 @@ extern std::optional<Logger> logger;
 
 template <typename... Args>
 void Logger::vlog_impl(Args&&... args) {
-    ((_buf << std::forward<Args>(args)), ...);
-    _buf << "\n";
-    if (_config._always_flush || _buf.str().size() >= _config._max_buffer_size)
-        flush();
+    (_out << ... << std::forward<Args>(args)) << '\n';
+    if (_config._always_flush)
+        _out.flush();
 }
 
 template <Streamable... Args>
-void Logger::vlog(LogLevel level, std::source_location loc, Args&&... args) {
-    auto format_source_location = [&]() {
-        return std::format("[{}:{}] ", loc.file_name(), loc.line());
-    };
+void Logger::vlog(
+    LogLevel level, const std::source_location& loc, Args&&... args) {
     if (!logger || level < logger->_config._filter)
         return;
-    logger->vlog_impl(
-        level, format_source_location(), std::forward<Args>(args)...);
-}
-} // namespace lpc
 
-#endif // _LPC_LOGGING_H
+    auto loc_string = std::format("[{}:{}] ", loc.file_name(), loc.line());
+    logger->vlog_impl(level, loc_string, std::forward<Args>(args)...);
+}
+
+namespace log_wrapper {
+    template <typename... Args>
+    struct LogWrapper {
+        explicit LogWrapper(
+            Args&&... args, LogLevel level, const std::source_location& loc) {
+            Logger::vlog(level, loc, std::forward<Args>(args)...);
+        }
+    };
+
+    template <typename... Args>
+    struct Debug : LogWrapper<Args...> {
+        explicit Debug(Args&&... args,
+            const std::source_location& loc = std::source_location::current())
+            : LogWrapper<Args...>(
+                  std::forward<Args>(args)..., LogLevel::DEBUG, loc) {
+        }
+    };
+
+    template <typename... Args>
+    struct Info : LogWrapper<Args...> {
+        explicit Info(Args&&... args,
+            const std::source_location& loc = std::source_location::current())
+            : LogWrapper<Args...>(
+                  std::forward<Args>(args)..., LogLevel::INFO, loc) {
+        }
+    };
+
+    template <typename... Args>
+    struct Warn : LogWrapper<Args...> {
+        explicit Warn(Args&&... args,
+            const std::source_location& loc = std::source_location::current())
+            : LogWrapper<Args...>(
+                  std::forward<Args>(args)..., LogLevel::WARN, loc) {
+        }
+    };
+
+    template <typename... Args>
+    struct Error : LogWrapper<Args...> {
+        explicit Error(Args&&... args,
+            const std::source_location& loc = std::source_location::current())
+            : LogWrapper<Args...>(
+                  std::forward<Args>(args)..., LogLevel::ERROR, loc) {
+        }
+    };
+
+    template <typename... Args>
+    Debug(Args&&...) -> Debug<Args...>;
+
+    template <typename... Args>
+    Info(Args&&...) -> Info<Args...>;
+
+    template <typename... Args>
+    Warn(Args&&...) -> Warn<Args...>;
+
+    template <typename... Args>
+    Error(Args&&...) -> Error<Args...>;
+}
+
+export template <typename... Args>
+using Debug = log_wrapper::Debug<Args...>;
+export template <typename... Args>
+using Info = log_wrapper::Info<Args...>;
+export template <typename... Args>
+using Warn = log_wrapper::Warn<Args...>;
+export template <typename... Args>
+using Error = log_wrapper::Error<Args...>;
+} // namespace lpc
