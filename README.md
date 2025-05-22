@@ -1,3 +1,3 @@
 # LPC
 
-What are the three random letters supposed to mean?
+This project seems to be evolving into a toy compiler.
