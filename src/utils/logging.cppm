@@ -19,7 +19,7 @@ enum class LogLevel : uint8_t {
     ERROR,
 };
 
-constexpr std::ostream& operator<<(std::ostream& os, LogLevel level) {
+inline constexpr std::ostream& operator<<(std::ostream& os, LogLevel level) {
     switch (level) {
     case LogLevel::DEBUG: os << "[DEBUG]"; break;
     case LogLevel::INFO : os << "[INFO ]"; break;
@@ -43,7 +43,7 @@ private:
 
     friend class Logger;
 
-    explicit LoggerConfig(
+    explicit constexpr LoggerConfig(
         LogLevel filter, std::ostream& output, bool always_flush)
         : _filter(filter)
         , _output(output)
@@ -61,31 +61,34 @@ private:
         bool _always_flush = false;
 
     public:
-        explicit LoggerConfigBuilder() = default;
+        explicit constexpr LoggerConfigBuilder() = default;
 
         explicit LoggerConfigBuilder(const LoggerConfigBuilder&) = delete;
         LoggerConfigBuilder& operator=(const LoggerConfigBuilder&) = delete;
 
-        [[nodiscard]] LoggerConfigBuilder& filter(LogLevel f) noexcept {
+        [[nodiscard]] constexpr LoggerConfigBuilder& filter(
+            LogLevel f) noexcept {
             _filter = f;
             return *this;
         }
 
-        [[nodiscard]] LoggerConfigBuilder& output(std::ostream& o) noexcept {
+        [[nodiscard]] constexpr LoggerConfigBuilder& output(
+            std::ostream& o) noexcept {
             _output = std::reference_wrapper<std::ostream>(o);
             return *this;
         }
 
-        [[nodiscard]] LoggerConfigBuilder& always_flush(bool f) noexcept {
+        [[nodiscard]] constexpr LoggerConfigBuilder& always_flush(
+            bool f) noexcept {
             _always_flush = f;
             return *this;
         }
 
-        [[nodiscard]] Logger build() noexcept;
+        [[nodiscard]] inline constexpr Logger build() noexcept;
     };
 
 public:
-    [[nodiscard]] static LoggerConfigBuilder builder() noexcept {
+    [[nodiscard]] static constexpr LoggerConfigBuilder builder() noexcept {
         return LoggerConfigBuilder();
     }
 };
@@ -101,10 +104,10 @@ public:
     explicit Logger(const Logger& logger) = delete;
     Logger& operator=(const Logger& logger) = delete;
 
-    Logger(Logger&& other) = default;
+    constexpr Logger(Logger&& other) = default;
     Logger& operator=(Logger&& other) = delete;
 
-    explicit Logger(LoggerConfig config)
+    explicit constexpr Logger(LoggerConfig config)
         : _config(config)
         , _out(_config._output.get()) {
     }
@@ -121,7 +124,7 @@ public:
     static void vlog(
         LogLevel level, const std::source_location& loc, Args&&... args);
 
-    [[nodiscard]] static LoggerBuilder builder() noexcept {
+    [[nodiscard]] static constexpr LoggerBuilder builder() noexcept {
         return LoggerConfig::builder();
     }
 
@@ -146,13 +149,18 @@ void Logger::vlog(
         return;
 
     auto loc_string = std::format("[{}:{}] ", loc.file_name(), loc.line());
-    logger->vlog_impl(level, loc_string, std::forward<Args>(args)...);
+    logger->vlog_impl(
+        level, std::move(loc_string), std::forward<Args>(args)...);
+}
+
+inline constexpr Logger LoggerConfig::LoggerConfigBuilder::build() noexcept {
+    return Logger(LoggerConfig(_filter, _output.get(), _always_flush));
 }
 
 namespace log_wrapper {
     template <typename... Args>
     struct LogWrapper {
-        explicit LogWrapper(
+        explicit constexpr LogWrapper(
             Args&&... args, LogLevel level, const std::source_location& loc) {
             Logger::vlog(level, loc, std::forward<Args>(args)...);
         }
@@ -160,7 +168,7 @@ namespace log_wrapper {
 
     template <typename... Args>
     struct Debug : LogWrapper<Args...> {
-        explicit Debug(Args&&... args,
+        explicit constexpr Debug(Args&&... args,
             const std::source_location& loc = std::source_location::current())
             : LogWrapper<Args...>(
                   std::forward<Args>(args)..., LogLevel::DEBUG, loc) {
@@ -169,7 +177,7 @@ namespace log_wrapper {
 
     template <typename... Args>
     struct Info : LogWrapper<Args...> {
-        explicit Info(Args&&... args,
+        explicit constexpr Info(Args&&... args,
             const std::source_location& loc = std::source_location::current())
             : LogWrapper<Args...>(
                   std::forward<Args>(args)..., LogLevel::INFO, loc) {
@@ -178,7 +186,7 @@ namespace log_wrapper {
 
     template <typename... Args>
     struct Warn : LogWrapper<Args...> {
-        explicit Warn(Args&&... args,
+        explicit constexpr Warn(Args&&... args,
             const std::source_location& loc = std::source_location::current())
             : LogWrapper<Args...>(
                   std::forward<Args>(args)..., LogLevel::WARN, loc) {
@@ -187,7 +195,7 @@ namespace log_wrapper {
 
     template <typename... Args>
     struct Error : LogWrapper<Args...> {
-        explicit Error(Args&&... args,
+        explicit constexpr Error(Args&&... args,
             const std::source_location& loc = std::source_location::current())
             : LogWrapper<Args...>(
                   std::forward<Args>(args)..., LogLevel::ERROR, loc) {

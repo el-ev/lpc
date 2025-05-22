@@ -26,7 +26,8 @@ Checks: >
   -cppcoreguidelines-pro-type-reinterpret-cast,
   -cppcoreguidelines-avoid-non-const-global-variables,
   -misc-include-cleaner,
-  -misc-use-internal-linkage
+  -misc-use-internal-linkage,
+  -readability-redundant-inline-specifier
 
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*'
