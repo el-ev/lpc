@@ -1,0 +1,86 @@
+module;
+
+#include <cstddef>
+#include <iterator>
+#include <optional>
+#include <string_view>
+#include <vector>
+
+export module lpc.frontend.lexer;
+
+import lpc.logging;
+import lpc.session;
+import lpc.frontend.token;
+
+namespace lpc::frontend {
+
+export class Lexer {
+private:
+    Session& _session;
+    std::string_view _file;
+    std::string_view _source;
+    std::string_view _cursor;
+    std::size_t _line = 1;
+    std::string_view::iterator _line_start;
+    std::vector<Token> _tokens;
+
+public:
+    explicit Lexer(Session& session, std::string_view file,
+        std::string_view source) noexcept
+        : _session(session)
+        , _file(file)
+        , _source(source)
+        , _cursor(source)
+        , _line_start(source.begin()) {
+        while (!is_eof()) {
+            if (auto token = advance()) {
+                _tokens.push_back(std::move(*token));
+            } else if (!is_eof()) {
+                _session.fail();
+                break;
+            }
+        }
+    }
+
+    using token_iterator = std::vector<Token>::iterator;
+    using const_token_iterator = std::vector<Token>::const_iterator;
+
+    [[nodiscard]] inline auto begin() noexcept -> token_iterator {
+        return _tokens.begin();
+    }
+
+    [[nodiscard]] inline auto end() noexcept -> token_iterator {
+        return _tokens.end();
+    }
+
+    [[nodiscard]] inline auto begin() const noexcept -> const_token_iterator {
+        return _tokens.cbegin();
+    }
+
+    [[nodiscard]] inline auto end() const noexcept -> const_token_iterator {
+        return _tokens.cend();
+    }
+
+    [[nodiscard]] inline bool is_eof() const noexcept {
+        return _cursor.empty();
+    }
+
+private:
+    [[nodiscard]] inline Location loc() const noexcept {
+        return Location(
+            _file, _line, std::distance(_line_start, _cursor.begin() + 1));
+    }
+
+    bool skip_atmosphere() noexcept;
+    bool skip_comment() noexcept;
+    bool skip_whitespaces() noexcept;
+
+    [[nodiscard]] std::optional<Token> advance() noexcept;
+
+    [[nodiscard]] static std::optional<Token> read_ident() noexcept;
+    [[nodiscard]] static std::optional<Token> read_number() noexcept;
+    [[nodiscard]] static std::optional<Token> read_character() noexcept;
+    [[nodiscard]] static std::optional<Token> read_string() noexcept;
+    [[nodiscard]] static std::optional<Token> read_operator() noexcept;
+};
+} // namespace lpc::frontend

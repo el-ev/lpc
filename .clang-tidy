@@ -30,7 +30,11 @@ Checks: >
   -readability-redundant-inline-specifier,
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
   -bugprone-exception-escape,
-  -readability-function-cognitive-complexity
+  -readability-function-cognitive-complexity,
+  -bugprone-easily-swappable-parameters,
+  -hicpp-avoid-c-arrays,
+  -cppcoreguidelines-avoid-c-arrays,
+  -modernize-avoid-c-arrays
 
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*'

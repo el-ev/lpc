@@ -16,9 +16,8 @@ namespace lpc {
 constexpr void App::display_help() const {
     std::println("Help for {}: ", name);
     std::println("Author: {}", author);
-    if (description) {
+    if (description)
         std::println("Description: {}", *description);
-    }
     std::println("Options:");
     for (const Option& option : options) {
         std::print("  --{}", option.long_name);
