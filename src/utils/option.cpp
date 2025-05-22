@@ -12,7 +12,7 @@ import lpc.session;
 namespace lpc {
 
 std::vector<std::string_view> App::parse(
-    Session& session, std::vector<std::string_view> args) {
+    Session& session, std::vector<std::string_view> args) const {
     // first call all options that have default values, if any
     for (const auto& option : options) {
         if (option.default_value) {

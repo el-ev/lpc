@@ -26,17 +26,17 @@ export struct Option {
 
     std::function<void(Session&, std::string_view)> callback;
 
-    Option() = delete;
-    Option(const Option&) = delete;
+    explicit Option() = delete;
+    explicit Option(const Option&) = delete;
     Option& operator=(const Option&) = delete;
 
     Option(Option&&) = default;
     Option& operator=(Option&&) = default;
 
-    Option(bool short_name, std::string&& long_name, bool accepts_value,
-        std::optional<std::string>&& default_value,
+    explicit Option(bool short_name, std::string&& long_name,
+        bool accepts_value, std::optional<std::string>&& default_value,
         std::optional<std::string>&& description,
-        std::function<void(Session&, std::string_view)> callback)
+        std::function<void(Session&, std::string_view)> callback) noexcept
         : short_name(short_name)
         , long_name(std::move(long_name))
         , accepts_value(accepts_value)
@@ -60,16 +60,16 @@ export struct App {
     App(App&&) = default;
     App& operator=(App&&) = default;
 
-    App(std::string&& name, std::string&& author,
+    explicit App(std::string&& name, std::string&& author,
         std::optional<std::string>&& description = std::nullopt)
         : name(std::move(name))
         , author(std::move(author))
         , description(std::move(description)) {
     }
 
-    static constexpr AppBuilder builder(std::string&& name,
+    [[nodiscard]] static constexpr AppBuilder builder(std::string&& name,
         std::string&& author,
-        std::optional<std::string>&& description = std::nullopt);
+        std::optional<std::string>&& description = std::nullopt) noexcept;
 
     constexpr void display_help() const {
         std::println("Help for {}: ", name);
@@ -91,8 +91,8 @@ export struct App {
     }
 
     // return terms that are not options and doesn't attach to any option
-    std::vector<std::string_view> parse(
-        Session& session, std::vector<std::string_view> args);
+    [[nodiscard]] std::vector<std::string_view> parse(
+        Session& session, std::vector<std::string_view> args) const;
 };
 
 class AppBuilder {
@@ -103,12 +103,13 @@ public:
     explicit AppBuilder(const AppBuilder&) = delete;
     AppBuilder& operator=(const AppBuilder&) = delete;
 
-    explicit constexpr AppBuilder(std::string&& name, std::string&& author,
-        std::optional<std::string>&& description = std::nullopt)
+    explicit constexpr AppBuilder(std::string&& name,
+        std::string&& author,
+        std::optional<std::string>&& description = std::nullopt) noexcept
         : _app(std::move(name), std::move(author), std::move(description)) {
     }
 
-    AppBuilder& enable_help() {
+    [[nodiscard]] AppBuilder& enable_help() {
         if (!_app.options.empty())
             Warn("Help option should be the first option");
 
@@ -118,8 +119,8 @@ public:
         return *this;
     }
 
-    AppBuilder& add_option(std::string&& long_name, bool short_name,
-        bool accepts_value = false,
+    [[nodiscard]] AppBuilder& add_option(std::string&& long_name,
+        bool short_name, bool accepts_value = false,
         std::optional<std::string>&& default_value = std::nullopt,
         std::optional<std::string>&& description = std::nullopt,
         std::function<void(Session&, std::string_view)> callback = nullptr) {
@@ -172,7 +173,7 @@ public:
 };
 
 constexpr AppBuilder App::builder(std::string&& name, std::string&& author,
-    std::optional<std::string>&& description) {
+    std::optional<std::string>&& description) noexcept {
     return AppBuilder(
         std::move(name), std::move(author), std::move(description));
 }

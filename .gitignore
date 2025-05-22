@@ -6,3 +6,5 @@ compile_commands.json
 *.asm
 
 options.txt
+
+out.c
