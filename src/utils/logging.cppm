@@ -42,6 +42,7 @@ private:
     bool _always_flush;
 
     friend class Logger;
+    friend class LoggerBuilder;
 
     explicit constexpr LoggerConfig(
         LogLevel filter, std::ostream& output, bool always_flush)
@@ -49,54 +50,46 @@ private:
         , _output(output)
         , _always_flush(always_flush) {
     }
+};
 
-    class LoggerConfigBuilder {
-    private:
+class LoggerBuilder {
+private:
+    LoggerConfig _config = LoggerConfig {
 #ifdef NDEBUG
-        LogLevel _filter = LogLevel::INFO;
+        LogLevel::INFO,
 #else // !NDEBUG
-        LogLevel _filter = LogLevel::DEBUG;
+        LogLevel::DEBUG,
 #endif // NDEBUG
-        std::reference_wrapper<std::ostream> _output { std::cout };
-        bool _always_flush = false;
-
-    public:
-        explicit constexpr LoggerConfigBuilder() = default;
-
-        explicit LoggerConfigBuilder(const LoggerConfigBuilder&) = delete;
-        LoggerConfigBuilder& operator=(const LoggerConfigBuilder&) = delete;
-
-        [[nodiscard]] constexpr LoggerConfigBuilder& filter(
-            LogLevel f) noexcept {
-            _filter = f;
-            return *this;
-        }
-
-        [[nodiscard]] constexpr LoggerConfigBuilder& output(
-            std::ostream& o) noexcept {
-            _output = std::reference_wrapper<std::ostream>(o);
-            return *this;
-        }
-
-        [[nodiscard]] constexpr LoggerConfigBuilder& always_flush(
-            bool f) noexcept {
-            _always_flush = f;
-            return *this;
-        }
-
-        [[nodiscard]] inline constexpr Logger build() noexcept;
+        std::cout,
+        false,
     };
 
 public:
-    [[nodiscard]] static constexpr LoggerConfigBuilder builder() noexcept {
-        return LoggerConfigBuilder();
+    explicit constexpr LoggerBuilder() = default;
+
+    explicit LoggerBuilder(const LoggerBuilder&) = delete;
+    LoggerBuilder& operator=(const LoggerBuilder&) = delete;
+
+    [[nodiscard]] constexpr LoggerBuilder& filter(LogLevel f) noexcept {
+        _config._filter = f;
+        return *this;
     }
+
+    [[nodiscard]] constexpr LoggerBuilder& output(std::ostream& o) noexcept {
+        _config._output = std::reference_wrapper<std::ostream>(o);
+        return *this;
+    }
+
+    [[nodiscard]] constexpr LoggerBuilder& always_flush(bool f) noexcept {
+        _config._always_flush = f;
+        return *this;
+    }
+
+    [[nodiscard]] inline constexpr Logger build() noexcept;
 };
 
 class Logger {
 private:
-    using LoggerBuilder = LoggerConfig::LoggerConfigBuilder;
-
     LoggerConfig _config;
     std::ostream& _out;
 
@@ -125,7 +118,7 @@ public:
         LogLevel level, const std::source_location& loc, Args&&... args);
 
     [[nodiscard]] static constexpr LoggerBuilder builder() noexcept {
-        return LoggerConfig::builder();
+        return LoggerBuilder();
     }
 
 private:
@@ -153,8 +146,8 @@ void Logger::vlog(
         level, std::move(loc_string), std::forward<Args>(args)...);
 }
 
-inline constexpr Logger LoggerConfig::LoggerConfigBuilder::build() noexcept {
-    return Logger(LoggerConfig(_filter, _output.get(), _always_flush));
+inline constexpr Logger LoggerBuilder::build() noexcept {
+    return Logger(_config);
 }
 
 namespace log_wrapper {
