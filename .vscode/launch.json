@@ -9,9 +9,11 @@
             "request": "launch",
             "name": "Debug",
             "program": "${workspaceFolder}/build/debug/lpc",
-            "args": [],
+            "args": [
+                "-h"
+            ],
             "initCommands": [
-                "settings set target.source-map / ${workspaceFolder}",
+                // "settings set target.source-map . ${workspaceFolder}",
             ],
             "stopOnEntry": true,
             "cwd": "${workspaceFolder}",

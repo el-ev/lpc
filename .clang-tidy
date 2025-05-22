@@ -28,7 +28,8 @@ Checks: >
   -misc-include-cleaner,
   -misc-use-internal-linkage,
   -readability-redundant-inline-specifier,
-  -cppcoreguidelines-pro-bounds-pointer-arithmetic
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -bugprone-exception-escape
 
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*'
