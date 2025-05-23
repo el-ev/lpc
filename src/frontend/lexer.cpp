@@ -137,7 +137,7 @@ size_t split_till_delimeter(std::string_view str) {
         auto ident = _cursor.substr(0, 3);
         if (ident == "...") {
             _cursor.remove_prefix(3);
-            return Token(TokenType::IDENT, "...", "...", location);
+            return Token(TokenType::IDENT, std::string(ident), "...", location);
         }
     }
     return std::nullopt;
@@ -209,6 +209,7 @@ size_t split_till_delimeter(std::string_view str) {
         return std::nullopt;
     }
 
+    // TODO: return int64_t value or something else
     return Token(TokenType::NUMBER,
         std::string(value_start.substr(
             0, std::distance(value_start.begin(), _cursor.begin()))),
@@ -225,11 +226,11 @@ size_t split_till_delimeter(std::string_view str) {
     if (_cursor.substr(0, 2) == "#t") {
         _cursor.remove_prefix(2);
         // TODO: value "t/f" seems bad
-        return Token(TokenType::BOOLEAN, "t", "#t", location);
+        return Token(TokenType::BOOLEAN, true, "#t", location);
     }
     if (_cursor.substr(0, 2) == "#f") {
         _cursor.remove_prefix(2);
-        return Token(TokenType::BOOLEAN, "f", "#f", location);
+        return Token(TokenType::BOOLEAN, false, "#f", location);
     }
     return std::nullopt;
 }
@@ -262,12 +263,12 @@ size_t split_till_delimeter(std::string_view str) {
             if (cmp_ci(name, "#\\newline")) {
                 _cursor.remove_prefix(end);
                 return Token(
-                    TokenType::CHARACTER, "\n", std::string(name), location);
+                    TokenType::CHARACTER, '\n', std::string(name), location);
             }
             if (cmp_ci(name, "#\\space")) {
                 _cursor.remove_prefix(end);
                 return Token(
-                    TokenType::CHARACTER, " ", std::string(name), location);
+                    TokenType::CHARACTER, ' ', std::string(name), location);
             }
             Error("Invalid character name: \"", name, "\" at", location);
             _failed = true;
@@ -278,8 +279,8 @@ size_t split_till_delimeter(std::string_view str) {
     // it is a single character
     auto character = _cursor.substr(0, 3);
     _cursor.remove_prefix(3);
-    return Token(TokenType::CHARACTER, std::string(1, character[2]),
-        std::string(character), location);
+    return Token(
+        TokenType::CHARACTER, character[2], std::string(character), location);
 }
 
 [[nodiscard]] std::optional<Token> Lexer::read_string() noexcept {
@@ -348,35 +349,43 @@ size_t split_till_delimeter(std::string_view str) {
     switch (_cursor[0]) {
     case '(':
         _cursor.remove_prefix(1);
-        return Token(TokenType::LPAREN, "(", "(", location);
+        return Token(
+            TokenType::LPAREN, std::string("("), std::string("("), location);
     case ')':
         _cursor.remove_prefix(1);
-        return Token(TokenType::RPAREN, ")", ")", location);
+        return Token(
+            TokenType::RPAREN, std::string(")"), std::string(")"), location);
     case '\'':
         _cursor.remove_prefix(1);
-        return Token(TokenType::APOSTROPHE, "'", "'", location);
+        return Token(TokenType::APOSTROPHE, std::string("'"), std::string("'"),
+            location);
     case '`':
         _cursor.remove_prefix(1);
-        return Token(TokenType::BACKTICK, "`", "`", location);
+        return Token(
+            TokenType::BACKTICK, std::string("`"), std::string("`"), location);
     case ',':
         _cursor.remove_prefix(1);
         if (_cursor.size() > 1 && _cursor[0] == '@') {
             _cursor.remove_prefix(1);
-            return Token(TokenType::COMMA_AT, ",@", ",@", location);
+            return Token(TokenType::COMMA_AT, std::string(",@"),
+                std::string(",@"), location);
         }
-        return Token(TokenType::COMMA, ",", ",", location);
+        return Token(
+            TokenType::COMMA, std::string(","), std::string(","), location);
     case '.': {
         // . requires a delimiter
         auto size = split_till_delimeter(_cursor);
         if (size > 1)
             return std::nullopt;
         _cursor.remove_prefix(1);
-        return Token(TokenType::DOT, ".", ".", location);
+        return Token(
+            TokenType::DOT, std::string("."), std::string("."), location);
     }
     case '#':
         if (_cursor.size() > 1 && _cursor[1] == '(') {
             _cursor.remove_prefix(2);
-            return Token(TokenType::SHELL_LPAREN, "#(", "#(", location);
+            return Token(TokenType::SHELL_LPAREN, std::string("#("),
+                std::string("#("), location);
         }
         break;
     default: break;

@@ -11,6 +11,7 @@ export enum class TokenType : uint8_t {
     CHARACTER,
     STRING,
 
+    // operators
     LPAREN,
     RPAREN,
     SHELL_LPAREN,
@@ -66,17 +67,41 @@ inline auto operator<<(std::ostream& os, const Location& loc) -> std::ostream& {
 export class Token {
 private:
     TokenType _type;
-    std::string _value;
+    std::variant<std::int64_t, bool, char, std::string> _value_storage;
     std::string _literal;
     Location _location;
 
     friend std::ostream& operator<<(std::ostream& os, const Token& token);
 
 public:
+    explicit Token(TokenType type, std::int64_t value, std::string&& literal,
+        Location location) noexcept
+        : _type(type)
+        , _value_storage(value)
+        , _literal(std::move(literal))
+        , _location(location) {
+    }
+
+    explicit Token(TokenType type, bool value, std::string&& literal,
+        Location location) noexcept
+        : _type(type)
+        , _value_storage(value)
+        , _literal(std::move(literal))
+        , _location(location) {
+    }
+
+    explicit Token(TokenType type, char value, std::string&& literal,
+        Location location) noexcept
+        : _type(type)
+        , _value_storage(value)
+        , _literal(std::move(literal))
+        , _location(location) {
+    }
+
     explicit Token(TokenType type, std::string&& value, std::string&& literal,
         Location location) noexcept
         : _type(type)
-        , _value(std::move(value))
+        , _value_storage(std::move(value))
         , _literal(std::move(literal))
         , _location(location) {
     }
@@ -91,8 +116,9 @@ public:
         return _type;
     }
 
-    [[nodiscard]] auto value() const noexcept -> std::string_view {
-        return _value;
+    [[nodiscard]] auto value() const noexcept
+        -> std::variant<std::int64_t, bool, char, std::string> {
+        return _value_storage;
     }
 
     [[nodiscard]] auto literal() const noexcept -> std::string_view {
@@ -109,7 +135,33 @@ public:
 };
 
 inline auto operator<<(std::ostream& os, const Token& token) -> std::ostream& {
-    return os << token.location() << ": " << token.value();
+    std::string value_str;
+    switch (token.type()) {
+    case TokenType::IDENT:
+        value_str = std::get<std::string>(token.value());
+        break;
+    case TokenType::BOOLEAN:
+        value_str = std::get<bool>(token.value()) ? "#t" : "#f";
+        break;
+    case TokenType::NUMBER:
+        // TODO it is string now
+        value_str = std::get<std::string>(token.value());
+        break;
+    case TokenType::CHARACTER:
+        switch (char c = std::get<char>(token.value())) {
+        case ' ' : value_str = "#\\space"; break;
+        case '\n': value_str = "#\\newline"; break;
+        default  : value_str = "#\\" + std::string(1, c); break;
+        }
+        break;
+    case TokenType::STRING:
+        value_str = token._literal;
+        break;
+    default: // operators
+        value_str = std::get<std::string>(token.value());
+        break;
+    }
+    return os << token.location() << ": " << value_str;
 }
 
 } // namespace lpc::frontend
