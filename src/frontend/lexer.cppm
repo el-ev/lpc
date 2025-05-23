@@ -22,7 +22,7 @@ public:
         , _source(source)
         , _cursor(source)
         , _line_start(source.begin()) {
-        while (!is_eof()) {
+        while (!is_eof() && !_failed) {
             if (auto token = advance()) {
                 _tokens.push_back(std::move(*token));
             } else if (!is_eof()) {
@@ -71,10 +71,11 @@ private:
 
     [[nodiscard]] std::optional<Token> advance() noexcept;
 
-    [[nodiscard]] static std::optional<Token> read_ident() noexcept;
-    [[nodiscard]] static std::optional<Token> read_number() noexcept;
-    [[nodiscard]] static std::optional<Token> read_character() noexcept;
-    [[nodiscard]] static std::optional<Token> read_string() noexcept;
-    [[nodiscard]] static std::optional<Token> read_operator() noexcept;
+    [[nodiscard]] std::optional<Token> read_ident() noexcept;
+    [[nodiscard]] std::optional<Token> read_number() noexcept;
+    [[nodiscard]] std::optional<Token> read_boolean() noexcept;
+    [[nodiscard]] std::optional<Token> read_character() noexcept;
+    [[nodiscard]] std::optional<Token> read_string() noexcept;
+    [[nodiscard]] std::optional<Token> read_operator() noexcept;
 };
 } // namespace lpc::frontend

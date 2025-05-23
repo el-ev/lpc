@@ -1,10 +1,7 @@
-module;
-
-#include <cstdint>
-
 export module lpc.logging;
 
-import std;
+import std.compat; // <cstdint>
+
 namespace lpc {
 
 enum class LogLevel : uint8_t {

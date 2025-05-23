@@ -1,10 +1,6 @@
-module;
-
-#include <cstdint>
-
 export module lpc.frontend.token;
 
-import std;
+import std.compat; // <cstdint>
 
 namespace lpc::frontend {
 
@@ -31,12 +27,19 @@ private:
     std::size_t _line;
     std::size_t _column;
 
+    friend std::ostream& operator<<(std::ostream& os, const Location& loc);
+
 public:
     explicit Location(
         std::string_view file, std::size_t line, std::size_t column) noexcept
         : _file(file)
         , _line(line)
         , _column(column) {
+    }
+
+    [[nodiscard]] inline Location operator-(this Location lhs, size_t offset) {
+        lhs._column -= offset;
+        return lhs;
     }
 
     [[nodiscard]] auto file() const noexcept -> std::string_view {
@@ -56,12 +59,18 @@ public:
     }
 };
 
+inline auto operator<<(std::ostream& os, const Location& loc) -> std::ostream& {
+    return os << loc.to_string();
+}
+
 export class Token {
 private:
     TokenType _type;
     std::string _value;
     std::string _literal;
     Location _location;
+
+    friend std::ostream& operator<<(std::ostream& os, const Token& token);
 
 public:
     explicit Token(TokenType type, std::string&& value, std::string&& literal,
@@ -93,6 +102,14 @@ public:
     [[nodiscard]] auto location() const noexcept -> const Location& {
         return _location;
     }
+
+    [[nodiscard]] auto len() const noexcept -> std::size_t {
+        return _literal.length();
+    }
 };
+
+inline auto operator<<(std::ostream& os, const Token& token) -> std::ostream& {
+    return os << token.location() << ": " << token.value();
+}
 
 } // namespace lpc::frontend
