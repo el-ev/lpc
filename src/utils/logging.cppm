@@ -1,15 +1,10 @@
 module;
 
-#include <concepts>
 #include <cstdint>
-#include <format>
-#include <functional>
-#include <iostream>
-#include <optional>
-#include <source_location>
 
 export module lpc.logging;
 
+import std;
 namespace lpc {
 
 enum class LogLevel : uint8_t {
@@ -108,7 +103,7 @@ public:
     static void set_logger(Logger&& logger) noexcept;
     void make_active() noexcept;
 
-    ~Logger() {
+    constexpr ~Logger() noexcept {
         _out.flush();
     }
 

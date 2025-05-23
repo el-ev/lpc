@@ -1,13 +1,6 @@
-module;
-
-#include <cstddef>
-#include <iterator>
-#include <optional>
-#include <string_view>
-#include <vector>
-
 export module lpc.frontend.lexer;
 
+import std;
 import lpc.logging;
 import lpc.frontend.token;
 

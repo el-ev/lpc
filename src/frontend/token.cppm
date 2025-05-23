@@ -1,11 +1,10 @@
 module;
 
 #include <cstdint>
-#include <format>
-#include <string>
-#include <string_view>
 
 export module lpc.frontend.token;
+
+import std;
 
 namespace lpc::frontend {
 

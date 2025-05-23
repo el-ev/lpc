@@ -1,11 +1,6 @@
-module;
-
-#include <optional>
-#include <ranges>
-#include <string_view>
-#include <utility>
-
 module lpc.frontend.lexer;
+
+import std;
 
 namespace lpc::frontend {
 

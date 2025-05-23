@@ -1,9 +1,6 @@
-module;
-
-#include <fstream>
-
 module lpc.session;
 
+import std;
 import lpc.logging;
 
 namespace lpc {

@@ -1,14 +1,6 @@
-module;
-
-#include <functional>
-#include <optional>
-#include <print>
-#include <string_view>
-#include <utility>
-#include <vector>
-
 export module lpc.option;
 
+import std;
 import lpc.logging;
 import lpc.session;
 
@@ -32,7 +24,7 @@ export struct Option {
     Option(Option&&) = default;
     Option& operator=(Option&&) = default;
 
-    explicit Option(bool short_name, std::string&& long_name,
+    explicit constexpr Option(bool short_name, std::string&& long_name,
         bool accepts_value, std::optional<std::string>&& default_value,
         std::optional<std::string>&& description,
         std::function<void(Session&, std::string_view)> callback) noexcept
@@ -59,7 +51,7 @@ export struct App {
     App(App&&) = default;
     App& operator=(App&&) = default;
 
-    explicit App(std::string&& name, std::string&& author,
+    explicit constexpr App(std::string&& name, std::string&& author,
         std::optional<std::string>&& description = std::nullopt)
         : name(std::move(name))
         , author(std::move(author))
@@ -88,9 +80,9 @@ public:
         : _app(std::move(name), std::move(author), std::move(description)) {
     }
 
-    [[nodiscard]] AppBuilder& enable_help();
+    [[nodiscard]] constexpr AppBuilder& enable_help();
 
-    [[nodiscard]] AppBuilder& add_option(std::string&& long_name,
+    [[nodiscard]] constexpr AppBuilder& add_option(std::string&& long_name,
         bool short_name, bool accepts_value = false,
         std::optional<std::string>&& default_value = std::nullopt,
         std::optional<std::string>&& description = std::nullopt,
@@ -105,6 +97,63 @@ constexpr AppBuilder App::builder(std::string&& name, std::string&& author,
     std::optional<std::string>&& description) noexcept {
     return AppBuilder(
         std::move(name), std::move(author), std::move(description));
+}
+
+constexpr AppBuilder& AppBuilder::enable_help() {
+    if (!_app.options.empty())
+        Warn("Help option should be the first option");
+
+    // the help option is specially handled
+    _app.options.emplace_back(true, "help", false, std::nullopt,
+        "Display this help message", nullptr);
+    return *this;
+}
+
+constexpr AppBuilder& AppBuilder::add_option(std::string&& long_name,
+    bool short_name, bool accepts_value,
+    std::optional<std::string>&& default_value,
+    std::optional<std::string>&& description,
+    std::function<void(Session&, std::string_view)> callback) {
+    if (!accepts_value && default_value) {
+        Warn("Warning: Option", long_name,
+            "does not accept a value, but a "
+            "default value is provided. Ignoring default value.");
+    }
+    if (long_name.empty()) {
+        Error("Option name cannot be empty");
+        return *this;
+    }
+    if (long_name.length() == 1) {
+        Warn("Warning: Option name", long_name, "is too short.");
+        short_name = true;
+    }
+    if (!std::ranges::all_of(long_name.begin(), long_name.end(),
+            [](char c) { return std::isalnum(c) || c == '_'; })) {
+        Error("Option name", long_name, "contains invalid characters");
+        return *this;
+    }
+    for (const auto& option : _app.options) {
+        if (option.long_name == long_name) {
+            Error("Option", long_name, "already exists");
+            return *this;
+        }
+        if (option.short_name && short_name
+            && option.long_name[0] == long_name[0]) {
+            Error("Short option for ", long_name,
+                " conflicts with existing option ", option.long_name);
+            return *this;
+        }
+    }
+    if (callback == nullptr) {
+        Warn("Warning: Option", long_name, "does not have a callback.");
+        callback = [](Session& session, std::string_view value) {
+            (void)session;
+            (void)value;
+        };
+    }
+    _app.options.emplace_back(short_name, std::move(long_name), accepts_value,
+        std::move(default_value), std::move(description), std::move(callback));
+    return *this;
 }
 
 export class HelpMessageDisplayedException : public std::exception { };

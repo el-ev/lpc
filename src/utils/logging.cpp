@@ -1,8 +1,6 @@
-module;
-
-#include <optional>
-
 module lpc.logging;
+
+import std;
 
 namespace lpc {
 
