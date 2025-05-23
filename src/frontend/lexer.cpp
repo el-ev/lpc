@@ -211,9 +211,9 @@ size_t split_till_delimeter(std::string_view str) {
 
     return Token(TokenType::NUMBER,
         std::string(value_start.substr(
-            std::distance(value_start.begin(), _cursor.begin()))),
+            0, std::distance(value_start.begin(), _cursor.begin()))),
         std::string(
-            start.substr(std::distance(start.begin(), _cursor.begin()))),
+            start.substr(0, std::distance(start.begin(), _cursor.begin()))),
         location);
 }
 

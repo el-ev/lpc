@@ -35,6 +35,10 @@ public:
     using token_iterator = std::vector<Token>::iterator;
     using const_token_iterator = std::vector<Token>::const_iterator;
 
+    [[nodiscard]] constexpr auto& tokens() const noexcept {
+        return _tokens;
+    }
+
     [[nodiscard]] inline auto begin() noexcept -> token_iterator {
         return _tokens.begin();
     }
@@ -62,7 +66,7 @@ public:
 private:
     [[nodiscard]] inline Location loc() const noexcept {
         return Location(
-            _file, _line, std::distance(_line_start, _cursor.begin() + 1));
+            _file, _line, std::distance(_line_start, _cursor.begin()));
     }
 
     bool skip_atmosphere() noexcept;

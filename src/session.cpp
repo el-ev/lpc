@@ -29,10 +29,15 @@ int Session::run() noexcept {
     input_file.close();
 
     frontend::Lexer lexer(_input_file_paths[0], source);
+
     if (lexer.is_failed()) {
         Error("Failed to lex input file: ", _input_file_paths[0]);
         return 1;
     }
+
+    for (const auto& token : lexer.tokens())
+        std::cout << token << '\n';
+
     return 0;
 }
 
