@@ -8,7 +8,7 @@ namespace lex_defs {
     constexpr char COMMENT_START = ';';
     constexpr char NEWLINE = '\n';
     constexpr std::string_view WHITESPACE = " \n";
-    constexpr std::string_view DELIMETER = " ()\";";
+    constexpr std::string_view DELIMETER = " \n()\";";
     // constexpr std::string_view OPERATORS = "()'`,."; // and "#(", ",@"
     constexpr std::string_view SPECIAL_INITIAL = "!$%&*/:<=>?^_~";
     constexpr std::string_view SPECIAL_SUBSEQUENT = "+-.@";
