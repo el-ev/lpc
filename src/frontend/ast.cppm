@@ -25,7 +25,26 @@ export enum class NodeType : std::uint8_t {
     Boolean, // Boolean (#t/#f)
 };
 
-export constexpr std::string_view node_type_to_string(NodeType type) noexcept;
+export [[nodiscard]] constexpr auto node_type_to_string(NodeType type)
+    -> std::string_view {
+    switch (type) {
+    case NodeType::Program         : return "Program";
+    case NodeType::Expression      : return "Expression";
+    case NodeType::List            : return "List";
+    case NodeType::Nil             : return "Nil";
+    case NodeType::Quote           : return "Quote";
+    case NodeType::Function        : return "Function";
+    case NodeType::Lambda          : return "Lambda";
+    case NodeType::Conditional     : return "Conditional";
+    case NodeType::Definition      : return "Definition";
+    case NodeType::SyntaxDefinition: return "SyntaxDefinition";
+    case NodeType::Symbol          : return "Symbol";
+    case NodeType::Number          : return "Number";
+    case NodeType::String          : return "String";
+    case NodeType::Boolean         : return "Boolean";
+    }
+    return "Unknown";
+}
 
 export class TerminalASTNode;
 
