@@ -103,30 +103,25 @@ public:
 
 namespace combinators {
 
+    template <typename T>
+    concept Parseable = requires {
+        std::is_same_v<T, NodeType> || std::is_same_v<T, TokenType>;
+    };
+
     using Rule = std::function<OptNodeList(ParserImpl&)>;
-    template <NodeType T>
-    constexpr Rule make_rule();
-    template <TokenType T>
+    template <Parseable T>
     constexpr Rule make_rule();
     constexpr Rule operator|(Rule&& lhs, Rule&& rhs);
     constexpr Rule operator+(Rule&& lhs, Rule&& rhs);
     constexpr Rule maybe(Rule&& rule);
     constexpr Rule many(Rule&& rule);
-    template <NodeType T>
+    template <Parseable T>
     constexpr Rule maybe();
-    template <NodeType T>
+    template <Parseable T>
     constexpr Rule many();
-    template <NodeType T>
+    template <Parseable T>
     constexpr Rule one();
-    template <NodeType T>
-    constexpr Rule require();
-    template <TokenType T>
-    constexpr Rule maybe();
-    template <TokenType T>
-    constexpr Rule many();
-    template <TokenType T>
-    constexpr Rule one();
-    template <TokenType T>
+    template <Parseable T>
     constexpr Rule require();
 } // namespace combinators
 

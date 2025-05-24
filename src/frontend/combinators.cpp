@@ -6,22 +6,21 @@ import lpc.frontend.ast;
 
 namespace lpc::frontend::combinators {
 
-template <NodeType T>
+template <Parseable T>
 constexpr Rule make_rule() {
-    return [](ParserImpl& parser) -> OptNodeList {
-        if (auto&& node = parser.parse_impl<T>())
-            return NodeList { std::move(node) };
-        return std::nullopt;
-    };
-}
-
-template <TokenType T>
-constexpr Rule make_rule() {
-    return [](ParserImpl& parser) -> OptNodeList {
-        if (auto&& node = parser.match<T>())
-            return NodeList { std::move(node) };
-        return std::nullopt;
-    };
+    if constexpr (std::is_same_v<T, NodeType>) {
+        return [](ParserImpl& parser) -> OptNodeList {
+            if (auto&& node = parser.parse_impl<T>())
+                return NodeList { std::move(node) };
+            return std::nullopt;
+        };
+    } else {
+        return [](ParserImpl& parser) -> OptNodeList {
+            if (auto&& node = parser.match<T>())
+                return NodeList { std::move(node) };
+            return std::nullopt;
+        };
+    }
 }
 
 constexpr Rule operator|(Rule&& lhs, Rule&& rhs) {
@@ -57,8 +56,11 @@ constexpr Rule operator+(Rule&& lhs, Rule&& rhs) {
             return std::nullopt;
         }
         parser.commit();
+
+        left->reserve(left->size() + right->size());
         left->insert(left->end(), std::make_move_iterator(right->begin()),
             std::make_move_iterator(right->end()));
+
         return left;
     };
 }
@@ -75,6 +77,8 @@ constexpr Rule many(Rule&& rule) {
     return [rule = std::move(rule)](ParserImpl& parser) -> OptNodeList {
         NodeList result;
         while (auto nl = rule(parser)) {
+            if (result.capacity() - result.size() < nl->size())
+                result.reserve(result.capacity() * 2);
             result.insert(result.end(), std::make_move_iterator(nl->begin()),
                 std::make_move_iterator(nl->end()));
         }
@@ -82,73 +86,40 @@ constexpr Rule many(Rule&& rule) {
     };
 }
 
-template <NodeType T>
+template <Parseable T>
 constexpr Rule maybe() {
     return [](ParserImpl& parser) {
-        if (auto&& node = parser.parse_impl<T>())
+        if (auto&& node = make_rule<T>()(parser))
             return NodeList { std::move(node) };
         return NodeList {};
     };
 }
 
-template <NodeType T>
+template <Parseable T>
 constexpr Rule many() {
     return [](ParserImpl& parser) {
         NodeList result;
-        while (auto&& node = parser.parse_impl<T>()) {
+        while (auto&& node = make_rule<T>()(parser)) {
             result.push_back(std::move(node));
         }
         return result;
     };
 }
 
-template <NodeType T>
+template <Parseable T>
 constexpr Rule one() {
-    return [](ParserImpl& parser) -> OptNodeList { return make_rule<T>()(parser); };
+    return [](ParserImpl& parser) -> OptNodeList {
+        return make_rule<T>()(parser);
+    };
 }
 
-template <NodeType T>
+template <Parseable T>
 constexpr Rule require() {
     return [](ParserImpl& parser) -> OptNodeList {
-        if (auto&& result = one<T>(parser))
+        if (auto&& result = make_rule<T>()(parser))
             return result;
+        // TODO what
         Error("Expected something at ", parser.cur()->location());
-        parser.fail();
-        return std::nullopt;
-    };
-}
-
-template <TokenType T>
-constexpr Rule maybe() {
-    return [](ParserImpl& parser) {
-        if (auto&& node = parser.match<T>())
-            return NodeList { std::move(node) };
-        return NodeList {};
-    };
-}
-
-template <TokenType T>
-constexpr Rule many() {
-    return [](ParserImpl& parser) {
-        NodeList result;
-        while (auto&& node = parser.match<T>()) {
-            result.push_back(std::move(node));
-        }
-        return result;
-    };
-}
-
-template <TokenType T>
-constexpr Rule one() {
-    return [](ParserImpl& parser) -> OptNodeList { return make_rule<T>()(parser); };
-}
-
-template <TokenType T>
-constexpr Rule require() {
-    return [](ParserImpl& parser) -> OptNodeList {
-        if (auto&& result = one<T>(parser))
-            return result;
-        Error("Expected some token at ", parser.cur()->location());
         parser.fail();
         return std::nullopt;
     };
