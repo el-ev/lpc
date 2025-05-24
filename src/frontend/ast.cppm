@@ -5,7 +5,6 @@ import lpc.frontend.token;
 
 namespace lpc::frontend {
 
-//
 // AST node types
 export enum class NodeType : std::uint8_t {
     Program, // Top-level program
@@ -25,6 +24,7 @@ export enum class NodeType : std::uint8_t {
     String, // String literal
     Boolean, // Boolean (#t/#f)
 };
+
 export constexpr std::string_view node_type_to_string(NodeType type) noexcept;
 
 export class TerminalASTNode;

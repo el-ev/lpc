@@ -35,7 +35,8 @@ Checks: >
   -hicpp-avoid-c-arrays,
   -cppcoreguidelines-avoid-c-arrays,
   -modernize-avoid-c-arrays,
-  -misc-no-recursion
+  -misc-no-recursion,
+  -readability-identifier-naming
 
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*'
