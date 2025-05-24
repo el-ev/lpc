@@ -34,7 +34,8 @@ Checks: >
   -bugprone-easily-swappable-parameters,
   -hicpp-avoid-c-arrays,
   -cppcoreguidelines-avoid-c-arrays,
-  -modernize-avoid-c-arrays
+  -modernize-avoid-c-arrays,
+  -misc-no-recursion
 
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*'

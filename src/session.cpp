@@ -40,14 +40,24 @@ int Session::run() noexcept {
 
     lexer.~Lexer();
 
-    if (_print_tokens)
+    if (_print_tokens) {
         for (const auto& token : tokens)
-            std::cout << token.literal() << ' ';
+            std::print("{} ", token.literal());
+        std::println("\n");
+    }
 
     frontend::Parser parser(std::move(tokens));
+
     if (parser.failed()) {
         Error("Failed to parse input file: ", _input_file_paths[0]);
         return 1;
+    }
+
+    auto root = parser.root();
+
+    if (_print_ast) {
+        std::print("{}", root->dump_json());
+        std::println();
     }
 
     return 0;

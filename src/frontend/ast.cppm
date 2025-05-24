@@ -24,6 +24,7 @@ export enum class NodeType : std::uint8_t {
     String, // String literal
     Boolean, // Boolean (#t/#f)
 };
+export constexpr std::string_view node_type_to_string(NodeType type) noexcept;
 
 export class TerminalASTNode;
 
@@ -67,6 +68,9 @@ public:
     void add_child(std::unique_ptr<ASTNode> child) {
         _children.push_back(std::move(child));
     }
+
+    [[nodiscard]] std::string dump(std::size_t indent = 0) const;
+    [[nodiscard]] std::string dump_json(std::size_t indent = 0) const;
 };
 
 class TerminalASTNode : public ASTNode {

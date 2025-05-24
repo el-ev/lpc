@@ -12,6 +12,7 @@ private:
     std::vector<std::string_view> _input_file_paths;
 
     bool _print_tokens = false;
+    bool _print_ast = false;
 
 public:
     explicit Session() = default;
@@ -37,6 +38,10 @@ public:
 
     void enable_print_tokens() {
         _print_tokens = true;
+    }
+
+    void enable_print_ast() {
+        _print_ast = true;
     }
 
     void fail() noexcept {

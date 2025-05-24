@@ -24,6 +24,11 @@ auto main(int argc, char* argv[]) noexcept -> int {
                       [](Session& session, std::string_view) {
                           session.enable_print_tokens();
                       })
+                  .add_option("print_ast", false, false, std::nullopt,
+                      "Print AST to stdout",
+                      [](Session& session, std::string_view) {
+                          session.enable_print_ast();
+                      })
                   .build();
 
     try {
