@@ -1,10 +1,10 @@
 export module lpc.logging;
 
-import std.compat; // <cstdint>
+import std;
 
 namespace lpc {
 
-enum class LogLevel : uint8_t {
+enum class LogLevel : std::uint8_t {
     DEBUG,
     INFO,
     WARN,

@@ -1,6 +1,6 @@
 module lpc.frontend.lexer;
 
-import std.compat;
+import std;
 
 namespace lpc::frontend {
 
@@ -10,16 +10,16 @@ namespace lex_defs {
     constexpr std::string_view WHITESPACE = " \n";
     constexpr std::string_view DELIMETER = " \n()\";";
     // constexpr std::string_view OPERATORS = "()'`,."; // and "#(", ",@"
+    // constexpr std::string_view PECULIAR_IDENTIFIERS[3] = { "+", "-", "..." };
     constexpr std::string_view SPECIAL_INITIAL = "!$%&*/:<=>?^_~";
     constexpr std::string_view SPECIAL_SUBSEQUENT = "+-.@";
-    // constexpr std::string_view PECULIAR_IDENTIFIERS[3] = { "+", "-", "..." };
     // constexpr std::string_view KEYWORDS[20]
-    //     = { "quote", "lambda", "if", "set!", "begin", "cond", "and", "or",
-    //           "case", "let", "let*", "letrec", "do", "delay", "quasiquote",
-    //           "else", "=>", "define", "unquote", "unquote-splicing" };
+    //     = { "and", "begin", "case", "cond", "define", "delay", "do", "else",
+    //         "if", "lambda", "let", "let*", "letrec", "or", "quasiquote",
+    //         "quote", "set!", "unquote", "unquote-splicing", "=>" };
 }
 
-size_t count_till_delimeter(std::string_view str) {
+std::size_t count_till_delimeter(std::string_view str) {
     const char* it = std::ranges::find_if(str.begin(), str.end(), [](char c) {
         return std::ranges::find(lex_defs::DELIMETER, c)
             != lex_defs::DELIMETER.end();
@@ -105,7 +105,7 @@ bool Lexer::skip_whitespaces() noexcept {
                 || std::ranges::find(lex_defs::SPECIAL_INITIAL, c)
                 != lex_defs::SPECIAL_INITIAL.end();
         };
-        size_t pos = 1;
+        std::size_t pos = 1;
         while (pos < _cursor.size() && is_valid_subsequent(_cursor[pos]))
             pos++;
 
@@ -207,7 +207,7 @@ bool Lexer::skip_whitespaces() noexcept {
     if (pos[0] == '+' || pos[0] == '-')
         pos.remove_prefix(1);
 
-    size_t digit_count = 0;
+    std::size_t digit_count = 0;
     while (digit_count < pos.size()
         && is_digit_radixn(pos[digit_count], radix_value))
         digit_count++;
@@ -226,7 +226,7 @@ bool Lexer::skip_whitespaces() noexcept {
 
     pos.remove_prefix(digit_count);
 
-    size_t sharp_count = 0;
+    std::size_t sharp_count = 0;
     while (sharp_count < pos.size() && pos[sharp_count] == '#')
         sharp_count++;
 
@@ -241,7 +241,7 @@ bool Lexer::skip_whitespaces() noexcept {
     }
 
     std::string value_string(value_start.substr(0, size - sharp_count));
-    int64_t value = std::stoll(value_string, nullptr, radix_value);
+    std::int64_t value = std::stoll(value_string, nullptr, radix_value);
     std::string literal = std::string(_cursor.substr(0, size));
     _cursor.remove_prefix(size);
     return Token(TokenType::NUMBER, value, std::move(literal), _loc);
@@ -300,18 +300,18 @@ bool Lexer::skip_whitespaces() noexcept {
         return std::nullopt;
 
     std::string_view content_view = _cursor.substr(1);
-    size_t end = std::string_view::npos;
-    size_t search_start = 0;
+    std::size_t end = std::string_view::npos;
+    std::size_t search_start = 0;
 
     while (search_start < content_view.length()) {
-        size_t current_find = content_view.find('"', search_start);
+        std::size_t current_find = content_view.find('"', search_start);
         if (current_find == std::string_view::npos) {
             Error("Unterminated string literal at", _loc);
             _failed = true;
             return std::nullopt;
         }
-        size_t backslashes = 0;
-        for (size_t j = current_find;
+        std::size_t backslashes = 0;
+        for (std::size_t j = current_find;
             j > search_start && content_view[j - 1] == '\\'; --j) {
             backslashes++;
         }
@@ -334,7 +334,7 @@ bool Lexer::skip_whitespaces() noexcept {
 
     auto unescape = [](std::string_view str) {
         std::string result;
-        for (size_t i = 0; i < str.size(); ++i) {
+        for (std::size_t i = 0; i < str.size(); ++i) {
             if (str[i] == '\\') {
                 if (i + 1 < str.size()) {
                     result += str[i + 1];

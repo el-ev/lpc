@@ -1,10 +1,10 @@
 export module lpc.frontend.token;
 
-import std.compat; // <cstdint>
+import std;
 
 namespace lpc::frontend {
 
-export enum class TokenType : uint8_t {
+export enum class TokenType : std::uint8_t {
     IDENT,
     BOOLEAN,
     NUMBER,
@@ -38,7 +38,8 @@ public:
         , _column(column) {
     }
 
-    [[nodiscard]] inline Location operator-(this Location lhs, size_t offset) {
+    [[nodiscard]] inline Location operator-(
+        this Location lhs, std::size_t offset) {
         lhs._column -= offset;
         return lhs;
     }

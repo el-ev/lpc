@@ -23,7 +23,7 @@ public:
         , _source(source)
         , _cursor(source)
         , _line_start(source.begin())
-        , _loc(loc()) {
+        , _loc(file, 1, 0) {
         while (!is_eof() && !_failed) {
             if (auto token = advance()) {
                 _tokens.push_back(std::move(*token));
@@ -67,8 +67,8 @@ public:
 
 private:
     [[nodiscard]] inline Location loc() const noexcept {
-        return Location(
-            _file, _line, std::distance(_line_start, _cursor.begin()));
+        return Location(_file, _line,
+            (_line == 1 ? 1 : 0) + std::distance(_line_start, _cursor.begin()));
     }
 
     bool skip_atmosphere() noexcept;

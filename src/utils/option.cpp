@@ -39,6 +39,10 @@ void App::parse(Session& session, std::vector<std::string_view> args) const {
     for (auto it = args.begin(); it != args.end(); ++it) {
         size_t arg_len = it->length();
         if ((*it)[0] == '-') {
+            if (arg_len == 1) {
+                non_option_args.emplace_back("/dev/stdin");
+                continue;
+            }
             // check if it's a short option
             if (arg_len == 2) {
                 if ((*it)[1] == '-') {
