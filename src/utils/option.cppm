@@ -10,20 +10,21 @@ class AppBuilder;
 export struct Option {
     char short_name;
     std::string long_name;
+    std::string description;
     bool accepts_value;
     std::string default_value;
-    std::string description;
     std::function<void(std::string_view)> callback;
 
     explicit Option(char short_name, std::string long_name,
-        bool accepts_value = false, std::string default_value = "",
-        std::string description = "",
+        std::string description = "", bool accepts_value = false,
+        std::string default_value = "",
+
         std::function<void(std::string_view)> callback = nullptr)
         : short_name(short_name)
         , long_name(std::move(long_name))
+        , description(std::move(description))
         , accepts_value(accepts_value)
         , default_value(std::move(default_value))
-        , description(std::move(description))
         , callback(std::move(callback)) {
     }
 
@@ -33,6 +34,9 @@ export struct Option {
     Option(Option&&) = default;
     Option& operator=(Option&&) = default;
 };
+
+export const char NO_SHORT_NAME = 0;
+export const std::string NO_DEFAULT_VALUE;
 
 export class App {
 private:
@@ -65,7 +69,7 @@ public:
 
     void display_help() const noexcept;
 
-    void parse(std::vector<std::string_view> args);
+    void parse(std::vector<std::string_view> args) noexcept;
 
 private:
     void add_option(Option&& option) noexcept;
@@ -95,12 +99,19 @@ public:
     }
 
     [[nodiscard]] AppBuilder&& add_option(std::string long_name,
-        char short_name = 0, bool accepts_value = false,
-        std::string default_value = "", std::string description = "",
+        char short_name, std::string description = "",
         std::function<void(std::string_view)> callback = nullptr) noexcept {
-        _app.add_option(Option { short_name, std::move(long_name),
-            accepts_value, std::move(default_value), std::move(description),
-            std::move(callback) });
+        return std::move(add_option(std::move(long_name), short_name,
+            std::move(description), "", std::move(callback)));
+    }
+
+    [[nodiscard]] AppBuilder&& add_option(std::string long_name,
+        char short_name, std::string description = "",
+        std::string default_value = "",
+        std::function<void(std::string_view)> callback = nullptr) noexcept {
+        _app.add_option(
+            Option { short_name, std::move(long_name), std::move(description),
+                true, std::move(default_value), std::move(callback) });
         return std::move(*this);
     }
 
@@ -121,7 +132,5 @@ inline AppBuilder App::builder(
     return AppBuilder(
         std::move(name), std::move(author), std::move(description));
 }
-
-export class HelpMessageDisplayedException : public std::exception { };
 
 } // namespace lpc

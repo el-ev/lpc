@@ -17,7 +17,7 @@ void App::display_help() const noexcept {
             [](const Option& opt) { return opt.long_name.length(); }));
 
     for (const Option& option : _options) {
-        if (option.short_name != 0)
+        if (option.short_name != NO_SHORT_NAME)
             std::print("  -{}  ", option.short_name);
         else
             std::print("      ");
@@ -44,15 +44,15 @@ void App::enable_help() noexcept {
     _help_enabled = true;
 }
 
-void App::parse(std::vector<std::string_view> args) {
+void App::parse(std::vector<std::string_view> args) noexcept {
     // Apply default values
     for (const auto& option : _options)
         if (!option.default_value.empty() && option.callback)
             option.callback(option.default_value);
 
     if (_help_enabled)
-        _options.emplace_back('h', "help", false, "",
-            "Display this help message", [this](std::string_view) {
+        _options.emplace_back('h', "help", "Display this help message", false,
+            "", [this](std::string_view) {
                 display_help();
                 std::quick_exit(0);
             });
@@ -100,21 +100,20 @@ void App::parse(std::vector<std::string_view> args) {
 
         if (found_option == nullptr) {
             Error("Unknown option: ", *it);
-            throw std::invalid_argument("Unknown option");
+            std::println("Run with '--help' to see available options.");
+            std::quick_exit(1);
         }
 
         if (found_option->accepts_value) {
             ++it;
             if (it == args.end()) {
                 Error("Option", found_option->long_name, "requires a value");
-                throw std::invalid_argument("Missing value");
+                std::quick_exit(1);
             }
             if (found_option->callback)
                 found_option->callback(*it);
-        } else {
-            if (found_option->callback)
-                found_option->callback("");
-        }
+        } else if (found_option->callback)
+            found_option->callback("");
     }
 
     if (_non_option_callback)
@@ -127,7 +126,8 @@ void App::add_option(Option&& option) noexcept {
         return;
     }
 
-    if (option.short_name != 0 && std::isalpha(option.short_name) == 0) {
+    if (option.short_name != NO_SHORT_NAME
+        && std::isalpha(option.short_name) == 0) {
         Error("Invalid short option name: '-", option.short_name,
             "'. Must be a letter.");
         return;
@@ -140,7 +140,8 @@ void App::add_option(Option&& option) noexcept {
         return;
     }
 
-    if (option.short_name != 0 && option.short_name != option.long_name[0])
+    if (option.short_name != NO_SHORT_NAME
+        && option.short_name != option.long_name[0])
         Warn("Short option \"-", option.short_name,
             "\"does not match long option \" --", option.long_name, "\"");
 
@@ -152,7 +153,7 @@ void App::add_option(Option&& option) noexcept {
 
     for (const Option& existing : _options) {
         if (existing.long_name == option.long_name
-            || (existing.short_name != 0
+            || (existing.short_name != NO_SHORT_NAME
                 && existing.short_name == option.short_name)) {
             Error("Option already exists: '--", existing.long_name, "' or '-",
                 existing.short_name, "'");
