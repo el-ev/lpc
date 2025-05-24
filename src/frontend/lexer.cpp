@@ -5,21 +5,6 @@ import lpc.logging;
 
 namespace lpc::frontend {
 
-namespace lex_defs {
-    constexpr char COMMENT_START = ';';
-    constexpr char NEWLINE = '\n';
-    constexpr std::string_view WHITESPACE = " \n";
-    constexpr std::string_view DELIMETER = " \n()\";";
-    // constexpr std::string_view OPERATORS = "()'`,."; // and "#(", ",@"
-    // constexpr std::string_view PECULIAR_IDENTIFIERS[3] = { "+", "-", "..." };
-    constexpr std::string_view SPECIAL_INITIAL = "!$%&*/:<=>?^_~";
-    constexpr std::string_view SPECIAL_SUBSEQUENT = "+-.@";
-    // constexpr std::string_view KEYWORDS[20]
-    //     = { "and", "begin", "case", "cond", "define", "delay", "do", "else",
-    //         "if", "lambda", "let", "let*", "letrec", "or", "quasiquote",
-    //         "quote", "set!", "unquote", "unquote-splicing", "=>" };
-}
-
 std::size_t count_till_delimeter(std::string_view str) {
     const char* it = std::ranges::find_if(str.begin(), str.end(), [](char c) {
         return std::ranges::find(lex_defs::DELIMETER, c)
@@ -88,7 +73,6 @@ bool Lexer::skip_whitespaces() noexcept {
     return std::nullopt;
 }
 
-// TODO handle keywords here
 [[nodiscard]] std::optional<Token> Lexer::read_ident() noexcept {
     // <identifier> -> <initial> <subsequent>* | <peculiar identifier>
     // <initial> -> <letter> | <special initial>
@@ -120,6 +104,10 @@ bool Lexer::skip_whitespaces() noexcept {
             _failed = true;
             return std::nullopt;
         }
+
+        if (std::ranges::binary_search(lex_defs::KEYWORDS, value))
+            return Token(
+                TokenType::KEYWORD, std::move(value), std::string(ident), _loc);
         return Token(
             TokenType::IDENT, std::move(value), std::string(ident), _loc);
     }
