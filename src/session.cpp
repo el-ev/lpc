@@ -3,6 +3,7 @@ module lpc.session;
 import std;
 import lpc.logging;
 import lpc.frontend.lexer;
+import lpc.frontend.parser;
 
 namespace lpc {
 
@@ -38,10 +39,16 @@ int Session::run() noexcept {
     auto tokens = lexer.tokens();
 
     lexer.~Lexer();
-    
+
     if (_print_tokens)
         for (const auto& token : tokens)
             std::cout << token.literal() << ' ';
+
+    frontend::Parser parser(std::move(tokens));
+    if (parser.failed()) {
+        Error("Failed to parse input file: ", _input_file_paths[0]);
+        return 1;
+    }
 
     return 0;
 }

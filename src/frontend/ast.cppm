@@ -7,7 +7,7 @@ namespace lpc::frontend {
 
 //
 // AST node types
-enum class NodeType : std::uint8_t {
+export enum class NodeType : std::uint8_t {
     Program, // Top-level program
     Expression, // Generic expression
     List, // List expression
@@ -25,10 +25,9 @@ enum class NodeType : std::uint8_t {
     Boolean, // Boolean (#t/#f)
 };
 
-class ASTVisitor;
-class TerminalASTNode;
+export class TerminalASTNode;
 
-class ASTNode {
+export class ASTNode {
 private:
     NodeType _type;
     Location _location;
