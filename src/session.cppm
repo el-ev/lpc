@@ -27,12 +27,12 @@ public:
             _output_file->close();
     }
 
-    static void set_output_file(Session& session, std::string_view path) {
-        session._output_file_path = path;
-        session._output_file.emplace(path.data());
+    void set_output_file(std::string_view path) {
+        _output_file_path = path;
+        _output_file.emplace(path.data());
     }
 
-    void set_input_files(std::vector<std::string_view> input_file_paths) {
+    void set_input_files(std::vector<std::string_view>&& input_file_paths) {
         _input_file_paths = std::move(input_file_paths);
     }
 

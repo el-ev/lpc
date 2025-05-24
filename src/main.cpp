@@ -15,24 +15,24 @@ auto main(int argc, char* argv[]) noexcept -> int {
         return 1;
     }
 
-    App app = App::builder("lpc", "Iris Shi")
-                  .enable_help()
-                  .add_option("output", true, true, "out.c", "Output file path",
-                      Session::set_output_file)
-                  .add_option("print_tokens", false, false, std::nullopt,
-                      "Print tokens to stdout",
-                      [](Session& session, std::string_view) {
-                          session.enable_print_tokens();
-                      })
-                  .add_option("print_ast", false, false, std::nullopt,
-                      "Print AST to stdout",
-                      [](Session& session, std::string_view) {
-                          session.enable_print_ast();
-                      })
-                  .build();
+    App app
+        = App::builder("lpc", "Iris Shi")
+              .enable_help()
+              .set_non_option_callback(
+                  [&](std::vector<std::string_view>&& args) {
+                      session.set_input_files(std::move(args));
+                  })
+              .add_option("output", 'o', true, "out.c", "Output file path",
+                  [&](std::string_view path) { session.set_output_file(path); })
+              .add_option("print-tokens", 0, false, "",
+                  "Print tokens to stdout",
+                  [&](std::string_view) { session.enable_print_tokens(); })
+              .add_option("print-ast", 0, false, "", "Print AST to stdout",
+                  [&](std::string_view) { session.enable_print_ast(); })
+              .build();
 
     try {
-        app.parse(session, { argv + 1, argv + argc });
+        app.parse({ argv + 1, argv + argc });
     } catch (const HelpMessageDisplayedException&) {
         return 0;
     } catch (const std::invalid_argument&) {
