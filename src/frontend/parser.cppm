@@ -38,8 +38,16 @@ public:
         _failed = true;
     }
 
-    [[nodiscard]] inline bool failed() const noexcept {
+    [[nodiscard]] inline bool is_eof() const noexcept {
+        return _cursor == _tokens.cend();
+    }
+
+    [[nodiscard]] inline bool is_failed() const noexcept {
         return _failed;
+    }
+
+    [[nodiscard]] inline Location loc() const noexcept {
+        return _cursor->location();
     }
 
     [[nodiscard]] inline NodePtr&& root() noexcept {
@@ -76,10 +84,21 @@ public:
     }
 
     template <NodeType T>
-    [[nodiscard]] OptNodePtr parse_impl() noexcept;
+    [[nodiscard]] OptNodePtr parse_impl() noexcept {
+        // This function is a template specialization for parsing nodes of type
+        // T. It should be specialized for each NodeType.
+        Error("parse_impl() is not specialized for NodeType: ",
+            node_type_to_string(T));
+        return std::nullopt;
+    }
 
     template <TokenType T>
-    [[nodiscard]] OptNodePtr match() noexcept;
+    [[nodiscard]] OptNodePtr match() noexcept {
+        Error("match() is not specialized for TokenType: ",
+            token_type_to_string(T));
+        return std::nullopt; // This function is a template specialization for
+                             // matching tokens of type T.
+    }
 };
 
 class Parser {
@@ -92,8 +111,8 @@ public:
         _impl.run();
     }
 
-    [[nodiscard]] inline bool failed() const noexcept {
-        return _impl.failed();
+    [[nodiscard]] inline bool is_failed() const noexcept {
+        return _impl.is_failed();
     }
 
     [[nodiscard]] inline NodePtr&& root() noexcept {
@@ -109,19 +128,19 @@ namespace combinators {
     };
 
     using Rule = std::function<OptNodeList(ParserImpl&)>;
-    template <Parseable T>
+    template <Parseable auto V>
     constexpr Rule make_rule();
     constexpr Rule operator|(Rule&& lhs, Rule&& rhs);
     constexpr Rule operator+(Rule&& lhs, Rule&& rhs);
     constexpr Rule maybe(Rule&& rule);
     constexpr Rule many(Rule&& rule);
-    template <Parseable T>
+    template <Parseable auto V>
     constexpr Rule maybe();
-    template <Parseable T>
+    template <Parseable auto V>
     constexpr Rule many();
-    template <Parseable T>
+    template <Parseable auto V>
     constexpr Rule one();
-    template <Parseable T>
+    template <Parseable auto V>
     constexpr Rule require();
 } // namespace combinators
 

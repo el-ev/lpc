@@ -22,6 +22,25 @@ export enum class TokenType : std::uint8_t {
     DOT,
 };
 
+export [[nodiscard]] constexpr auto token_type_to_string(TokenType type) -> std::string_view {
+    switch (type) {
+        case TokenType::IDENT:     return "IDENT";
+        case TokenType::BOOLEAN:    return "BOOLEAN";
+        case TokenType::NUMBER:     return "NUMBER";
+        case TokenType::CHARACTER:  return "CHARACTER";
+        case TokenType::STRING:     return "STRING";
+        case TokenType::LPAREN:     return "LPAREN";
+        case TokenType::RPAREN:     return "RPAREN";
+        case TokenType::SHELL_LPAREN: return "SHELL_LPAREN";
+        case TokenType::APOSTROPHE: return "APOSTROPHE";
+        case TokenType::BACKTICK:   return "BACKTICK";
+        case TokenType::COMMA:      return "COMMA";
+        case TokenType::COMMA_AT:   return "COMMA_AT";
+        case TokenType::DOT:        return "DOT";
+    }
+    return "UNKNOWN";
+}
+
 export struct Location {
 private:
     std::string_view _file; // location can never outlive the session

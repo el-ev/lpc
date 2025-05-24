@@ -17,6 +17,7 @@ export enum class NodeType : std::uint8_t {
     Lambda, // Lambda expression
     Conditional, // If-then-else
     Definition, // Define statement
+    SyntaxDefinition, // define-syntax
 
     // Terminal nodes
     Symbol, // Symbol identifier
@@ -30,14 +31,18 @@ export class TerminalASTNode;
 
 export class ASTNode {
 private:
+    using Node = ASTNode;
+    using NodePtr = std::unique_ptr<Node>;
+    using NodeList = std::vector<NodePtr>;
     NodeType _type;
     Location _location;
-    std::vector<std::unique_ptr<ASTNode>> _children;
+    NodeList _children;
 
 public:
-    explicit ASTNode(NodeType type, Location location)
+    explicit ASTNode(NodeType type, Location location, NodeList&& children = {})
         : _type(type)
-        , _location(location) {
+        , _location(location)
+        , _children(std::move(children)) {
     }
 
     explicit ASTNode(const ASTNode&) = delete;
@@ -60,12 +65,11 @@ public:
         return _type >= NodeType::Symbol && _type <= NodeType::Boolean;
     }
 
-    [[nodiscard]] const std::vector<std::unique_ptr<ASTNode>>&
-    children() const noexcept {
+    [[nodiscard]] const NodeList& children() const noexcept {
         return _children;
     }
 
-    void add_child(std::unique_ptr<ASTNode> child) {
+    void add_child(NodePtr child) {
         _children.push_back(std::move(child));
     }
 

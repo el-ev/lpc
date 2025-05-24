@@ -48,7 +48,7 @@ int Session::run() noexcept {
 
     frontend::Parser parser(std::move(tokens));
 
-    if (parser.failed()) {
+    if (parser.is_failed()) {
         Error("Failed to parse input file: ", _input_file_paths[0]);
         return 1;
     }
