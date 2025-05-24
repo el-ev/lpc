@@ -144,8 +144,7 @@ inline auto operator<<(std::ostream& os, const Token& token) -> std::ostream& {
         value_str = std::get<bool>(token.value()) ? "#t" : "#f";
         break;
     case TokenType::NUMBER:
-        // TODO it is string now
-        value_str = std::get<std::string>(token.value());
+        value_str = std::to_string(std::get<std::int64_t>(token.value()));
         break;
     case TokenType::CHARACTER:
         switch (char c = std::get<char>(token.value())) {
@@ -154,9 +153,7 @@ inline auto operator<<(std::ostream& os, const Token& token) -> std::ostream& {
         default  : value_str = "#\\" + std::string(1, c); break;
         }
         break;
-    case TokenType::STRING:
-        value_str = token._literal;
-        break;
+    case TokenType::STRING: value_str = token._literal; break;
     default: // operators
         value_str = std::get<std::string>(token.value());
         break;

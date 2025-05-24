@@ -15,13 +15,15 @@ private:
     std::string_view::iterator _line_start;
     std::vector<Token> _tokens;
     bool _failed = false;
+    Location _loc;
 
 public:
     explicit Lexer(std::string_view file, std::string_view source) noexcept
         : _file(file)
         , _source(source)
         , _cursor(source)
-        , _line_start(source.begin()) {
+        , _line_start(source.begin())
+        , _loc(loc()) {
         while (!is_eof() && !_failed) {
             if (auto token = advance()) {
                 _tokens.push_back(std::move(*token));
@@ -76,7 +78,9 @@ private:
     [[nodiscard]] std::optional<Token> advance() noexcept;
 
     [[nodiscard]] std::optional<Token> read_ident() noexcept;
-    [[nodiscard]] std::optional<Token> read_number() noexcept;
+    [[nodiscard]] std::optional<Token> read_sharp() noexcept;
+    [[nodiscard]] std::optional<Token> read_number(
+        std::optional<int> radix = std::nullopt) noexcept;
     [[nodiscard]] std::optional<Token> read_boolean() noexcept;
     [[nodiscard]] std::optional<Token> read_character() noexcept;
     [[nodiscard]] std::optional<Token> read_string() noexcept;
