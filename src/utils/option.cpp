@@ -1,7 +1,3 @@
-module;
-
-#include <cstddef>
-
 module lpc.option;
 
 import std;
@@ -37,7 +33,7 @@ void App::parse(Session& session, std::vector<std::string_view> args) const {
     }
     std::vector<std::string_view> non_option_args;
     for (auto it = args.begin(); it != args.end(); ++it) {
-        size_t arg_len = it->length();
+        std::size_t arg_len = it->length();
         if ((*it)[0] == '-') {
             if (arg_len == 1) {
                 non_option_args.emplace_back("/dev/stdin");

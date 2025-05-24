@@ -35,8 +35,13 @@ int Session::run() noexcept {
         return 1;
     }
 
-    for (const auto& token : lexer.tokens())
-        std::cout << token << '\n';
+    auto tokens = lexer.tokens();
+
+    lexer.~Lexer();
+    
+    if (_print_tokens)
+        for (const auto& token : tokens)
+            std::cout << token.literal() << ' ';
 
     return 0;
 }

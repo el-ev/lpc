@@ -11,7 +11,7 @@ enum class LogLevel : std::uint8_t {
     ERROR,
 };
 
-inline constexpr std::ostream& operator<<(std::ostream& os, LogLevel level) {
+inline std::ostream& operator<<(std::ostream& os, LogLevel level) {
     switch (level) {
     case LogLevel::DEBUG: os << "[DEBUG]"; break;
     case LogLevel::INFO : os << "[INFO ]"; break;
@@ -144,7 +144,7 @@ inline constexpr Logger LoggerBuilder::build() noexcept {
 namespace log_wrapper {
     template <typename... Args>
     struct LogWrapper {
-        explicit constexpr LogWrapper(
+        explicit LogWrapper(
             Args&&... args, LogLevel level, const std::source_location& loc) {
             Logger::vlog(level, loc, std::forward<Args>(args)...);
         }
@@ -152,7 +152,7 @@ namespace log_wrapper {
 
     template <typename... Args>
     struct Debug : LogWrapper<Args...> {
-        explicit constexpr Debug(Args&&... args,
+        explicit Debug(Args&&... args,
             const std::source_location& loc = std::source_location::current())
             : LogWrapper<Args...>(
                   std::forward<Args>(args)..., LogLevel::DEBUG, loc) {
@@ -161,7 +161,7 @@ namespace log_wrapper {
 
     template <typename... Args>
     struct Info : LogWrapper<Args...> {
-        explicit constexpr Info(Args&&... args,
+        explicit Info(Args&&... args,
             const std::source_location& loc = std::source_location::current())
             : LogWrapper<Args...>(
                   std::forward<Args>(args)..., LogLevel::INFO, loc) {
@@ -170,7 +170,7 @@ namespace log_wrapper {
 
     template <typename... Args>
     struct Warn : LogWrapper<Args...> {
-        explicit constexpr Warn(Args&&... args,
+        explicit Warn(Args&&... args,
             const std::source_location& loc = std::source_location::current())
             : LogWrapper<Args...>(
                   std::forward<Args>(args)..., LogLevel::WARN, loc) {
@@ -179,7 +179,7 @@ namespace log_wrapper {
 
     template <typename... Args>
     struct Error : LogWrapper<Args...> {
-        explicit constexpr Error(Args&&... args,
+        explicit Error(Args&&... args,
             const std::source_location& loc = std::source_location::current())
             : LogWrapper<Args...>(
                   std::forward<Args>(args)..., LogLevel::ERROR, loc) {

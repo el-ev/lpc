@@ -1,6 +1,7 @@
 module lpc.frontend.lexer;
 
 import std;
+import lpc.logging;
 
 namespace lpc::frontend {
 
@@ -26,7 +27,7 @@ std::size_t count_till_delimeter(std::string_view str) {
     });
     if (it == str.end())
         return str.size();
-    return std::distance(str.begin(), it);
+    return std::ranges::distance(str.begin(), it);
 }
 
 bool Lexer::skip_atmosphere() noexcept {

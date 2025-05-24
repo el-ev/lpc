@@ -1,7 +1,6 @@
 export module lpc.frontend.lexer;
 
 import std;
-import lpc.logging;
 import lpc.frontend.token;
 
 namespace lpc::frontend {
@@ -34,27 +33,8 @@ public:
         }
     }
 
-    using token_iterator = std::vector<Token>::iterator;
-    using const_token_iterator = std::vector<Token>::const_iterator;
-
-    [[nodiscard]] constexpr auto& tokens() const noexcept {
-        return _tokens;
-    }
-
-    [[nodiscard]] inline auto begin() noexcept -> token_iterator {
-        return _tokens.begin();
-    }
-
-    [[nodiscard]] inline auto end() noexcept -> token_iterator {
-        return _tokens.end();
-    }
-
-    [[nodiscard]] inline auto begin() const noexcept -> const_token_iterator {
-        return _tokens.cbegin();
-    }
-
-    [[nodiscard]] inline auto end() const noexcept -> const_token_iterator {
-        return _tokens.cend();
+    [[nodiscard]] std::vector<Token>&& tokens() noexcept {
+        return std::move(_tokens);
     }
 
     [[nodiscard]] inline bool is_eof() const noexcept {
@@ -66,7 +46,7 @@ public:
     }
 
 private:
-    [[nodiscard]] inline Location loc() const noexcept {
+    [[nodiscard]] inline constexpr Location loc() const noexcept {
         return Location(_file, _line,
             (_line == 1 ? 1 : 0) + std::distance(_line_start, _cursor.begin()));
     }

@@ -19,7 +19,13 @@ auto main(int argc, char* argv[]) noexcept -> int {
                   .enable_help()
                   .add_option("output", true, true, "out.c", "Output file path",
                       Session::set_output_file)
+                  .add_option("print_tokens", false, false, std::nullopt,
+                      "Print tokens to stdout",
+                      [](Session& session, std::string_view) {
+                          session.enable_print_tokens();
+                      })
                   .build();
+
     try {
         app.parse(session, { argv + 1, argv + argc });
     } catch (const HelpMessageDisplayedException&) {

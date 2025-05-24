@@ -11,6 +11,8 @@ private:
     std::string_view _output_file_path;
     std::vector<std::string_view> _input_file_paths;
 
+    bool _print_tokens = false;
+
 public:
     explicit Session() = default;
     explicit Session(const Session&) = delete;
@@ -31,6 +33,10 @@ public:
 
     void set_input_files(std::vector<std::string_view> input_file_paths) {
         _input_file_paths = std::move(input_file_paths);
+    }
+
+    void enable_print_tokens() {
+        _print_tokens = true;
     }
 
     void fail() noexcept {

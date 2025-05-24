@@ -31,28 +31,28 @@ private:
     friend std::ostream& operator<<(std::ostream& os, const Location& loc);
 
 public:
-    explicit Location(
+    explicit constexpr Location(
         std::string_view file, std::size_t line, std::size_t column) noexcept
         : _file(file)
         , _line(line)
         , _column(column) {
     }
 
-    [[nodiscard]] inline Location operator-(
+    [[nodiscard]] inline constexpr Location operator-(
         this Location lhs, std::size_t offset) {
         lhs._column -= offset;
         return lhs;
     }
 
-    [[nodiscard]] auto file() const noexcept -> std::string_view {
+    [[nodiscard]] constexpr auto file() const noexcept -> std::string_view {
         return _file;
     }
 
-    [[nodiscard]] auto line() const noexcept -> std::size_t {
+    [[nodiscard]] constexpr auto line() const noexcept -> std::size_t {
         return _line;
     }
 
-    [[nodiscard]] auto column() const noexcept -> std::size_t {
+    [[nodiscard]] constexpr auto column() const noexcept -> std::size_t {
         return _column;
     }
 
@@ -75,7 +75,15 @@ private:
     friend std::ostream& operator<<(std::ostream& os, const Token& token);
 
 public:
-    explicit Token(TokenType type, std::int64_t value, std::string&& literal,
+    explicit constexpr Token(TokenType type, std::int64_t value,
+        std::string&& literal, Location location) noexcept
+        : _type(type)
+        , _value_storage(value)
+        , _literal(std::move(literal))
+        , _location(location) {
+    }
+
+    explicit constexpr Token(TokenType type, bool value, std::string&& literal,
         Location location) noexcept
         : _type(type)
         , _value_storage(value)
@@ -83,7 +91,7 @@ public:
         , _location(location) {
     }
 
-    explicit Token(TokenType type, bool value, std::string&& literal,
+    explicit constexpr Token(TokenType type, char value, std::string&& literal,
         Location location) noexcept
         : _type(type)
         , _value_storage(value)
@@ -91,16 +99,8 @@ public:
         , _location(location) {
     }
 
-    explicit Token(TokenType type, char value, std::string&& literal,
-        Location location) noexcept
-        : _type(type)
-        , _value_storage(value)
-        , _literal(std::move(literal))
-        , _location(location) {
-    }
-
-    explicit Token(TokenType type, std::string&& value, std::string&& literal,
-        Location location) noexcept
+    explicit constexpr Token(TokenType type, std::string&& value,
+        std::string&& literal, Location location) noexcept
         : _type(type)
         , _value_storage(std::move(value))
         , _literal(std::move(literal))
@@ -113,24 +113,24 @@ public:
     Token(Token&&) = default;
     Token& operator=(Token&&) = default;
 
-    [[nodiscard]] auto type() const noexcept -> TokenType {
+    [[nodiscard]] constexpr auto type() const noexcept -> TokenType {
         return _type;
     }
 
-    [[nodiscard]] auto value() const noexcept
+    [[nodiscard]] constexpr auto value() const noexcept
         -> std::variant<std::int64_t, bool, char, std::string> {
         return _value_storage;
     }
 
-    [[nodiscard]] auto literal() const noexcept -> std::string_view {
+    [[nodiscard]] constexpr auto literal() const noexcept -> std::string_view {
         return _literal;
     }
 
-    [[nodiscard]] auto location() const noexcept -> const Location& {
+    [[nodiscard]] constexpr auto location() const noexcept -> const Location& {
         return _location;
     }
 
-    [[nodiscard]] auto len() const noexcept -> std::size_t {
+    [[nodiscard]] constexpr auto len() const noexcept -> std::size_t {
         return _literal.length();
     }
 };
