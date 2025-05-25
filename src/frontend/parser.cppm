@@ -83,15 +83,6 @@ public:
         _cur_stack.back() = _cursor;
     }
 
-    template <NodeType T>
-    [[nodiscard]] OptNodePtr parse_impl() noexcept {
-        // This function is a template specialization for parsing nodes of type
-        // T. It should be specialized for each NodeType.
-        Error("parse_impl() is not specialized for NodeType: ",
-            node_type_to_string(T));
-        return std::nullopt;
-    }
-
     template <TokenType T>
     [[nodiscard]] OptNodePtr match() noexcept;
 
@@ -162,7 +153,7 @@ namespace combinators {
         [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
     };
 
-    template <ParserRule R>
+    template <NodeType T, ParserRule R>
     struct OneNode {
         // OneNode is responsible for managing rollback behavior for
         // the rule it encapsulates. It ensures that rollback will
@@ -170,10 +161,15 @@ namespace combinators {
         using no_rollback = std::true_type;
 
         explicit constexpr OneNode() noexcept = default;
-        explicit constexpr OneNode(R /* r */) noexcept { };
+        explicit constexpr OneNode(NodeType /* t */, R /* r */) noexcept { };
 
         [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
     };
+
+    template <NodeType T, ParserRule R>
+    [[nodiscard]] constexpr auto make_node(R r) noexcept {
+        return OneNode<T, R> { T, r };
+    }
 
     template <ParserRule Lhs, ParserRule Rhs>
     struct Any {

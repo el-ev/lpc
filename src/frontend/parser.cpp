@@ -20,7 +20,7 @@ DEFTOKEN(RPAREN)
 
 template <NodeType T>
 constexpr auto placeholder() noexcept {
-    return OneToken<TokenType::LPAREN>();
+    return LPAREN >> RPAREN;
 }
 
 constexpr const auto Define = placeholder<NodeType::Define>();
@@ -28,7 +28,7 @@ constexpr const auto TransformerSpec = placeholder<NodeType::TransformerSpec>();
 
 // 4. Expressions
 constexpr const auto Expression = 
-    OneNode(
+    make_node<NodeType::Expression>(
         placeholder<NodeType::Symbol>()            // (4.1.1) a variable reference
       | placeholder<NodeType::Literal>()           // (4.1.2) Literal
       | placeholder<NodeType::ProcedureCall>()     // (4.1.4) Procedures
@@ -42,7 +42,7 @@ constexpr const auto Expression =
 
 // 5.2 Definitions
 constexpr const auto Definition = 
-    OneNode(
+    make_node<NodeType::Definition>(
         Define
       | chain(
             LPAREN
@@ -54,7 +54,7 @@ constexpr const auto Definition =
     );
 
 constexpr const auto SyntaxDefinition = 
-    OneNode(
+    make_node<NodeType::SyntaxDefinition>(
         chain(
             LPAREN
           , OneIdent("define-syntax")
@@ -67,7 +67,7 @@ constexpr const auto SyntaxDefinition =
 // A program is a sequence of expressions, definitions,
 // and syntax definitions.
 constexpr const auto Program = 
-    OneNode(
+    make_node<NodeType::Program>(
         Many(
             Definition
           | SyntaxDefinition
@@ -78,23 +78,20 @@ constexpr const auto Program =
 } // namespace rules
 // clang-format on
 
-template <>
-OptNodePtr ParserImpl::parse_impl<NodeType::Program>() noexcept {
-    // A Scheme program consists of a sequence of expressions,
-    // definitions, and syntax definitions.
-    auto result = rules::Program(*this);
-    if (!result) {
-        // If the token list is empty, we won't reach this point.
+void ParserImpl::run() noexcept {
+    OptNodeList program = rules::Program(*this);
+    if (!program) {
         Error("Failed to parse program at ", loc());
         _failed = true;
-        return std::nullopt;
+        return;
     }
-    return std::make_unique<Node>(NodeType::Program, _tokens.front().location(),
-        std::move(result.value()));
-}
-
-void ParserImpl::run() noexcept {
-    _root = parse_impl<NodeType::Program>().value();
+    if (program->size() != 1) {
+        Error("Program should have exactly one root node, found: ",
+            program->size());
+        _failed = true;
+        return;
+    }
+    _root = std::move(program.value()[0]);
     if (!is_eof()) {
         Error("Unexpected tokens after parsing the root node");
         _failed = true;
@@ -130,8 +127,7 @@ template <Keyword K>
     if (_cursor == _tokens.cend())
         return std::nullopt;
     if (_cursor->type() == TokenType::IDENT
-        && (id.empty()
-            || std::get<std::string>(_cursor->value()) == id)) {
+        && (id.empty() || std::get<std::string>(_cursor->value()) == id)) {
         return std::make_unique<TerminalNode>(*_cursor++);
     }
     return std::nullopt;
@@ -173,20 +169,28 @@ template <Keyword K>
     return std::nullopt;
 }
 
-template <ParserRule R>
-[[nodiscard]] OptNodeList OneNode<R>::operator()(
+template <NodeType T, ParserRule R>
+[[nodiscard]] OptNodeList OneNode<T, R>::operator()(
     ParserImpl& parser) const noexcept {
+    Location loc = parser.loc();
+    OptNodeList res;
     if constexpr (R::no_rollback::value) {
-        return R()(parser);
+        res = R()(parser);
+        if (!res)
+            return std::nullopt;
     } else {
         parser.push();
-        auto result = R()(parser);
-        if (!result)
+        res = R()(parser);
+        if (!res) {
             parser.pop();
-        else
-            parser.commit();
-        return result;
+            return std::nullopt;
+        }
+        parser.commit();
     }
+    auto node = std::make_unique<Node>(T, loc, std::move(res.value()));
+    NodeList result;
+    result.emplace_back(std::move(node));
+    return result;
 }
 
 template <ParserRule Lhs, ParserRule Rhs>
