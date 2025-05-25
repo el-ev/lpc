@@ -93,12 +93,7 @@ public:
     }
 
     template <TokenType T>
-    [[nodiscard]] OptNodePtr match() noexcept {
-        Error("match() is not specialized for TokenType: ",
-            token_type_to_string(T));
-        return std::nullopt; // This function is a template specialization for
-                             // matching tokens of type T.
-    }
+    [[nodiscard]] OptNodePtr match() noexcept;
 };
 
 class Parser {
@@ -121,27 +116,106 @@ public:
 };
 
 namespace combinators {
-
     template <typename T>
-    concept Parseable = requires {
-        std::is_same_v<T, NodeType> || std::is_same_v<T, TokenType>;
+    concept ParserRule = requires(T t) {
+        typename T::no_rollback;
+        { t(std::declval<ParserImpl&>()) } -> std::same_as<OptNodeList>;
+        { T::no_rollback::value } -> std::convertible_to<bool>;
     };
 
-    using Rule = std::function<OptNodeList(ParserImpl&)>;
-    template <Parseable auto V>
-    constexpr Rule make_rule();
-    constexpr Rule operator|(Rule&& lhs, Rule&& rhs);
-    constexpr Rule operator+(Rule&& lhs, Rule&& rhs);
-    constexpr Rule maybe(Rule&& rule);
-    constexpr Rule many(Rule&& rule);
-    template <Parseable auto V>
-    constexpr Rule maybe();
-    template <Parseable auto V>
-    constexpr Rule many();
-    template <Parseable auto V>
-    constexpr Rule one();
-    template <Parseable auto V>
-    constexpr Rule require();
+    template <TokenType T>
+    struct OneToken {
+        // If a single token fails to match, it does not
+        // consume the input, so rollback is not needed.
+        using no_rollback = std::true_type;
+
+        explicit constexpr OneToken() noexcept = default;
+        explicit constexpr OneToken(TokenType /*t*/) noexcept { };
+
+        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+    };
+
+    template <ParserRule R>
+    struct OneNode {
+        // OneNode is responsible for managing rollback behavior for
+        // the rule it encapsulates. It ensures that rollback will
+        // not propagate to higher levels.
+        using no_rollback = std::true_type;
+
+        explicit constexpr OneNode() noexcept = default;
+        explicit constexpr OneNode(R /* r */) noexcept { };
+
+        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+    };
+
+    template <ParserRule Lhs, ParserRule Rhs>
+    struct Or {
+        // Or could also stop rollback propagation.
+        using no_rollback = std::true_type;
+
+        explicit constexpr Or() noexcept = default;
+        explicit constexpr Or(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
+
+        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+    };
+
+    template <ParserRule Lhs, ParserRule Rhs>
+    struct And {
+        // And creates rollback points.
+        // And itself does not process rollback, because long
+        // And chain exists, and it may cause performance
+        // issues if rollback is processed for each And.
+        using no_rollback = std::false_type;
+
+        explicit constexpr And() noexcept = default;
+        explicit constexpr And(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
+
+        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+    };
+
+    template <ParserRule R>
+    struct Maybe {
+        // Maybe eliminates rollback points.
+        using no_rollback = std::true_type;
+
+        explicit constexpr Maybe() noexcept = default;
+        explicit constexpr Maybe(R /* r */) noexcept { };
+
+        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+    };
+
+    template <ParserRule R>
+    struct Many {
+        // Many eliminates rollback points.
+        using no_rollback = std::true_type;
+
+        explicit constexpr Many() noexcept = default;
+        explicit constexpr Many(R /* r */) noexcept { };
+
+        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+    };
+
+    template <ParserRule R>
+    struct Require {
+        // Require throws an error if the rule fails to match.
+        // So rollback does not matter.
+        using no_rollback = std::true_type;
+
+        explicit constexpr Require() noexcept = default;
+        explicit constexpr Require(R /* r */) noexcept { };
+
+        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+    };
+
+    template <ParserRule Lhs, ParserRule Rhs>
+    constexpr Or<Lhs, Rhs> operator|(Lhs&& lhs, Rhs&& rhs) {
+        return Or<Lhs, Rhs> { std::forward<Lhs>(lhs), std::forward<Rhs>(rhs) };
+    }
+
+    template <ParserRule Lhs, ParserRule Rhs>
+    constexpr And<Lhs, Rhs> operator+(Lhs&& lhs, Rhs&& rhs) {
+        return And<Lhs, Rhs> { std::forward<Lhs>(lhs), std::forward<Rhs>(rhs) };
+    }
 } // namespace combinators
 
 } // namespace lpc::frontend

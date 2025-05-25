@@ -9,16 +9,26 @@ namespace lpc::frontend {
 
 using namespace lpc::frontend::combinators;
 
+// clang-format off
+namespace rules {
+
+// 5.1 Programs
+// A program is a sequence of expressions, definitions,
+// and syntax definitions.
+constexpr const auto Program = OneNode(
+    Many(
+        OneToken<TokenType::LPAREN>()
+    )
+);
+
+} // namespace rules
+// clang-format on
+
 template <>
 OptNodePtr ParserImpl::parse_impl<NodeType::Program>() noexcept {
     // A Scheme program consists of a sequence of expressions,
     // definitions, and syntax definitions.
-    // clang-format off
-    Rule rule = many(one<NodeType::Expression>() 
-                   | one<NodeType::Definition>()
-                   | one<NodeType::SyntaxDefinition>());
-    // clang-format on
-    auto result = rule(*this);
+    auto result = rules::Program(*this);
     if (!result) {
         // If the token list is empty, we won't reach this point.
         Error("Failed to parse program at ", loc());
@@ -28,6 +38,42 @@ OptNodePtr ParserImpl::parse_impl<NodeType::Program>() noexcept {
     return std::make_unique<Node>(NodeType::Program, _tokens.front().location(),
         std::move(result.value()));
 }
+
+// template <>
+// OptNodePtr ParserImpl::parse_impl<NodeType::Expression>() noexcept {
+//     // clang-format off
+//     Rule rule =
+//           one<NodeType::Symbol>()          // (4.1.1) a variable reference
+//         | one<NodeType::Quote>()           // (4.1.2) Literal - quoted
+//         | one<NodeType::Constant>()        // (4.1.2) Literal - constant
+//         | one<NodeType::Lambda>()          // (4.1.4) Procedures
+//         | one<NodeType::Cond>()            // (4.1.5) (4.2.1) Conditionals
+//         | one<NodeType::Assignment>()      // (4.1.6) Assignment
+//         // TODO should the three be a single rule?
+//         | one<NodeType::Let>()             // (4.2.2) Binding constructs -
+//         let | one<NodeType::LetStar>()         // (4.2.2) Binding constructs
+//         - let* | one<NodeType::LetRec>()          // (4.2.2) Binding
+//         constructs - letrec | one<NodeType::Sequence>()        // (4.2.3)
+//         Sequencing | one<NodeType::Iteration>()       // (4.2.4) Iteration |
+//         one<NodeType::Delay>()           // (4.2.5) Delayed evaluation |
+//         one<NodeType::Quasiquote>()      // (4.2.6) Quasiquote |
+//         one<NodeType::Unquote>()         // (4.2.6) Unquote |
+//         one<NodeType::UnquoteSplicing>() // (4.2.6) Unquote splicing
+//        ;
+//     // clang-format on
+//     if (auto&& nl = rule(*this)) {
+//         if (nl->size() != 1) {
+//             Error("Expected exactly one expression, got ", nl->size(), " at
+//             ",
+//                 loc());
+//             _failed = true;
+//             return std::nullopt;
+//         }
+//         return std::make_unique<Node>(NodeType::Expression,
+//             _tokens.front().location(), std::move(nl.value()));
+//     }
+//     return std::nullopt;
+// }
 
 void ParserImpl::run() noexcept {
     _root = parse_impl<NodeType::Program>().value();
@@ -43,133 +89,168 @@ void ParserImpl::run() noexcept {
     }
 }
 
+template <TokenType T>
+[[nodiscard]] OptNodePtr ParserImpl::match() noexcept {
+    if (_cursor == _tokens.cend())
+        return std::nullopt;
+    if (_cursor->type() == T)
+        return std::make_unique<TerminalNode>(*_cursor++);
+    return std::nullopt;
+}
+
 } // namespace lpc::frontend
 
 namespace lpc::frontend::combinators {
 
-template <Parseable auto V>
-constexpr Rule make_rule() {
-    if constexpr (std::is_same_v<decltype(V), NodeType>) {
-        return [](ParserImpl& parser) -> OptNodeList {
-            if (auto&& node = parser.parse_impl<V>()) {
-                NodeList list;
-                list.push_back(std::move(node.value()));
-                return list;
-            }
-            return std::nullopt;
-        };
+template <TokenType T>
+[[nodiscard]] OptNodeList OneToken<T>::operator()(
+    ParserImpl& parser) const noexcept {
+    if (auto node = parser.match<T>()) {
+        NodeList result;
+        result.emplace_back(std::move(node.value()));
+        return result;
+    }
+    return std::nullopt;
+}
+
+template <ParserRule R>
+[[nodiscard]] OptNodeList OneNode<R>::operator()(
+    ParserImpl& parser) const noexcept {
+    if constexpr (R::no_rollback::value) {
+        return R()(parser);
     } else {
-        return [](ParserImpl& parser) -> OptNodeList {
-            if (auto&& node = parser.match<V>()) {
-                NodeList list;
-                list.push_back(std::move(node.value()));
-                return list;
-            }
-            return std::nullopt;
-        };
+        parser.push();
+        auto result = R()(parser);
+        if (!result)
+            parser.pop();
+        else
+            parser.commit();
+        return result;
     }
 }
 
-constexpr Rule operator|(Rule&& lhs, Rule&& rhs) {
-    return [lhs = std::move(lhs), rhs = std::move(rhs)](
-               ParserImpl& parser) -> OptNodeList {
+template <ParserRule Lhs, ParserRule Rhs>
+[[nodiscard]] OptNodeList Or<Lhs, Rhs>::operator()(
+    ParserImpl& parser) const noexcept {
+    if constexpr (Lhs::no_rollback::value && Rhs::no_rollback::value) {
+        auto left = Lhs()(parser);
+        if (left)
+            return left;
+        return Rhs()(parser);
+    } else if constexpr (Lhs::no_rollback::value) {
+        auto left = Lhs()(parser);
+        if (left)
+            return left;
         parser.push();
-        if (auto result = lhs(parser)) {
+        auto right = Rhs()(parser);
+        if (!right)
+            parser.pop();
+        else
             parser.commit();
-            return result;
-        }
-        parser.reset_top();
-        if (auto result = rhs(parser)) {
+        return right;
+    } else if constexpr (Rhs::no_rollback::value) {
+        parser.push();
+        auto left = Lhs()(parser);
+        if (left) {
             parser.commit();
-            return result;
+            return left;
         }
         parser.pop();
-        return std::nullopt;
-    };
+        return Rhs()(parser);
+    } else {
+        parser.push();
+        auto left = Lhs()(parser);
+        if (left) {
+            parser.commit();
+            return left;
+        }
+        parser.reset_top();
+        auto right = Rhs()(parser);
+        if (!right)
+            parser.pop();
+        else
+            parser.commit();
+        return right;
+    }
 }
 
-constexpr Rule operator+(Rule&& lhs, Rule&& rhs) {
-    return [lhs = std::move(lhs), rhs = std::move(rhs)](
-               ParserImpl& parser) -> OptNodeList {
+template <ParserRule Lhs, ParserRule Rhs>
+[[nodiscard]] OptNodeList And<Lhs, Rhs>::operator()(
+    ParserImpl& parser) const noexcept {
+    auto left = Lhs()(parser);
+    if (!left)
+        return std::nullopt;
+    auto right = Rhs()(parser);
+    if (!right)
+        return std::nullopt;
+
+    left->reserve(left->size() + right->size());
+    left->insert(left->end(), std::make_move_iterator(right->begin()),
+        std::make_move_iterator(right->end()));
+
+    return left;
+}
+
+template <ParserRule R>
+[[nodiscard]] OptNodeList Maybe<R>::operator()(
+    ParserImpl& parser) const noexcept {
+    if constexpr (R::no_rollback::value) {
+        auto result = R()(parser);
+        if (result)
+            return std::move(result.value());
+        return NodeList {};
+    } else {
         parser.push();
-        auto left = lhs(parser);
-        if (!left) {
+        auto result = R()(parser);
+        if (!result) {
             parser.pop();
-            return std::nullopt;
-        }
-        auto right = rhs(parser);
-        if (!right) {
-            parser.pop();
-            return std::nullopt;
+            return NodeList {};
         }
         parser.commit();
-
-        left->reserve(left->size() + right->size());
-        left->insert(left->end(), std::make_move_iterator(right->begin()),
-            std::make_move_iterator(right->end()));
-
-        return left;
-    };
+        return std::move(result.value());
+    }
 }
 
-constexpr Rule maybe(Rule&& rule) {
-    return [rule = std::move(rule)](ParserImpl& parser) -> OptNodeList {
-        if (auto result = rule(parser))
-            return result;
-        return NodeList {};
-    };
-}
-
-constexpr Rule many(Rule&& rule) {
-    return [rule = std::move(rule)](ParserImpl& parser) -> OptNodeList {
-        NodeList result;
-        while (auto nl = rule(parser)) {
+template <ParserRule R>
+[[nodiscard]] OptNodeList Many<R>::operator()(
+    ParserImpl& parser) const noexcept {
+    NodeList result;
+    if constexpr (R::no_rollback::value) {
+        while (auto nl = R()(parser)) {
             if (result.capacity() - result.size() < nl->size())
                 result.reserve(result.capacity() * 2);
             result.insert(result.end(), std::make_move_iterator(nl->begin()),
                 std::make_move_iterator(nl->end()));
         }
-        return result;
-    };
-}
-
-template <Parseable auto V>
-constexpr Rule maybe() {
-    return [](ParserImpl& parser) {
-        if (auto&& node = make_rule<V>()(parser))
-            return NodeList { std::move(node) };
-        return NodeList {};
-    };
-}
-
-template <Parseable auto V>
-constexpr Rule many() {
-    return [](ParserImpl& parser) {
-        NodeList result;
-        while (auto&& node = make_rule<V>()(parser)) {
-            result.push_back(std::move(node));
+    } else {
+        parser.push();
+        while (auto nl = R()(parser)) {
+            parser.push();
+            if (result.capacity() - result.size() < nl->size())
+                result.reserve(result.capacity() * 2);
+            result.insert(result.end(), std::make_move_iterator(nl->begin()),
+                std::make_move_iterator(nl->end()));
+            parser.commit();
         }
-        return result;
-    };
+        if (!result.empty())
+            parser.commit();
+        else
+            parser.pop();
+    }
+    return result;
 }
 
-template <Parseable auto V>
-constexpr Rule one() {
-    return [](ParserImpl& parser) -> OptNodeList {
-        return make_rule<V>()(parser);
-    };
-}
-
-template <Parseable auto V>
-constexpr Rule require() {
-    return [](ParserImpl& parser) -> OptNodeList {
-        if (auto&& result = make_rule<V>()(parser))
-            return result;
-        // TODO what
-        Error("Expected something at ", parser.cur()->location());
+template <ParserRule R>
+[[nodiscard]] OptNodeList Require<R>::operator()(
+    ParserImpl& parser) const noexcept {
+    auto result = R()(parser);
+    if (!result) {
         parser.fail();
+        Error("Required rule failed to match: ", typeid(R).name(), " at ",
+            parser.loc());
         return std::nullopt;
-    };
+    }
+    return std::move(result.value());
 }
 
 } // namespace lpc::frontend::combinators
