@@ -38,8 +38,6 @@ int Session::run() noexcept {
 
     auto tokens = lexer.tokens();
 
-    lexer.~Lexer();
-
     if (_print_tokens) {
         for (const auto& token : tokens)
             std::print("{} ", token.literal());
