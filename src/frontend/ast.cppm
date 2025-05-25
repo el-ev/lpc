@@ -9,6 +9,7 @@ namespace lpc::frontend {
 // 7.1 Formal Syntax
 #define NODE_TYPE_LIST(X)                                                      \
     X(Program)                                                                 \
+    X(TopLevel)                                                                \
     /* Expressions */                                                          \
     X(Expression)                                                              \
     X(Variable)                                                                \
@@ -31,21 +32,6 @@ namespace lpc::frontend {
     /* Binding constructs */                                                   \
     X(Assignment)                                                              \
     /* Derived */                                                              \
-    X(DerivedExpression)                                                       \
-    X(Conditional)                                                             \
-    X(CondClause)                                                              \
-    X(Else)                                                                    \
-    X(Case)                                                                    \
-    X(CaseClause)                                                              \
-    X(And)                                                                     \
-    X(Or)                                                                      \
-    X(Let)                                                                     \
-    X(LetStar)                                                                 \
-    X(LetRec)                                                                  \
-    X(Begin)                                                                   \
-    X(Iteration)                                                               \
-    X(IterSpec)                                                                \
-    X(Delay)                                                                   \
     X(Quasiquote)                                                              \
     /* TODO */                                                                 \
     X(Unquote)                                                                 \

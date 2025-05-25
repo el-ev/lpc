@@ -247,7 +247,6 @@ namespace combinators {
 
     template <ParserRule R>
     struct Drop {
-
         // Drop is used to drop the result of a rule.
         // It does not access the parser state.
         using no_rollback = R::no_rollback;

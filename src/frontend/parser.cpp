@@ -14,12 +14,12 @@ namespace rules {
 
 #define DECL_RULE(R)                                                           \
     struct R {                                                                 \
-        static constexpr auto rule() noexcept;                                 \
+        [[nodiscard]] static constexpr auto rule() noexcept;                   \
     }
 
 #define DEF_RULE_BEGIN(R)                                                      \
-    constexpr auto R::rule() noexcept { return                                 \
-            make_node<NodeType::R>(
+    constexpr auto R::rule() noexcept {                                        \
+        return make_node<NodeType::R>(
 
 #define DEF_RULE_END(R)                                                        \
             );                                                                 \
@@ -29,38 +29,52 @@ namespace rules {
 
 DEFTOKEN(LPAREN);
 DEFTOKEN(RPAREN);
+DEFTOKEN(DOT);
 
 template <NodeType T>
 constexpr auto placeholder() noexcept {
-    return !LPAREN >> !RPAREN;
+    return OneIdent(" !won't match anything! ");
 }
 
 DECL_RULE(Program);
+DECL_RULE(TopLevel);
 DECL_RULE(Expression);
 DECL_RULE(Variable);
 DECL_RULE(Literal);
 DECL_RULE(ProcedureCall);
 DECL_RULE(Lambda);
+DECL_RULE(Formals);
+DECL_RULE(Body);
+DECL_RULE(Sequence);
 DECL_RULE(If);
 DECL_RULE(Assignment);
 DECL_RULE(Definition);
+DECL_RULE(Define);
+DECL_RULE(DefFormals);
 DECL_RULE(SyntaxDefinition);
 
-constexpr const auto Define = placeholder<NodeType::Define>();
 constexpr const auto TransformerSpec = placeholder<NodeType::TransformerSpec>();
 
 // 5.1 Programs
 // A program is a sequence of expressions, definitions,
 // and syntax definitions.
 DEF_RULE_BEGIN(Program)
-Many(
-    any(
-        Def<Definition>()
-      , Def<SyntaxDefinition>()
-      , Def<Expression>()
+Many(Def<TopLevel>())
+DEF_RULE_END(Program)
+
+DEF_RULE_BEGIN(TopLevel)
+any(
+    Def<Definition>()
+  , Def<SyntaxDefinition>()
+  , Def<Expression>()
+  , chain(
+        !LPAREN
+      , !OneKeyword<Keyword::BEGIN>()
+      , Def<TopLevel>()
+      , !RPAREN
     )
 )
-DEF_RULE_END(Program)
+DEF_RULE_END(TopLevel)
 
 // (4.) (7.1.3.) Expressions
 DEF_RULE_BEGIN(Expression)
@@ -71,7 +85,6 @@ any(
   , Def<Lambda>()
   , Def<If>()
   , Def<Assignment>()
-  , placeholder<NodeType::DerivedExpression>()
   , placeholder<NodeType::MacroUse>()
   , placeholder<NodeType::MacroBlock>()
 )
@@ -114,6 +127,39 @@ chain(
 )
 DEF_RULE_END(Lambda)
 
+DEF_RULE_BEGIN(Formals)
+any(
+    OneIdent()
+  , chain(
+        !LPAREN
+      , Many(OneIdent())
+      , !RPAREN
+    )
+  , chain(
+        !LPAREN
+      , OneIdent()
+      , Many<OneIdent>()
+      , !DOT   // FIXME: maybe confusing
+      , OneIdent()
+      , !RPAREN
+    )
+)
+DEF_RULE_END(Formals)
+
+DEF_RULE_BEGIN(Body)
+chain(
+    Many(Def<Definition>())
+  , Def<Sequence>()
+)
+DEF_RULE_END(Body)
+
+DEF_RULE_BEGIN(Sequence)
+chain(
+    Def<Expression>()
+  , Many(Def<Expression>()) 
+)
+DEF_RULE_END(Sequence)
+
 // Conditional
 DEF_RULE_BEGIN(If)
 chain(
@@ -140,16 +186,48 @@ DEF_RULE_END(Assignment)
 // 5.2 Definitions
 DEF_RULE_BEGIN(Definition)
 any(
-    Define
+    Def<Define>()
   , chain(
         !LPAREN
       , !OneKeyword<Keyword::BEGIN>()
-      , Define
-      , Many(Define)
+      , Many(Def<Define>())
       , !RPAREN
     )
 )
 DEF_RULE_END(Definition)
+
+DEF_RULE_BEGIN(Define)
+chain(
+    !LPAREN
+  , !OneKeyword<Keyword::DEFINE>()
+  , any(
+        chain(
+            OneIdent()
+          , Def<Expression>()
+        )
+      , chain(
+            !LPAREN
+          , OneIdent()
+          , Def<DefFormals>()
+          , !RPAREN
+          , Def<Body>()
+        )
+    )
+  , !RPAREN
+)
+DEF_RULE_END(Define)
+
+DEF_RULE_BEGIN(DefFormals)
+chain(
+    Many(OneIdent())
+  , Maybe(
+        chain(
+            !DOT  // FIXME: maybe confusing
+          , OneIdent()
+        )
+    )
+)
+DEF_RULE_END(DefFormals)
 
 // 5.3 Syntax Definitions
 DEF_RULE_BEGIN(SyntaxDefinition)
@@ -158,6 +236,7 @@ chain(
   , !OneIdent("define-syntax")
   , OneIdent()
   , TransformerSpec 
+  , !RPAREN
 )
 DEF_RULE_END(SyntaxDefinition)
 
@@ -288,6 +367,8 @@ template <ParserRule Lhs, ParserRule Rhs>
             parser.sync();
             return left;
         }
+        if (parser.is_failed())
+            return std::nullopt;
         auto right = Rhs()(parser);
         parser.sync();
         return right;
@@ -404,8 +485,7 @@ template <ParserRule R>
     auto result = R()(parser);
     if (!result) {
         parser.fail();
-        Error("Required rule failed to match: ", typeid(R).name(), " at ",
-            parser.loc());
+        Error("Required rule failed at ", parser.loc());
         return std::nullopt;
     }
     return std::move(result.value());
