@@ -75,11 +75,11 @@ public:
 
     inline void commit() noexcept {
         _cur_stack.pop_back();
-        if (_cursor == _tokens.cend()) {
-            Error("Top level is popped out, should not happen");
-            _failed = true;
-            return;
-        }
+        _cur_stack.back() = _cursor;
+    }
+
+    inline void sync() noexcept {
+        // assert(_cur_stack.size() > 1);
         _cur_stack.back() = _cursor;
     }
 

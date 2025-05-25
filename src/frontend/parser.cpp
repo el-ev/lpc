@@ -12,14 +12,61 @@ using namespace lpc::frontend::combinators;
 // clang-format off
 namespace rules {
 
+#define DEFTOKEN(T) \
+    constexpr const OneToken<TokenType::T> (T);
+
+DEFTOKEN(LPAREN)
+DEFTOKEN(RPAREN)
+
+template <NodeType T>
+constexpr auto placeholder() noexcept {
+    return OneToken<TokenType::LPAREN>();
+}
+
+constexpr const auto Define = placeholder<NodeType::Define>();
+
+// 4. Expressions
+
+constexpr const auto Expression = 
+    OneNode(
+        placeholder<NodeType::Symbol>()            // (4.1.1) a variable reference
+      | placeholder<NodeType::Literal>()           // (4.1.2) Literal
+      | placeholder<NodeType::ProcedureCall>()     // (4.1.4) Procedures
+      | placeholder<NodeType::Lambda>()            // (4.1.4) Procedures
+      | placeholder<NodeType::If>()                // (4.1.5) Conditionals, If
+      | placeholder<NodeType::Assignment>()        // (4.1.6) Assignment
+      | placeholder<NodeType::DerivedExpression>() // (4.2)   Derived expressions
+      | placeholder<NodeType::MacroUse>()          // (4.3)   Macros - Macro use
+      | placeholder<NodeType::MacroBlock>()        // (4.3)   Macros - Macro block
+    );
+
+// 5.2 Definitions
+constexpr const auto Definition = 
+    OneNode(
+        placeholder<NodeType::Define>()            // (5.2.1) Define
+      | (   
+           LPAREN
+           >> OneKeyword<Keyword::BEGIN>()
+           >> Define
+           >> Many(Define)
+           >> RPAREN
+        )
+    );
+
+constexpr const auto SyntaxDefinition = 
+placeholder<NodeType::SyntaxDefinition>();
+
 // 5.1 Programs
 // A program is a sequence of expressions, definitions,
 // and syntax definitions.
-constexpr const auto Program = OneNode(
-    Many(
-        OneToken<TokenType::LPAREN>()
-    )
-);
+constexpr const auto Program = 
+    OneNode(
+        Many(
+            Expression
+          | Definition
+          | SyntaxDefinition
+        )
+    );
 
 } // namespace rules
 // clang-format on
@@ -39,41 +86,6 @@ OptNodePtr ParserImpl::parse_impl<NodeType::Program>() noexcept {
         std::move(result.value()));
 }
 
-// template <>
-// OptNodePtr ParserImpl::parse_impl<NodeType::Expression>() noexcept {
-//     // clang-format off
-//     Rule rule =
-//           one<NodeType::Symbol>()          // (4.1.1) a variable reference
-//         | one<NodeType::Quote>()           // (4.1.2) Literal - quoted
-//         | one<NodeType::Constant>()        // (4.1.2) Literal - constant
-//         | one<NodeType::Lambda>()          // (4.1.4) Procedures
-//         | one<NodeType::Cond>()            // (4.1.5) (4.2.1) Conditionals
-//         | one<NodeType::Assignment>()      // (4.1.6) Assignment
-//         // TODO should the three be a single rule?
-//         | one<NodeType::Let>()             // (4.2.2) Binding constructs -
-//         let | one<NodeType::LetStar>()         // (4.2.2) Binding constructs
-//         - let* | one<NodeType::LetRec>()          // (4.2.2) Binding
-//         constructs - letrec | one<NodeType::Sequence>()        // (4.2.3)
-//         Sequencing | one<NodeType::Iteration>()       // (4.2.4) Iteration |
-//         one<NodeType::Delay>()           // (4.2.5) Delayed evaluation |
-//         one<NodeType::Quasiquote>()      // (4.2.6) Quasiquote |
-//         one<NodeType::Unquote>()         // (4.2.6) Unquote |
-//         one<NodeType::UnquoteSplicing>() // (4.2.6) Unquote splicing
-//        ;
-//     // clang-format on
-//     if (auto&& nl = rule(*this)) {
-//         if (nl->size() != 1) {
-//             Error("Expected exactly one expression, got ", nl->size(), " at
-//             ",
-//                 loc());
-//             _failed = true;
-//             return std::nullopt;
-//         }
-//         return std::make_unique<Node>(NodeType::Expression,
-//             _tokens.front().location(), std::move(nl.value()));
-//     }
-//     return std::nullopt;
-// }
 
 void ParserImpl::run() noexcept {
     _root = parse_impl<NodeType::Program>().value();
@@ -242,6 +254,7 @@ template <ParserRule R>
                 result.reserve(result.capacity() * 2);
             result.insert(result.end(), std::make_move_iterator(nl->begin()),
                 std::make_move_iterator(nl->end()));
+            parser.sync();
         }
     } else {
         parser.push();

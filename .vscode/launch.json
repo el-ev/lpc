@@ -10,7 +10,8 @@
             "name": "Debug",
             "program": "${workspaceFolder}/build/debug/lpc",
             "args": [
-                "test.lisp"
+                "--print-ast",
+                "test.scm"
             ],
             "initCommands": [
                 // "settings set target.source-map . ${workspaceFolder}",

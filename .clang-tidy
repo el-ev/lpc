@@ -36,7 +36,8 @@ Checks: >
   -cppcoreguidelines-avoid-c-arrays,
   -modernize-avoid-c-arrays,
   -misc-no-recursion,
-  -readability-identifier-naming
+  -readability-identifier-naming,
+  -cppcoreguidelines-pro-bounds-constant-array-index
 
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*'
