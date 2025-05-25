@@ -232,6 +232,8 @@ namespace combinators {
         [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
     };
 
+    // It is left-associative, thus looks (and works) like a *
+    // when debugging.
     template <ParserRule Lhs, ParserRule Rhs>
     constexpr Any<Lhs, Rhs> operator|(Lhs lhs, Rhs rhs) {
         return Any<Lhs, Rhs> { lhs, rhs };
@@ -244,11 +246,11 @@ namespace combinators {
         return Then<Lhs, Rhs> { lhs, rhs };
     }
 
-    template <ParserRule... Rules>
+    template <template <typename, typename> class Rewrite, ParserRule... Rules>
     struct Chain;
 
-    template <ParserRule R>
-    struct Chain<R> {
+    template <template <typename, typename> class Rewrite, ParserRule R>
+    struct Chain<Rewrite, R> {
         R rule;
 
         explicit constexpr Chain(R r) noexcept
@@ -259,24 +261,35 @@ namespace combinators {
         }
     };
 
-    template <ParserRule First, ParserRule Second, ParserRule... Rest>
-    struct Chain<First, Second, Rest...> {
+    template <template <typename, typename> class Rewrite, ParserRule First,
+        ParserRule Second, ParserRule... Rest>
+    struct Chain<Rewrite, First, Second, Rest...> {
         First first;
-        Chain<Second, Rest...> rest;
+        Chain<Rewrite, Second, Rest...> rest;
 
         explicit constexpr Chain(First f, Second s, Rest... r) noexcept
             : first(f)
             , rest(s, r...) { };
 
         [[nodiscard]] constexpr auto build() const noexcept {
-            return Then<First, decltype(rest.build())> { first, rest.build() };
+            return Rewrite<First, decltype(rest.build())> { first,
+                rest.build() };
         }
     };
 
-    // Helper function to create a right-associative Then rule.
+    template <template <typename, typename> class Rewrite, ParserRule... Rules>
+    [[nodiscard]] constexpr auto build_chain(Rules... rules) noexcept {
+        return Chain<Rewrite, Rules...> { rules... }.build();
+    }
+
     template <ParserRule... Rules>
     [[nodiscard]] constexpr auto chain(Rules... rules) noexcept {
-        return Chain<Rules...>(rules...).build();
+        return build_chain<Then>(rules...);
+    }
+
+    template <ParserRule... Rules>
+    [[nodiscard]] constexpr auto any(Rules... rules) noexcept {
+        return build_chain<Any>(rules...);
     }
 
 } // namespace combinators

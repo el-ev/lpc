@@ -29,27 +29,31 @@ constexpr const auto TransformerSpec = placeholder<NodeType::TransformerSpec>();
 // 4. Expressions
 constexpr const auto Expression = 
     make_node<NodeType::Expression>(
-        placeholder<NodeType::Symbol>()            // (4.1.1) a variable reference
-      | placeholder<NodeType::Literal>()           // (4.1.2) Literal
-      | placeholder<NodeType::ProcedureCall>()     // (4.1.4) Procedures
-      | placeholder<NodeType::Lambda>()            // (4.1.4) Procedures
-      | placeholder<NodeType::If>()                // (4.1.5) Conditionals, If
-      | placeholder<NodeType::Assignment>()        // (4.1.6) Assignment
-      | placeholder<NodeType::DerivedExpression>() // (4.2)   Derived expressions
-      | placeholder<NodeType::MacroUse>()          // (4.3)   Macros - Macro use
-      | placeholder<NodeType::MacroBlock>()        // (4.3)   Macros - Macro block
+        any(
+            placeholder<NodeType::Symbol>()            // (4.1.1) a variable reference
+          , placeholder<NodeType::Literal>()           // (4.1.2) Literal
+          , placeholder<NodeType::ProcedureCall>()     // (4.1.4) Procedures
+          , placeholder<NodeType::Lambda>()            // (4.1.4) Procedures
+          , placeholder<NodeType::If>()                // (4.1.5) Conditionals, If
+          , placeholder<NodeType::Assignment>()        // (4.1.6) Assignment
+          , placeholder<NodeType::DerivedExpression>() // (4.2)   Derived expressions
+          , placeholder<NodeType::MacroUse>()          // (4.3)   Macros - Macro use
+          , placeholder<NodeType::MacroBlock>()        // (4.3)   Macros - Macro block
+        )
     );
 
 // 5.2 Definitions
 constexpr const auto Definition = 
     make_node<NodeType::Definition>(
-        Define
-      | chain(
-            LPAREN
-          , OneKeyword<Keyword::BEGIN>()
-          , Define
-          , Many(Define)
-          , RPAREN
+        any(
+            Define
+          , chain(
+                LPAREN
+              , OneKeyword<Keyword::BEGIN>()
+              , Define
+              , Many(Define)
+              , RPAREN
+            )
         )
     );
 

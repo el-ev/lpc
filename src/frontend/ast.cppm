@@ -61,7 +61,7 @@ namespace lpc::frontend {
     X(DefFormals)                                                              \
     /* TODO transformer spec */                                                \
     X(SyntaxDefinition)                                                        \
-    X(TransformerSpec)                                                        \
+    X(TransformerSpec)                                                         \
     X(Symbol)                                                                  \
     X(Keyword)                                                                 \
     X(Token)
