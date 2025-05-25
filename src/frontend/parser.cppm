@@ -69,7 +69,6 @@ public:
 
     inline void reset_top() noexcept {
         // assert(_cur_stack.size() > 1);
-        _cur_stack.back() = _cur_stack[_cur_stack.size() - 2];
         _cursor = _cur_stack.back();
     }
 
@@ -79,6 +78,8 @@ public:
     }
 
     inline void sync() noexcept {
+        // if (is_eof())
+        //     return;
         // assert(_cur_stack.size() > 1);
         _cur_stack.back() = _cursor;
     }

@@ -182,6 +182,7 @@ template <NodeType T, ParserRule R>
         res = R()(parser);
         if (!res)
             return std::nullopt;
+        parser.sync();
     } else {
         parser.push();
         res = R()(parser);
@@ -202,13 +203,19 @@ template <ParserRule Lhs, ParserRule Rhs>
     ParserImpl& parser) const noexcept {
     if constexpr (Lhs::no_rollback::value && Rhs::no_rollback::value) {
         auto left = Lhs()(parser);
-        if (left)
+        if (left) {
+            parser.sync();
             return left;
-        return Rhs()(parser);
+        }
+        auto right = Rhs()(parser);
+        parser.sync();
+        return right;
     } else if constexpr (Lhs::no_rollback::value) {
         auto left = Lhs()(parser);
-        if (left)
+        if (left) {
+            parser.sync();
             return left;
+        }
         parser.push();
         auto right = Rhs()(parser);
         if (!right)
@@ -224,7 +231,9 @@ template <ParserRule Lhs, ParserRule Rhs>
             return left;
         }
         parser.pop();
-        return Rhs()(parser);
+        auto right = Rhs()(parser);
+        parser.sync();
+        return right;
     } else {
         parser.push();
         auto left = Lhs()(parser);
@@ -248,9 +257,11 @@ template <ParserRule Lhs, ParserRule Rhs>
     auto left = Lhs()(parser);
     if (!left)
         return std::nullopt;
+    parser.sync();
     auto right = Rhs()(parser);
     if (!right)
         return std::nullopt;
+    parser.sync();
 
     left->reserve(left->size() + right->size());
     left->insert(left->end(), std::make_move_iterator(right->begin()),
