@@ -10,11 +10,6 @@ auto main(int argc, char* argv[]) noexcept -> int {
     // maybe move the logger into the session, don't know though
     Logger::builder().output(std::cerr).build().make_active();
 
-    if (argc < 2) {
-        Error("No arguments provided");
-        return 1;
-    }
-
     App::builder("lpc", "Iris Shi")
         .enable_help()
         .set_non_option_callback([&](std::vector<std::string_view>&& args) {
