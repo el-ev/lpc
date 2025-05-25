@@ -35,36 +35,68 @@ constexpr auto placeholder() noexcept {
     return !LPAREN >> !RPAREN;
 }
 
+DECL_RULE(Program);
 DECL_RULE(Expression);
+DECL_RULE(Variable);
+DECL_RULE(Literal);
 DECL_RULE(ProcedureCall);
 DECL_RULE(Lambda);
+DECL_RULE(Definition);
+DECL_RULE(SyntaxDefinition);
 
 constexpr const auto Define = placeholder<NodeType::Define>();
 constexpr const auto TransformerSpec = placeholder<NodeType::TransformerSpec>();
 
+// 5.1 Programs
+// A program is a sequence of expressions, definitions,
+// and syntax definitions.
+DEF_RULE_BEGIN(Program)
+Many(
+    any(
+        Def<Definition>()
+      , Def<SyntaxDefinition>()
+      , Def<Expression>()
+    )
+)
+DEF_RULE_END(Program)
+
+// (4.) (7.1.3.) Expressions
+DEF_RULE_BEGIN(Expression)
+any(
+    Def<Variable>()
+  , Def<Literal>()
+  , Def<ProcedureCall>()
+  , Def<Lambda>()
+  , placeholder<NodeType::If>()
+  , placeholder<NodeType::Assignment>()
+  , placeholder<NodeType::DerivedExpression>()
+  , placeholder<NodeType::MacroUse>()
+  , placeholder<NodeType::MacroBlock>()
+)
+DEF_RULE_END(Expression)
+
 // (4.1.1) a variable reference
-constexpr const auto Variable = 
-    make_node<NodeType::Variable>(
-        OneIdent()
-    );
+DEF_RULE_BEGIN(Variable)
+OneIdent()
+DEF_RULE_END(Variable)
 
 // (4.1.2) a literal
-constexpr const auto Literal =
-    make_node<NodeType::Literal>(
-        any(
-            placeholder<NodeType::Quotation>()
-          , placeholder<NodeType::SelfEvaluating>()
-        )
-    );
+DEF_RULE_BEGIN(Literal)
+any(
+    placeholder<NodeType::Quotation>()
+  , placeholder<NodeType::SelfEvaluating>()
+)
+DEF_RULE_END(Literal)
+
 
 // (4.1.3) Procedure Call
 DEF_RULE_BEGIN(ProcedureCall)
 chain(
     !LPAREN
-    , Def<Expression>()  // operator
-    , Many(
+  , Def<Expression>()  // operator
+  , Many(
         Def<Expression>()  // operands
-      )
+    )
   , !RPAREN
 )
 DEF_RULE_END(ProcedureCall)
@@ -80,67 +112,36 @@ chain(
 )
 DEF_RULE_END(Lambda)
 
-
-// (4.) (7.1.3.) Expressions
-DEF_RULE_BEGIN(Expression)
-any(
-    Variable
-  , Literal
-  , Def<ProcedureCall>() 
-  , Def<Lambda>()          
-  , placeholder<NodeType::If>()                // (4.1.5) Conditionals, If
-  , placeholder<NodeType::Assignment>()        // (4.1.6) Assignment
-  , placeholder<NodeType::DerivedExpression>() // (4.2)   Derived expressions
-  , placeholder<NodeType::MacroUse>()          // (4.3)   Macros - Macro use
-  , placeholder<NodeType::MacroBlock>()        // (4.3)   Macros - Macro block
-)
-DEF_RULE_END(Expression)
-
-
 // 5.2 Definitions
-constexpr const auto Definition = 
-    make_node<NodeType::Definition>(
-        any(
-            Define
-          , chain(
-                !LPAREN
-              , !OneKeyword<Keyword::BEGIN>()
-              , Define
-              , Many(Define)
-              , !RPAREN
-            )
-        )
-    );
+DEF_RULE_BEGIN(Definition)
+any(
+    Define
+  , chain(
+        !LPAREN
+      , !OneKeyword<Keyword::BEGIN>()
+      , Define
+      , Many(Define)
+      , !RPAREN
+    )
+)
+DEF_RULE_END(Definition)
 
-constexpr const auto SyntaxDefinition = 
-    make_node<NodeType::SyntaxDefinition>(
-        chain(
-            !LPAREN
-          , !OneIdent("define-syntax")
-          , OneIdent()
-          , TransformerSpec 
-        )
-    );
 
-// 5.1 Programs
-// A program is a sequence of expressions, definitions,
-// and syntax definitions.
-constexpr const auto Program = 
-    make_node<NodeType::Program>(
-        Many(
-            any(
-              Definition
-              , SyntaxDefinition
-              , Def<Expression>()
-            )
-        )
-    );
+// 5.3 Syntax Definitions
+DEF_RULE_BEGIN(SyntaxDefinition)
+chain(
+    !LPAREN
+  , !OneIdent("define-syntax")
+  , OneIdent()
+  , TransformerSpec 
+)
+DEF_RULE_END(SyntaxDefinition)
 
 } // namespace rules
 // clang-format on
 
 void ParserImpl::run() noexcept {
-    OptNodeList program = rules::Program(*this);
+    OptNodeList program = Def<rules::Program>()(*this);
     if (!program) {
         Error("Failed to parse program at ", loc());
         _failed = true;

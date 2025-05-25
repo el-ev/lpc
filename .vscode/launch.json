@@ -11,7 +11,7 @@
             "program": "${workspaceFolder}/build/debug/lpc",
             "args": [
                 "--print-ast",
-                "test.scm"
+                "lparens.scm"
             ],
             "initCommands": [
                 // "settings set target.source-map . ${workspaceFolder}",
