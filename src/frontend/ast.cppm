@@ -12,36 +12,86 @@ export enum class NodeType : std::uint8_t {
     List, // List expression
     Nil, // ()
     Quote, // Quoted expression '
-    Function, // Function definition
     Lambda, // Lambda expression
-    Conditional, // If-then-else
+
+    // If-then-else as well
+    Cond, // (cond (clause1) (clause2) ...)
+    CondClause, // an individual clause in cond
+    Else, // Else branch
+
+    Assignment, // set!
+
+    // Let expressions
+    Let,
+    LetStar,
+    LetRec,
+
+    // Sequencing
+    Sequence, // (begin expr1 expr2 ...)
+
+    // Iteration
+    Iteration, // (do expr1 expr2 ...)
+
+    // Delayed evaluation
+    Delay, // (delay expr)
+
+    // Quasiquote, Unquote, UnquoteSplicing
+    Quasiquote, // (quasiquote expr)
+    Unquote, // (unquote expr)
+    UnquoteSplicing, // (unquote-splicing expr)
+
     Definition, // Define statement
     SyntaxDefinition, // define-syntax
 
-    // Terminal nodes
     Symbol, // Symbol identifier
+    Keyword, // Keyword identifier
+    Constant,
+
     Number, // Numeric literal
     String, // String literal
+    Character, // Character literal
     Boolean, // Boolean (#t/#f)
+    Token, // Raw token
 };
 
 export [[nodiscard]] constexpr auto node_type_to_string(NodeType type)
     -> std::string_view {
     switch (type) {
-    case NodeType::Program         : return "Program";
-    case NodeType::Expression      : return "Expression";
-    case NodeType::List            : return "List";
-    case NodeType::Nil             : return "Nil";
-    case NodeType::Quote           : return "Quote";
-    case NodeType::Function        : return "Function";
-    case NodeType::Lambda          : return "Lambda";
-    case NodeType::Conditional     : return "Conditional";
+    case NodeType::Program   : return "Program";
+    case NodeType::Expression: return "Expression";
+    case NodeType::List      : return "List";
+    case NodeType::Nil       : return "Nil";
+    case NodeType::Quote     : return "Quote";
+    case NodeType::Lambda    : return "Lambda";
+
+    case NodeType::Cond      : return "Cond";
+    case NodeType::CondClause: return "CondClause";
+    case NodeType::Else      : return "Else";
+
+    case NodeType::Assignment: return "Assignment";
+
+    case NodeType::Let    : return "Let";
+    case NodeType::LetStar: return "LetStar";
+    case NodeType::LetRec : return "LetRec";
+
+    case NodeType::Sequence       : return "Sequence";
+    case NodeType::Iteration      : return "Iteration";
+    case NodeType::Delay          : return "Delay";
+    case NodeType::Quasiquote     : return "Quasiquote";
+    case NodeType::Unquote        : return "Unquote";
+    case NodeType::UnquoteSplicing: return "UnquoteSplicing";
+
     case NodeType::Definition      : return "Definition";
     case NodeType::SyntaxDefinition: return "SyntaxDefinition";
     case NodeType::Symbol          : return "Symbol";
-    case NodeType::Number          : return "Number";
-    case NodeType::String          : return "String";
-    case NodeType::Boolean         : return "Boolean";
+    case NodeType::Keyword         : return "Keyword";
+
+    case NodeType::Constant : return "Constants";
+    case NodeType::Number   : return "Number";
+    case NodeType::String   : return "String";
+    case NodeType::Character: return "Character";
+    case NodeType::Boolean  : return "Boolean";
+    case NodeType::Token    : return "Token";
     }
     return "Unknown";
 }
@@ -81,7 +131,7 @@ public:
     }
 
     [[nodiscard]] bool is_terminal() const noexcept {
-        return _type >= NodeType::Symbol && _type <= NodeType::Boolean;
+        return _type == NodeType::Token;
     }
 
     [[nodiscard]] const NodeList& children() const noexcept {
@@ -98,15 +148,12 @@ public:
 
 class TerminalASTNode : public ASTNode {
 private:
-    std::variant<std::int64_t, bool, char, std::string> _value;
+    Token _token;
 
 public:
-    explicit TerminalASTNode(NodeType type,
-        std::variant<std::int64_t, bool, char, std::string> value,
-        Location location)
-        : ASTNode(type, location)
-        , _value(std::move(value)) {
-    }
+    explicit TerminalASTNode(const Token& token)
+        : ASTNode(NodeType::Token, token.location())
+        , _token(token.copied()) { };
 
     explicit TerminalASTNode(const TerminalASTNode&) = delete;
     TerminalASTNode& operator=(const TerminalASTNode&) = delete;
@@ -114,9 +161,8 @@ public:
     TerminalASTNode(TerminalASTNode&&) = default;
     TerminalASTNode& operator=(TerminalASTNode&&) = default;
 
-    [[nodiscard]] const std::variant<std::int64_t, bool, char, std::string>&
-    value() const noexcept {
-        return _value;
+    [[nodiscard]] const Token& token() const noexcept {
+        return _token;
     }
 };
 

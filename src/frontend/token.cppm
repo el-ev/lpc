@@ -111,6 +111,8 @@ private:
 
     friend std::ostream& operator<<(std::ostream& os, const Token& token);
 
+    Token(const Token&) = default;
+
 public:
     explicit constexpr Token(TokenType type, std::int64_t value,
         std::string&& literal, Location location) noexcept
@@ -144,11 +146,14 @@ public:
         , _location(location) {
     }
 
-    explicit Token(const Token&) = delete;
     Token& operator=(const Token&) = delete;
 
     Token(Token&&) = default;
     Token& operator=(Token&&) = default;
+
+    [[nodiscard]] constexpr auto copied() const noexcept -> Token {
+        return { *this };
+    }
 
     [[nodiscard]] constexpr auto type() const noexcept -> TokenType {
         return _type;

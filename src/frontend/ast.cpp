@@ -32,7 +32,7 @@ namespace lpc::frontend {
                     result += std::to_string(value);
                 }
             },
-            terminal->value());
+            terminal->token().value());
     }
 
     result += " @" + _location.to_string() + "\n";
@@ -89,7 +89,7 @@ std::string ASTNode::dump_json(std::size_t indent) const {
                     result += std::to_string(value);
                 }
             },
-            terminal->value());
+            terminal->token().value());
     }
 
     if (!_children.empty()) {
