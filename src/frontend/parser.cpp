@@ -225,17 +225,14 @@ template <ParserRule R>
     } else {
         parser.push();
         while (auto nl = R()(parser)) {
-            parser.push();
             if (result.capacity() - result.size() < nl->size())
                 result.reserve(result.capacity() * 2);
             result.insert(result.end(), std::make_move_iterator(nl->begin()),
                 std::make_move_iterator(nl->end()));
             parser.commit();
+            parser.push();
         }
-        if (!result.empty())
-            parser.commit();
-        else
-            parser.pop();
+        parser.pop();
     }
     return result;
 }
