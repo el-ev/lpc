@@ -24,9 +24,9 @@ constexpr auto placeholder() noexcept {
 }
 
 constexpr const auto Define = placeholder<NodeType::Define>();
+constexpr const auto TransformerSpec = placeholder<NodeType::TransformerSpec>();
 
 // 4. Expressions
-
 constexpr const auto Expression = 
     OneNode(
         placeholder<NodeType::Symbol>()            // (4.1.1) a variable reference
@@ -54,7 +54,14 @@ constexpr const auto Definition =
     );
 
 constexpr const auto SyntaxDefinition = 
-placeholder<NodeType::SyntaxDefinition>();
+    OneNode(
+        chain(
+            LPAREN
+          , OneIdent("define-syntax")
+          , OneIdent()
+          , TransformerSpec 
+        )
+    );
 
 // 5.1 Programs
 // A program is a sequence of expressions, definitions,
@@ -62,9 +69,9 @@ placeholder<NodeType::SyntaxDefinition>();
 constexpr const auto Program = 
     OneNode(
         Many(
-            Expression
-          | Definition
+            Definition
           | SyntaxDefinition
+          | Expression
         )
     );
 
@@ -119,6 +126,17 @@ template <Keyword K>
     return std::nullopt;
 }
 
+[[nodiscard]] OptNodePtr ParserImpl::match(std::string_view id) noexcept {
+    if (_cursor == _tokens.cend())
+        return std::nullopt;
+    if (_cursor->type() == TokenType::IDENT
+        && (id.empty()
+            || std::get<std::string>(_cursor->value()) == id)) {
+        return std::make_unique<TerminalNode>(*_cursor++);
+    }
+    return std::nullopt;
+}
+
 } // namespace lpc::frontend
 
 namespace lpc::frontend::combinators {
@@ -138,6 +156,16 @@ template <Keyword K>
 [[nodiscard]] OptNodeList OneKeyword<K>::operator()(
     ParserImpl& parser) const noexcept {
     if (auto node = parser.match<K>()) {
+        NodeList result;
+        result.emplace_back(std::move(node.value()));
+        return result;
+    }
+    return std::nullopt;
+}
+
+[[nodiscard]] OptNodeList OneIdent::operator()(
+    ParserImpl& parser) const noexcept {
+    if (auto node = parser.match(id)) {
         NodeList result;
         result.emplace_back(std::move(node.value()));
         return result;

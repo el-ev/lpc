@@ -97,6 +97,8 @@ public:
 
     template <Keyword K>
     [[nodiscard]] OptNodePtr match() noexcept;
+
+    [[nodiscard]] OptNodePtr match(std::string_view id) noexcept;
 };
 
 class Parser {
@@ -145,6 +147,17 @@ namespace combinators {
 
         explicit constexpr OneKeyword() noexcept = default;
         explicit constexpr OneKeyword(Keyword /* k */) noexcept { };
+
+        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+    };
+
+    struct OneIdent {
+        // OneIdent is lexically the same as a token,
+        using no_rollback = std::true_type;
+        std::string_view id;
+
+        explicit constexpr OneIdent(std::string_view id = "") noexcept
+            : id(id) { };
 
         [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
     };
@@ -243,8 +256,7 @@ namespace combinators {
         R rule;
 
         explicit constexpr Chain(R r) noexcept
-            : rule(r) {
-        }
+            : rule(r) { };
 
         [[nodiscard]] constexpr auto build() const noexcept {
             return rule;
@@ -258,8 +270,7 @@ namespace combinators {
 
         explicit constexpr Chain(First f, Second s, Rest... r) noexcept
             : first(f)
-            , rest(s, r...) {
-        }
+            , rest(s, r...) { };
 
         [[nodiscard]] constexpr auto build() const noexcept {
             return Then<First, decltype(rest.build())> { first, rest.build() };
