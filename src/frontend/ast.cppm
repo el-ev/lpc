@@ -6,95 +6,77 @@ import lpc.frontend.token;
 namespace lpc::frontend {
 
 // AST node types
-export enum class NodeType : std::uint8_t {
-    Program, // Top-level program
-    Expression, // Generic expression
-    List, // List expression
-    Nil, // ()
-    Quote, // Quoted expression '
-    Lambda, // Lambda expression
+// 7.1 Formal Syntax
+#define NODE_TYPE_LIST(X)                                                      \
+    X(Program)                                                                 \
+    /* Expressions */                                                          \
+    X(Expression)                                                              \
+    X(Variable)                                                                \
+    /* literals */                                                             \
+    X(Literal)                                                                 \
+    X(Quote)                                                                   \
+    X(SelfEvaluating)                                                          \
+    X(Boolean)                                                                 \
+    X(Number)                                                                  \
+    X(Character)                                                               \
+    X(String)                                                                  \
+    /* Procedures */                                                           \
+    X(ProcedureCall)                                                           \
+    X(Lambda)                                                                  \
+    X(Formal)                                                                  \
+    X(Body)                                                                    \
+    X(Sequence)                                                                \
+    /* Conditional */                                                          \
+    X(If)                                                                      \
+    X(Test)                                                                    \
+    X(Consequent)                                                              \
+    X(Alternate)                                                               \
+    /* Binding constructs */                                                   \
+    X(Assignment)                                                              \
+    /* Derived */                                                              \
+    X(DerivedExpression)                                                       \
+    X(Conditional)                                                             \
+    X(CondClause)                                                              \
+    X(Else)                                                                    \
+    X(Case)                                                                    \
+    X(CaseClause)                                                              \
+    X(And)                                                                     \
+    X(Or)                                                                      \
+    X(Let)                                                                     \
+    X(LetStar)                                                                 \
+    X(LetRec)                                                                  \
+    X(Begin)                                                                   \
+    X(Iteration)                                                               \
+    X(IterSpec)                                                                \
+    X(Delay)                                                                   \
+    X(Quasiquote)                                                              \
+    /* TODO */                                                                 \
+    X(Unquote)                                                                 \
+    X(UnquoteSplicing)                                                         \
+    X(MacroUse)                                                                \
+    X(MacroBlock)                                                              \
+    X(SyntaxSpec)                                                              \
+    X(Definition)                                                              \
+    X(Define)                                                                  \
+    X(DefFormals)                                                              \
+    /* TODO transformer spec */                                                \
+    X(SyntaxDefinition)                                                        \
+    X(Symbol)                                                                  \
+    X(Keyword)                                                                 \
+    X(Token)
 
-    // If-then-else as well
-    Cond, // (cond (clause1) (clause2) ...)
-    CondClause, // an individual clause in cond
-    Else, // Else branch
+#define ENUM_VALUE(name) name,
+export enum class NodeType : std::uint8_t { NODE_TYPE_LIST(ENUM_VALUE) };
+#undef ENUM_VALUE
 
-    Assignment, // set!
-
-    // Let expressions
-    Let,
-    LetStar,
-    LetRec,
-
-    // Sequencing
-    Sequence, // (begin expr1 expr2 ...)
-
-    // Iteration
-    Iteration, // (do expr1 expr2 ...)
-
-    // Delayed evaluation
-    Delay, // (delay expr)
-
-    // Quasiquote, Unquote, UnquoteSplicing
-    Quasiquote, // (quasiquote expr)
-    Unquote, // (unquote expr)
-    UnquoteSplicing, // (unquote-splicing expr)
-
-    Definition, // Define statement
-    SyntaxDefinition, // define-syntax
-
-    Symbol, // Symbol identifier
-    Keyword, // Keyword identifier
-    Constant,
-
-    Number, // Numeric literal
-    String, // String literal
-    Character, // Character literal
-    Boolean, // Boolean (#t/#f)
-    Token, // Raw token
-};
-
+#define CASE_STATEMENT(name)                                                   \
+    case NodeType::name: return #name;
 export [[nodiscard]] constexpr auto node_type_to_string(NodeType type)
     -> std::string_view {
-    switch (type) {
-    case NodeType::Program   : return "Program";
-    case NodeType::Expression: return "Expression";
-    case NodeType::List      : return "List";
-    case NodeType::Nil       : return "Nil";
-    case NodeType::Quote     : return "Quote";
-    case NodeType::Lambda    : return "Lambda";
-
-    case NodeType::Cond      : return "Cond";
-    case NodeType::CondClause: return "CondClause";
-    case NodeType::Else      : return "Else";
-
-    case NodeType::Assignment: return "Assignment";
-
-    case NodeType::Let    : return "Let";
-    case NodeType::LetStar: return "LetStar";
-    case NodeType::LetRec : return "LetRec";
-
-    case NodeType::Sequence       : return "Sequence";
-    case NodeType::Iteration      : return "Iteration";
-    case NodeType::Delay          : return "Delay";
-    case NodeType::Quasiquote     : return "Quasiquote";
-    case NodeType::Unquote        : return "Unquote";
-    case NodeType::UnquoteSplicing: return "UnquoteSplicing";
-
-    case NodeType::Definition      : return "Definition";
-    case NodeType::SyntaxDefinition: return "SyntaxDefinition";
-    case NodeType::Symbol          : return "Symbol";
-    case NodeType::Keyword         : return "Keyword";
-
-    case NodeType::Constant : return "Constants";
-    case NodeType::Number   : return "Number";
-    case NodeType::String   : return "String";
-    case NodeType::Character: return "Character";
-    case NodeType::Boolean  : return "Boolean";
-    case NodeType::Token    : return "Token";
-    }
+    switch (type) { NODE_TYPE_LIST(CASE_STATEMENT) }
     return "Unknown";
 }
+#undef CASE_STATEMENT
 
 export class TerminalASTNode;
 

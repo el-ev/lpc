@@ -94,6 +94,9 @@ public:
 
     template <TokenType T>
     [[nodiscard]] OptNodePtr match() noexcept;
+
+    template <Keyword K>
+    [[nodiscard]] OptNodePtr match() noexcept;
 };
 
 class Parser {
@@ -130,7 +133,18 @@ namespace combinators {
         using no_rollback = std::true_type;
 
         explicit constexpr OneToken() noexcept = default;
-        explicit constexpr OneToken(TokenType /*t*/) noexcept { };
+        explicit constexpr OneToken(TokenType /* t */) noexcept { };
+
+        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+    };
+
+    template <Keyword K>
+    struct OneKeyword {
+        // A keyword is lexically the same as a token
+        using no_rollback = std::true_type;
+
+        explicit constexpr OneKeyword() noexcept = default;
+        explicit constexpr OneKeyword(Keyword /* k */) noexcept { };
 
         [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
     };
@@ -208,13 +222,13 @@ namespace combinators {
     };
 
     template <ParserRule Lhs, ParserRule Rhs>
-    constexpr Any<Lhs, Rhs> operator|(Lhs&& lhs, Rhs&& rhs) {
-        return Any<Lhs, Rhs> { std::forward<Lhs>(lhs), std::forward<Rhs>(rhs) };
+    constexpr Any<Lhs, Rhs> operator|(Lhs lhs, Rhs rhs) {
+        return Any<Lhs, Rhs> { lhs, rhs };
     }
 
     template <ParserRule Lhs, ParserRule Rhs>
-    constexpr Then<Lhs, Rhs> operator>>(Lhs&& lhs, Rhs&& rhs) {
-        return Then<Lhs, Rhs> { std::forward<Lhs>(lhs), std::forward<Rhs>(rhs) };
+    constexpr Then<Lhs, Rhs> operator>>(Lhs lhs, Rhs rhs) {
+        return Then<Lhs, Rhs> { lhs, rhs };
     }
 } // namespace combinators
 

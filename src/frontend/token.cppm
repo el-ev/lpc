@@ -13,11 +13,35 @@ export namespace lex_defs {
     // constexpr std::string_view PECULIAR_IDENTIFIERS[3] = { "+", "-", "..." };
     constexpr std::string_view SPECIAL_INITIAL = "!$%&*/:<=>?^_~";
     constexpr std::string_view SPECIAL_SUBSEQUENT = "+-.@";
+
     constexpr std::string_view KEYWORDS[20]
         = { "and", "begin", "case", "cond", "define", "delay", "do", "else",
               "if", "lambda", "let", "let*", "letrec", "or", "quasiquote",
               "quote", "set!", "unquote", "unquote-splicing", "=>" };
 }
+
+export enum class Keyword : std::uint8_t {
+    AND,
+    BEGIN,
+    CASE,
+    COND,
+    DEFINE,
+    DELAY,
+    DO,
+    ELSE,
+    IF,
+    LAMBDA,
+    LET,
+    LET_STAR,
+    LET_REC,
+    OR,
+    QUASIQUOTE,
+    QUOTE,
+    SET,
+    UNQUOTE,
+    UNQUOTE_SPLICING,
+    ARROW,
+};
 
 export enum class TokenType : std::uint8_t {
     KEYWORD,
@@ -105,7 +129,7 @@ inline auto operator<<(std::ostream& os, const Location& loc) -> std::ostream& {
 export class Token {
 private:
     TokenType _type;
-    std::variant<std::int64_t, bool, char, std::string> _value_storage;
+    std::variant<std::int64_t, bool, char, std::string, Keyword> _value_storage;
     std::string _literal;
     Location _location;
 
@@ -146,7 +170,14 @@ public:
         , _location(location) {
     }
 
-    Token& operator=(const Token&) = delete;
+    // keyword token constructor
+    explicit constexpr Token(TokenType type, Keyword keyword,
+        std::string&& literal, Location location) noexcept
+        : _type(type)
+        , _value_storage(keyword)
+        , _literal(std::move(literal))
+        , _location(location) {
+    }
 
     Token(Token&&) = default;
     Token& operator=(Token&&) = default;
@@ -160,7 +191,7 @@ public:
     }
 
     [[nodiscard]] constexpr auto value() const noexcept
-        -> std::variant<std::int64_t, bool, char, std::string> {
+        -> std::variant<std::int64_t, bool, char, std::string, Keyword> {
         return _value_storage;
     }
 
@@ -196,7 +227,11 @@ inline auto operator<<(std::ostream& os, const Token& token) -> std::ostream& {
         default  : value_str = "#\\" + std::string(1, c); break;
         }
         break;
-    case TokenType::STRING: value_str = token._literal; break;
+    case TokenType::STRING : value_str = token._literal; break;
+    case TokenType::KEYWORD: {
+        auto keyword = std::get<Keyword>(token.value());
+        value_str = lex_defs::KEYWORDS[static_cast<std::size_t>(keyword)];
+    }
     default: // operators
         value_str = std::get<std::string>(token.value());
         break;

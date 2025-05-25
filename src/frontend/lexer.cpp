@@ -105,9 +105,14 @@ bool Lexer::skip_whitespaces() noexcept {
             return std::nullopt;
         }
 
-        if (std::ranges::binary_search(lex_defs::KEYWORDS, value))
+        const auto* it = std::ranges::lower_bound(lex_defs::KEYWORDS, value);
+        if (it != std::end(lex_defs::KEYWORDS) && *it == value) {
+            auto keyword = static_cast<Keyword>(
+                std::distance(std::begin(lex_defs::KEYWORDS), it));
             return Token(
-                TokenType::KEYWORD, std::move(value), std::string(ident), _loc);
+                TokenType::KEYWORD, keyword, std::move(value), _loc);
+        }
+        
         return Token(
             TokenType::IDENT, std::move(value), std::string(ident), _loc);
     }

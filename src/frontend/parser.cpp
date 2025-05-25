@@ -98,6 +98,16 @@ template <TokenType T>
     return std::nullopt;
 }
 
+template <Keyword K>
+[[nodiscard]] OptNodePtr ParserImpl::match() noexcept {
+    if (_cursor == _tokens.cend())
+        return std::nullopt;
+    if (_cursor->type() == TokenType::KEYWORD
+        && std::get<Keyword>(_cursor->value()) == K)
+        return std::make_unique<TerminalNode>(*_cursor++);
+    return std::nullopt;
+}
+
 } // namespace lpc::frontend
 
 namespace lpc::frontend::combinators {
@@ -106,6 +116,17 @@ template <TokenType T>
 [[nodiscard]] OptNodeList OneToken<T>::operator()(
     ParserImpl& parser) const noexcept {
     if (auto node = parser.match<T>()) {
+        NodeList result;
+        result.emplace_back(std::move(node.value()));
+        return result;
+    }
+    return std::nullopt;
+}
+
+template <Keyword K>
+[[nodiscard]] OptNodeList OneKeyword<K>::operator()(
+    ParserImpl& parser) const noexcept {
+    if (auto node = parser.match<K>()) {
         NodeList result;
         result.emplace_back(std::move(node.value()));
         return result;

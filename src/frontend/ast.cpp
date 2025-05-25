@@ -28,6 +28,9 @@ namespace lpc::frontend {
                         result += "'" + std::string(1, value) + "'";
                 } else if constexpr (std::is_same_v<T, bool>) {
                     result += value ? "#t" : "#f";
+                } else if constexpr (std::is_same_v<T, Keyword>) {
+                    result += std::string(
+                        lex_defs::KEYWORDS[static_cast<std::size_t>(value)]);
                 } else {
                     result += std::to_string(value);
                 }
@@ -37,9 +40,8 @@ namespace lpc::frontend {
 
     result += " @" + _location.to_string() + "\n";
 
-    for (const auto& child : _children) {
+    for (const auto& child : _children)
         result += child->dump(indent + 2);
-    }
 
     return result;
 }
@@ -85,6 +87,11 @@ std::string ASTNode::dump_json(std::size_t indent) const {
                     result += "\"";
                 } else if constexpr (std::is_same_v<T, bool>) {
                     result += value ? "true" : "false";
+                } else if constexpr (std::is_same_v<T, Keyword>) {
+                    result += "\""
+                        + std::string(
+                            lex_defs::KEYWORDS[static_cast<std::size_t>(value)])
+                        + "\"";
                 } else {
                     result += std::to_string(value);
                 }
