@@ -43,13 +43,13 @@ constexpr const auto Expression =
 // 5.2 Definitions
 constexpr const auto Definition = 
     OneNode(
-        placeholder<NodeType::Define>()            // (5.2.1) Define
-      | (   
-           LPAREN
-           >> OneKeyword<Keyword::BEGIN>()
-           >> Define
-           >> Many(Define)
-           >> RPAREN
+        Define
+      | chain(
+            LPAREN
+          , OneKeyword<Keyword::BEGIN>()
+          , Define
+          , Many(Define)
+          , RPAREN
         )
     );
 
@@ -85,7 +85,6 @@ OptNodePtr ParserImpl::parse_impl<NodeType::Program>() noexcept {
     return std::make_unique<Node>(NodeType::Program, _tokens.front().location(),
         std::move(result.value()));
 }
-
 
 void ParserImpl::run() noexcept {
     _root = parse_impl<NodeType::Program>().value();

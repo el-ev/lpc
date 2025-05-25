@@ -175,6 +175,8 @@ namespace combinators {
 
     template <ParserRule Lhs, ParserRule Rhs>
     struct Then {
+        using is_then = std::true_type;
+
         // Then creates rollback points.
         // Then itself does not process rollback, because long
         // Then chain exists, and it may cause performance
@@ -226,10 +228,50 @@ namespace combinators {
         return Any<Lhs, Rhs> { lhs, rhs };
     }
 
+    // It is left-associative, thus looks (and works) like a *
+    // when debugging.
     template <ParserRule Lhs, ParserRule Rhs>
     constexpr Then<Lhs, Rhs> operator>>(Lhs lhs, Rhs rhs) {
         return Then<Lhs, Rhs> { lhs, rhs };
     }
+
+    template <ParserRule... Rules>
+    struct Chain;
+
+    template <ParserRule R>
+    struct Chain<R> {
+        R rule;
+
+        explicit constexpr Chain(R r) noexcept
+            : rule(r) {
+        }
+
+        [[nodiscard]] constexpr auto build() const noexcept {
+            return rule;
+        }
+    };
+
+    template <ParserRule First, ParserRule Second, ParserRule... Rest>
+    struct Chain<First, Second, Rest...> {
+        First first;
+        Chain<Second, Rest...> rest;
+
+        explicit constexpr Chain(First f, Second s, Rest... r) noexcept
+            : first(f)
+            , rest(s, r...) {
+        }
+
+        [[nodiscard]] constexpr auto build() const noexcept {
+            return Then<First, decltype(rest.build())> { first, rest.build() };
+        }
+    };
+
+    // Helper function to create a right-associative Then rule.
+    template <ParserRule... Rules>
+    [[nodiscard]] constexpr auto chain(Rules... rules) noexcept {
+        return Chain<Rules...>(rules...).build();
+    }
+
 } // namespace combinators
 
 } // namespace lpc::frontend
