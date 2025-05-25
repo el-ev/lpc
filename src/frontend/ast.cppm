@@ -23,14 +23,11 @@ namespace lpc::frontend {
     /* Procedures */                                                           \
     X(ProcedureCall)                                                           \
     X(Lambda)                                                                  \
-    X(Formals)                                                                  \
+    X(Formals)                                                                 \
     X(Body)                                                                    \
     X(Sequence)                                                                \
     /* Conditional */                                                          \
     X(If)                                                                      \
-    X(Test)                                                                    \
-    X(Consequent)                                                              \
-    X(Alternate)                                                               \
     /* Binding constructs */                                                   \
     X(Assignment)                                                              \
     /* Derived */                                                              \

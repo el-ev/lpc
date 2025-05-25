@@ -41,6 +41,8 @@ DECL_RULE(Variable);
 DECL_RULE(Literal);
 DECL_RULE(ProcedureCall);
 DECL_RULE(Lambda);
+DECL_RULE(If);
+DECL_RULE(Assignment);
 DECL_RULE(Definition);
 DECL_RULE(SyntaxDefinition);
 
@@ -67,8 +69,8 @@ any(
   , Def<Literal>()
   , Def<ProcedureCall>()
   , Def<Lambda>()
-  , placeholder<NodeType::If>()
-  , placeholder<NodeType::Assignment>()
+  , Def<If>()
+  , Def<Assignment>()
   , placeholder<NodeType::DerivedExpression>()
   , placeholder<NodeType::MacroUse>()
   , placeholder<NodeType::MacroBlock>()
@@ -112,6 +114,29 @@ chain(
 )
 DEF_RULE_END(Lambda)
 
+// Conditional
+DEF_RULE_BEGIN(If)
+chain(
+    !LPAREN
+  , !OneKeyword<Keyword::IF>()
+  , Def<Expression>()         // test
+  , Def<Expression>()         // consequent
+  , Maybe(Def<Expression>())  // alternate
+  , !RPAREN
+)
+DEF_RULE_END(If)
+
+// Assignment
+DEF_RULE_BEGIN(Assignment)
+chain(
+    !LPAREN
+  , !OneKeyword<Keyword::SET>()
+  , Def<Variable>()           // variable
+  , Def<Expression>()         // value
+  , !RPAREN
+)
+DEF_RULE_END(Assignment)
+
 // 5.2 Definitions
 DEF_RULE_BEGIN(Definition)
 any(
@@ -125,7 +150,6 @@ any(
     )
 )
 DEF_RULE_END(Definition)
-
 
 // 5.3 Syntax Definitions
 DEF_RULE_BEGIN(SyntaxDefinition)
