@@ -20,7 +20,7 @@ DEFTOKEN(RPAREN)
 
 template <NodeType T>
 constexpr auto placeholder() noexcept {
-    return LPAREN >> RPAREN;
+    return !LPAREN >> !RPAREN;
 }
 
 constexpr const auto Define = placeholder<NodeType::Define>();
@@ -48,11 +48,11 @@ constexpr const auto Definition =
         any(
             Define
           , chain(
-                LPAREN
-              , OneKeyword<Keyword::BEGIN>()
+                !LPAREN
+              , !OneKeyword<Keyword::BEGIN>()
               , Define
               , Many(Define)
-              , RPAREN
+              , !RPAREN
             )
         )
     );
@@ -60,8 +60,8 @@ constexpr const auto Definition =
 constexpr const auto SyntaxDefinition = 
     make_node<NodeType::SyntaxDefinition>(
         chain(
-            LPAREN
-          , OneIdent("define-syntax")
+            !LPAREN
+          , !OneIdent("define-syntax")
           , OneIdent()
           , TransformerSpec 
         )
@@ -317,6 +317,15 @@ template <ParserRule R>
         return std::nullopt;
     }
     return std::move(result.value());
+}
+
+template <ParserRule R>
+[[nodiscard]] OptNodeList Drop<R>::operator()(
+    ParserImpl& parser) const noexcept {
+    auto result = R()(parser);
+    if (!result)
+        return std::nullopt;
+    return NodeList {};
 }
 
 } // namespace lpc::frontend::combinators

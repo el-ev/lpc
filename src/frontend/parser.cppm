@@ -232,6 +232,19 @@ namespace combinators {
         [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
     };
 
+    template <ParserRule R>
+    struct Drop {
+
+        // Drop is used to drop the result of a rule.
+        // It does not access the parser state.
+        using no_rollback = R::no_rollback;
+
+        explicit constexpr Drop() noexcept = default;
+        explicit constexpr Drop(R /* r */) noexcept { };
+
+        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+    };
+
     // It is left-associative, thus looks (and works) like a *
     // when debugging.
     template <ParserRule Lhs, ParserRule Rhs>
@@ -244,6 +257,12 @@ namespace combinators {
     template <ParserRule Lhs, ParserRule Rhs>
     constexpr Then<Lhs, Rhs> operator>>(Lhs lhs, Rhs rhs) {
         return Then<Lhs, Rhs> { lhs, rhs };
+    }
+
+    // Drop a syntax-only rule, usually a single token.
+    template <ParserRule R>
+    constexpr Drop<R> operator!(R r) {
+        return Drop<R> { r };
     }
 
     template <template <typename, typename> class Rewrite, ParserRule... Rules>
