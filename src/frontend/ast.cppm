@@ -14,7 +14,7 @@ namespace lpc::frontend {
     X(Variable)                                                                \
     /* literals */                                                             \
     X(Literal)                                                                 \
-    X(Quote)                                                                   \
+    X(Quotation)                                                               \
     X(SelfEvaluating)                                                          \
     X(Boolean)                                                                 \
     X(Number)                                                                  \
@@ -23,7 +23,7 @@ namespace lpc::frontend {
     /* Procedures */                                                           \
     X(ProcedureCall)                                                           \
     X(Lambda)                                                                  \
-    X(Formal)                                                                  \
+    X(Formals)                                                                  \
     X(Body)                                                                    \
     X(Sequence)                                                                \
     /* Conditional */                                                          \
@@ -62,7 +62,6 @@ namespace lpc::frontend {
     /* TODO transformer spec */                                                \
     X(SyntaxDefinition)                                                        \
     X(TransformerSpec)                                                         \
-    X(Symbol)                                                                  \
     X(Keyword)                                                                 \
     X(Token)
 

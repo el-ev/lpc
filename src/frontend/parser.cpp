@@ -12,35 +12,90 @@ using namespace lpc::frontend::combinators;
 // clang-format off
 namespace rules {
 
-#define DEFTOKEN(T) \
-    constexpr const OneToken<TokenType::T> (T);
+#define DECL_RULE(R)                                                           \
+    struct R {                                                                 \
+        static constexpr auto rule() noexcept;                                 \
+    }
 
-DEFTOKEN(LPAREN)
-DEFTOKEN(RPAREN)
+#define DEF_RULE_BEGIN(R)                                                      \
+    constexpr auto R::rule() noexcept { return                                 \
+            make_node<NodeType::R>(
+
+#define DEF_RULE_END(R)                                                        \
+            );                                                                 \
+    }
+
+#define DEFTOKEN(T) constexpr const OneToken<TokenType::T>(T)
+
+DEFTOKEN(LPAREN);
+DEFTOKEN(RPAREN);
 
 template <NodeType T>
 constexpr auto placeholder() noexcept {
     return !LPAREN >> !RPAREN;
 }
 
+DECL_RULE(Expression);
+DECL_RULE(ProcedureCall);
+DECL_RULE(Lambda);
+
 constexpr const auto Define = placeholder<NodeType::Define>();
 constexpr const auto TransformerSpec = placeholder<NodeType::TransformerSpec>();
 
-// 4. Expressions
-constexpr const auto Expression = 
-    make_node<NodeType::Expression>(
+// (4.1.1) a variable reference
+constexpr const auto Variable = 
+    make_node<NodeType::Variable>(
+        OneIdent()
+    );
+
+// (4.1.2) a literal
+constexpr const auto Literal =
+    make_node<NodeType::Literal>(
         any(
-            placeholder<NodeType::Symbol>()            // (4.1.1) a variable reference
-          , placeholder<NodeType::Literal>()           // (4.1.2) Literal
-          , placeholder<NodeType::ProcedureCall>()     // (4.1.4) Procedures
-          , placeholder<NodeType::Lambda>()            // (4.1.4) Procedures
-          , placeholder<NodeType::If>()                // (4.1.5) Conditionals, If
-          , placeholder<NodeType::Assignment>()        // (4.1.6) Assignment
-          , placeholder<NodeType::DerivedExpression>() // (4.2)   Derived expressions
-          , placeholder<NodeType::MacroUse>()          // (4.3)   Macros - Macro use
-          , placeholder<NodeType::MacroBlock>()        // (4.3)   Macros - Macro block
+            placeholder<NodeType::Quotation>()
+          , placeholder<NodeType::SelfEvaluating>()
         )
     );
+
+// (4.1.3) Procedure Call
+DEF_RULE_BEGIN(ProcedureCall)
+chain(
+    !LPAREN
+    , Def<Expression>()  // operator
+    , Many(
+        Def<Expression>()  // operands
+      )
+  , !RPAREN
+)
+DEF_RULE_END(ProcedureCall)
+
+// (4.1.4) Procedures
+DEF_RULE_BEGIN(Lambda)
+chain(
+    !LPAREN
+  , !OneKeyword<Keyword::LAMBDA>()
+  , placeholder<NodeType::Formals>()
+  , placeholder<NodeType::Body>()
+  , !RPAREN
+)
+DEF_RULE_END(Lambda)
+
+
+// (4.) (7.1.3.) Expressions
+DEF_RULE_BEGIN(Expression)
+any(
+    Variable
+  , Literal
+  , Def<ProcedureCall>() 
+  , Def<Lambda>()          
+  , placeholder<NodeType::If>()                // (4.1.5) Conditionals, If
+  , placeholder<NodeType::Assignment>()        // (4.1.6) Assignment
+  , placeholder<NodeType::DerivedExpression>() // (4.2)   Derived expressions
+  , placeholder<NodeType::MacroUse>()          // (4.3)   Macros - Macro use
+  , placeholder<NodeType::MacroBlock>()        // (4.3)   Macros - Macro block
+)
+DEF_RULE_END(Expression)
+
 
 // 5.2 Definitions
 constexpr const auto Definition = 
@@ -73,9 +128,11 @@ constexpr const auto SyntaxDefinition =
 constexpr const auto Program = 
     make_node<NodeType::Program>(
         Many(
-            Definition
-          | SyntaxDefinition
-          | Expression
+            any(
+              Definition
+              , SyntaxDefinition
+              , Def<Expression>()
+            )
         )
     );
 
@@ -131,9 +188,8 @@ template <Keyword K>
     if (_cursor == _tokens.cend())
         return std::nullopt;
     if (_cursor->type() == TokenType::IDENT
-        && (id.empty() || std::get<std::string>(_cursor->value()) == id)) {
+        && (id.empty() || std::get<std::string>(_cursor->value()) == id))
         return std::make_unique<TerminalNode>(*_cursor++);
-    }
     return std::nullopt;
 }
 

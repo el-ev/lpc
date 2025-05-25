@@ -120,6 +120,18 @@ namespace combinators {
         { T::no_rollback::value } -> std::convertible_to<bool>;
     };
 
+    template <typename Wrapper>
+    struct Def {
+        using no_rollback = std::true_type;
+
+        explicit constexpr Def() noexcept = default;
+
+        [[nodiscard]] OptNodeList operator()(
+            ParserImpl& parser) const noexcept {
+            return Wrapper::rule()(parser);
+        }
+    };
+
     template <TokenType T>
     struct OneToken {
         // If a single token fails to match, it does not
