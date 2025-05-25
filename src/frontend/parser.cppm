@@ -149,26 +149,26 @@ namespace combinators {
     };
 
     template <ParserRule Lhs, ParserRule Rhs>
-    struct Or {
-        // Or could also stop rollback propagation.
+    struct Any {
+        // Any could also stop rollback propagation.
         using no_rollback = std::true_type;
 
-        explicit constexpr Or() noexcept = default;
-        explicit constexpr Or(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
+        explicit constexpr Any() noexcept = default;
+        explicit constexpr Any(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
 
         [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
     };
 
     template <ParserRule Lhs, ParserRule Rhs>
-    struct And {
-        // And creates rollback points.
-        // And itself does not process rollback, because long
-        // And chain exists, and it may cause performance
-        // issues if rollback is processed for each And.
+    struct Then {
+        // Then creates rollback points.
+        // Then itself does not process rollback, because long
+        // Then chain exists, and it may cause performance
+        // issues if rollback is processed for each Then.
         using no_rollback = std::false_type;
 
-        explicit constexpr And() noexcept = default;
-        explicit constexpr And(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
+        explicit constexpr Then() noexcept = default;
+        explicit constexpr Then(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
 
         [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
     };
@@ -208,13 +208,13 @@ namespace combinators {
     };
 
     template <ParserRule Lhs, ParserRule Rhs>
-    constexpr Or<Lhs, Rhs> operator|(Lhs&& lhs, Rhs&& rhs) {
-        return Or<Lhs, Rhs> { std::forward<Lhs>(lhs), std::forward<Rhs>(rhs) };
+    constexpr Any<Lhs, Rhs> operator|(Lhs&& lhs, Rhs&& rhs) {
+        return Any<Lhs, Rhs> { std::forward<Lhs>(lhs), std::forward<Rhs>(rhs) };
     }
 
     template <ParserRule Lhs, ParserRule Rhs>
-    constexpr And<Lhs, Rhs> operator+(Lhs&& lhs, Rhs&& rhs) {
-        return And<Lhs, Rhs> { std::forward<Lhs>(lhs), std::forward<Rhs>(rhs) };
+    constexpr Then<Lhs, Rhs> operator>>(Lhs&& lhs, Rhs&& rhs) {
+        return Then<Lhs, Rhs> { std::forward<Lhs>(lhs), std::forward<Rhs>(rhs) };
     }
 } // namespace combinators
 

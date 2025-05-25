@@ -130,7 +130,7 @@ template <ParserRule R>
 }
 
 template <ParserRule Lhs, ParserRule Rhs>
-[[nodiscard]] OptNodeList Or<Lhs, Rhs>::operator()(
+[[nodiscard]] OptNodeList Any<Lhs, Rhs>::operator()(
     ParserImpl& parser) const noexcept {
     if constexpr (Lhs::no_rollback::value && Rhs::no_rollback::value) {
         auto left = Lhs()(parser);
@@ -175,7 +175,7 @@ template <ParserRule Lhs, ParserRule Rhs>
 }
 
 template <ParserRule Lhs, ParserRule Rhs>
-[[nodiscard]] OptNodeList And<Lhs, Rhs>::operator()(
+[[nodiscard]] OptNodeList Then<Lhs, Rhs>::operator()(
     ParserImpl& parser) const noexcept {
     auto left = Lhs()(parser);
     if (!left)
