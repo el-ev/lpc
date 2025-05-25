@@ -60,7 +60,10 @@ void App::parse(std::vector<std::string_view> args) noexcept {
     std::vector<std::string_view> non_option_args;
 
     for (auto it = args.begin(); it != args.end(); ++it) {
-        if (it->empty() || (*it)[0] != '-') {
+        if (it->empty())
+            continue;
+
+        if ((*it)[0] != '-') {
             non_option_args.push_back(*it);
             continue;
         }

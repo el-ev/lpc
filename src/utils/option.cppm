@@ -101,8 +101,10 @@ public:
     [[nodiscard]] AppBuilder&& add_option(std::string long_name,
         char short_name, std::string description = "",
         std::function<void(std::string_view)> callback = nullptr) noexcept {
-        return std::move(add_option(std::move(long_name), short_name,
-            std::move(description), "", std::move(callback)));
+        _app.add_option(
+            Option { short_name, std::move(long_name), std::move(description),
+                false, "", std::move(callback) });
+        return std::move(*this);
     }
 
     [[nodiscard]] AppBuilder&& add_option(std::string long_name,
