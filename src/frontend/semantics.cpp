@@ -1,0 +1,3 @@
+module lpc.frontend.semantics;
+
+import std;
