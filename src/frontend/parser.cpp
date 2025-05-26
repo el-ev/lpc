@@ -69,7 +69,7 @@ DEF_RULE_BEGIN(ExprOrDef)
 any(
     ~Def<Definition>()
   , Def<SyntaxDefinition>()
-  , ~Def<Expression>()
+  , Def<Expression>()
   , chain(
         !LPAREN
       , !OneKeyword<Keyword::BEGIN>()
@@ -107,12 +107,12 @@ DEF_RULE_BEGIN(Quotation)
 any(
     chain(
         !OneToken<TokenType::APOSTROPHE>(),
-        ~Def<Datum>()
+        Def<Datum>()
     )
   , chain(
         !LPAREN
       , !OneKeyword<Keyword::QUOTE>(),
-        ~Def<Datum>()
+        Def<Datum>()
       , !RPAREN
     )
 )
@@ -122,8 +122,8 @@ DEF_RULE_END(Quotation)
 DEF_RULE_BEGIN(ProcedureCall)
 chain(
     !LPAREN
-  , ~Def<Expression>()
-  , Many(~Def<Expression>())
+  , Def<Expression>()
+  , Many(Def<Expression>())
   , !RPAREN
 )
 DEF_RULE_END(ProcedureCall)
@@ -160,8 +160,8 @@ DEF_RULE_END(Body)
 
 DEF_RULE_BEGIN(Sequence)
 chain(
-    ~Def<Expression>()
-  , Many(~Def<Expression>()) 
+    Def<Expression>()
+  , Many(Def<Expression>()) 
 )
 DEF_RULE_END(Sequence)
 
@@ -170,9 +170,9 @@ DEF_RULE_BEGIN(If)
 chain(
     !LPAREN
   , !OneKeyword<Keyword::IF>()
-  , ~Def<Expression>()         // test
-  , ~Def<Expression>()         // consequent
-  , Maybe(~Def<Expression>())  // alternate
+  , Def<Expression>()         // test
+  , Def<Expression>()         // consequent
+  , Maybe(Def<Expression>())  // alternate
   , !RPAREN
 )
 DEF_RULE_END(If)
@@ -183,7 +183,7 @@ chain(
     !LPAREN
   , !OneKeyword<Keyword::SET>()
   , GetVariable()           // variable
-  , ~Def<Expression>()         // value
+  , Def<Expression>()         // value
   , !RPAREN
 )
 DEF_RULE_END(Assignment)
@@ -192,7 +192,7 @@ DEF_RULE_BEGIN(MacroUse)
 chain(
     !LPAREN
   , GetIdentifier()
-  , Many(~Def<Expression>())   // arguments
+  , Many(Def<Expression>())   // arguments
   , !RPAREN
 )
 DEF_RULE_END(MacroUse)
@@ -226,7 +226,7 @@ chain(
     !LPAREN
   , GetVariable()
   , Def<TransformerSpec>()
-  , Many(~Def<Expression>())
+  , Many(Def<Expression>())
   , !RPAREN
 )
 DEF_RULE_END(SyntaxSpec)
@@ -252,7 +252,7 @@ chain(
   , any(
         chain(
             GetVariable()
-          , ~Def<Expression>()
+          , Def<Expression>()
         )
       , chain(
             any(
