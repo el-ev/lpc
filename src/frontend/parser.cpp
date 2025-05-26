@@ -50,6 +50,8 @@ DECL_RULE(If);
 DECL_RULE(Assignment);
 DECL_RULE(MacroUse);
 DECL_RULE(MacroBlock);
+DECL_RULE(LetSyntax);
+DECL_RULE(LetRecSyntax);
 DECL_RULE(SyntaxSpec);
 DECL_RULE(Definition);
 DECL_RULE(Define);
@@ -74,9 +76,9 @@ DEF_RULE_END(Program)
 
 DEF_RULE_BEGIN(ExprOrDef)
 any(
-    Def<Definition>()
+    ~Def<Definition>()
   , Def<SyntaxDefinition>()
-  , Def<Expression>()
+  , ~Def<Expression>()
   , chain(
         !LPAREN
       , !OneKeyword<Keyword::BEGIN>()
@@ -104,18 +106,32 @@ DEF_RULE_END(Expression)
 // (4.1.2) a literal
 DEF_RULE_BEGIN(Literal)
 any(
-    placeholder<NodeType::Quotation>()
-  , placeholder<NodeType::SelfEvaluating>()
+    Def<Quotation>()
+  , GetConstant()
 )
 DEF_RULE_END(Literal)
 
+DEF_RULE_BEGIN(Quotation)
+any(
+    chain(
+        !OneToken<TokenType::APOSTROPHE>(),
+        Def<Datum>()
+    )
+  , chain(
+        !LPAREN
+      , !OneKeyword<Keyword::QUOTE>(),
+        Def<Datum>()
+      , !RPAREN
+    )
+)
+DEF_RULE_END(Quotation)
 
 // (4.1.3) Procedure Call
 DEF_RULE_BEGIN(ProcedureCall)
 chain(
     !LPAREN
-  , Def<Expression>()
-  , Many(Def<Expression>())
+  , ~Def<Expression>()
+  , Many(~Def<Expression>())
   , !RPAREN
 )
 DEF_RULE_END(ProcedureCall)
@@ -143,7 +159,7 @@ any(
         !LPAREN
       , GetVariable()
       , Many(GetVariable())
-      , !DOT   // FIXME: maybe confusing
+      , !DOT
       , GetVariable()
       , !RPAREN
     )
@@ -159,8 +175,8 @@ DEF_RULE_END(Body)
 
 DEF_RULE_BEGIN(Sequence)
 chain(
-    Def<Expression>()
-  , Many(Def<Expression>()) 
+    ~Def<Expression>()
+  , Many(~Def<Expression>()) 
 )
 DEF_RULE_END(Sequence)
 
@@ -169,9 +185,9 @@ DEF_RULE_BEGIN(If)
 chain(
     !LPAREN
   , !OneKeyword<Keyword::IF>()
-  , Def<Expression>()         // test
-  , Def<Expression>()         // consequent
-  , Maybe(Def<Expression>())  // alternate
+  , ~Def<Expression>()         // test
+  , ~Def<Expression>()         // consequent
+  , Maybe(~Def<Expression>())  // alternate
   , !RPAREN
 )
 DEF_RULE_END(If)
@@ -182,7 +198,7 @@ chain(
     !LPAREN
   , !OneKeyword<Keyword::SET>()
   , GetVariable()           // variable
-  , Def<Expression>()         // value
+  , ~Def<Expression>()         // value
   , !RPAREN
 )
 DEF_RULE_END(Assignment)
@@ -191,7 +207,7 @@ DEF_RULE_BEGIN(MacroUse)
 chain(
     !LPAREN
   , GetIdentifier
-  , Many(Def<Expression>())   // arguments
+  , Many(~Def<Expression>())   // arguments
   , !RPAREN
 )
 DEF_RULE_END(MacroUse)
@@ -200,8 +216,8 @@ DEF_RULE_BEGIN(MacroBlock)
 chain(
     !LPAREN
   , any(
-        !OneVariable<hash_string("let-syntax")>()
-      , !OneVariable<hash_string("letrec-syntax")>()
+        Def<LetSyntax>()
+      , Def<LetRecSyntax>()
     )
   , !LPAREN
   , Many(Def<SyntaxSpec>())
@@ -211,13 +227,21 @@ chain(
 )
 DEF_RULE_END(MacroBlock)
 
+DEF_RULE_BEGIN(LetSyntax)
+!OneVariable<hash_string("let-syntax")>()
+DEF_RULE_END(LetSyntax)
+
+DEF_RULE_BEGIN(LetRecSyntax)
+!OneVariable<hash_string("letrec-syntax")>()
+DEF_RULE_END(LetRecSyntax)
+
 // Syntax Specification
 DEF_RULE_BEGIN(SyntaxSpec)
 chain(
     !LPAREN
-  , GetVariable()                  // name
+  , GetVariable()              // name
   , TransformerSpec            // transformer spec
-  , Many(Def<Expression>())    // body
+  , Many(~Def<Expression>())    // body
   , !RPAREN
 )
 DEF_RULE_END(SyntaxSpec)
@@ -243,7 +267,7 @@ chain(
   , any(
         chain(
             GetVariable()
-          , Def<Expression>()
+          , ~Def<Expression>()
         )
       , chain(
             !LPAREN
@@ -262,7 +286,7 @@ chain(
     Many(GetVariable())
   , Maybe(
         chain(
-            !DOT  // FIXME: maybe confusing
+            !DOT
           , GetVariable()
         )
     )
@@ -279,6 +303,10 @@ chain(
   , !RPAREN
 )
 DEF_RULE_END(SyntaxDefinition)
+
+DEF_RULE_BEGIN(Datum)
+!LPAREN >> !RPAREN // TODO
+DEF_RULE_END(Datum)
 
 } // namespace rules
 // clang-format on
@@ -394,6 +422,16 @@ template <std::size_t Hash>
     NodeList result;
     result.emplace_back(std::make_unique<Node>(
         NodeType::Variable, (parser.cur() - 1)->location(), std::move(*ident)));
+    return result;
+}
+
+[[nodiscard]] OptNodeList GetConstant::operator()(
+    ParserImpl& parser) const noexcept {
+    auto node = parser.get_constant();
+    if (!node)
+        return std::nullopt;
+    NodeList result;
+    result.emplace_back(std::move(node.value()));
     return result;
 }
 

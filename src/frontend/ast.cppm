@@ -16,7 +16,6 @@ namespace lpc::frontend {
     /* literals */                                                             \
     X(Literal)                                                                 \
     X(Quotation)                                                               \
-    X(SelfEvaluating)                                                          \
     X(Boolean)                                                                 \
     X(Number)                                                                  \
     X(Character)                                                               \
@@ -38,6 +37,8 @@ namespace lpc::frontend {
     X(UnquoteSplicing)                                                         \
     X(MacroUse)                                                                \
     X(MacroBlock)                                                              \
+    X(LetSyntax)                                                               \
+    X(LetRecSyntax)                                                            \
     X(SyntaxSpec)                                                              \
     X(Definition)                                                              \
     X(Define)                                                                  \

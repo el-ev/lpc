@@ -106,6 +106,42 @@ public:
         _cursor++;
         return keyword;
     }
+
+    [[nodiscard]] OptNodePtr get_constant() noexcept {
+        if (_cursor == _tokens.cend())
+            return std::nullopt;
+        OptNodePtr ptr;
+        switch (_cursor->type()) {
+            case TokenType::NUMBER: {
+                auto value = std::get<std::int64_t>(_cursor->value());
+                ptr = std::make_unique<Node>(
+                    NodeType::Number, _cursor->location(), value);
+                break;
+            }
+            case TokenType::BOOLEAN: {
+                auto value = std::get<bool>(_cursor->value());
+                ptr = std::make_unique<Node>(
+                    NodeType::Boolean, _cursor->location(), value);
+                break;
+            }
+            case TokenType::CHARACTER: {
+                auto value = std::get<char>(_cursor->value());
+                ptr = std::make_unique<Node>(
+                    NodeType::Character, _cursor->location(), value);
+                break;
+            }
+            case TokenType::STRING: {
+                auto value = std::get<std::string>(_cursor->value());
+                ptr = std::make_unique<Node>(
+                    NodeType::String, _cursor->location(), std::move(value));
+                break;
+            }
+            default:
+                return std::nullopt;
+        }
+        _cursor++;
+        return ptr;
+    }
 };
 
 class Parser {
@@ -214,6 +250,15 @@ namespace combinators {
         using produces_nodes = std::true_type;
 
         explicit constexpr GetVariable() noexcept = default;
+
+        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+    };
+
+    struct GetConstant {
+        using manages_rollback = std::true_type;
+        using produces_nodes = std::true_type;
+    
+        explicit constexpr GetConstant() noexcept = default;
 
         [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
     };
