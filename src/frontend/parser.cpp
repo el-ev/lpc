@@ -59,7 +59,7 @@ constexpr const auto TransformerSpec = placeholder<NodeType::TransformerSpec>();
 // A program is a sequence of expressions, definitions,
 // and syntax definitions.
 DEF_RULE_BEGIN(Program)
-Many(Def<ExprOrDef>())
+Many(~Def<ExprOrDef>())
 DEF_RULE_END(Program)
 
 DEF_RULE_BEGIN(ExprOrDef)
@@ -70,8 +70,8 @@ any(
   , chain(
         !LPAREN
       , !OneKeyword<Keyword::BEGIN>()
-      , Def<ExprOrDef>()
-      , Many(Def<ExprOrDef>())
+      , ~Def<ExprOrDef>()
+      , Many(~Def<ExprOrDef>())
       , !RPAREN
     )
 )
@@ -514,6 +514,20 @@ template <ParserRule R>
     if (!result)
         return std::nullopt;
     return NodeList {};
+}
+
+template <ParserRule R>
+[[nodiscard]] OptNodeList Flatten<R>::operator()(
+    ParserImpl& parser) const noexcept {
+    auto result = R()(parser);
+    if (!result)
+        return std::nullopt;
+    if (result->size() != 1) {
+        Error("Flatten rule expected exactly one node, found: ", result->size());
+        parser.fail();
+        return std::nullopt;
+    }
+    return std::move(result.value()[0]->children());
 }
 
 } // namespace lpc::frontend::combinators

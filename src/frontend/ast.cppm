@@ -100,8 +100,12 @@ public:
         return _location;
     }
 
-    [[nodiscard]] const NodeList& children() const noexcept {
+    [[nodiscard]] const NodeList& children() const& noexcept {
         return _children;
+    }
+
+    [[nodiscard]] NodeList&& children() noexcept {
+        return std::move(_children);
     }
 
     void add_child(NodePtr child) {

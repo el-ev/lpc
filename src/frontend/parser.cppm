@@ -299,6 +299,19 @@ namespace combinators {
         [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
     };
 
+    template <ParserRule R>
+    struct Flatten {
+        // Flatten is used to flatten the result of a rule.
+        // It does not access the parser state.
+        using manages_rollback = R::manages_rollback;
+        using produces_nodes = std::true_type;
+
+        explicit constexpr Flatten() noexcept = default;
+        explicit constexpr Flatten(R /* r */) noexcept { };
+
+        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+    };
+
     // It is left-associative, thus looks (and works) like a *
     // when debugging.
     template <ParserRule Lhs, ParserRule Rhs>
@@ -317,6 +330,11 @@ namespace combinators {
     template <ParserRule R>
     constexpr Drop<R> operator!(R r) {
         return Drop<R> { r };
+    }
+
+    template <ParserRule R>
+    [[nodiscard]] constexpr Flatten<R> operator~(R r) {
+        return Flatten<R> { r };
     }
 
     template <template <typename, typename> class Rewrite, ParserRule... Rules>
@@ -364,7 +382,6 @@ namespace combinators {
     [[nodiscard]] constexpr auto any(Rules... rules) noexcept {
         return build_chain<Any>(rules...);
     }
-
 } // namespace combinators
 
 } // namespace lpc::frontend
