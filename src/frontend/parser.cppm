@@ -15,6 +15,12 @@ using OptNodeList = std::optional<NodeList>;
 
 export class Parser;
 
+#ifdef NDEBUG
+#define DEBUG_TRANSPARENT
+#else
+#define DEBUG_TRANSPARENT [[__gnu__::__always_inline__]] [[gnu::nodebug]]
+#endif
+
 class ParserImpl {
 private:
     using token_iterator = std::vector<Token>::const_iterator;
@@ -112,32 +118,31 @@ public:
             return std::nullopt;
         OptNodePtr ptr;
         switch (_cursor->type()) {
-            case TokenType::NUMBER: {
-                auto value = std::get<std::int64_t>(_cursor->value());
-                ptr = std::make_unique<Node>(
-                    NodeType::Number, _cursor->location(), value);
-                break;
-            }
-            case TokenType::BOOLEAN: {
-                auto value = std::get<bool>(_cursor->value());
-                ptr = std::make_unique<Node>(
-                    NodeType::Boolean, _cursor->location(), value);
-                break;
-            }
-            case TokenType::CHARACTER: {
-                auto value = std::get<char>(_cursor->value());
-                ptr = std::make_unique<Node>(
-                    NodeType::Character, _cursor->location(), value);
-                break;
-            }
-            case TokenType::STRING: {
-                auto value = std::get<std::string>(_cursor->value());
-                ptr = std::make_unique<Node>(
-                    NodeType::String, _cursor->location(), std::move(value));
-                break;
-            }
-            default:
-                return std::nullopt;
+        case TokenType::NUMBER: {
+            auto value = std::get<std::int64_t>(_cursor->value());
+            ptr = std::make_unique<Node>(
+                NodeType::Number, _cursor->location(), value);
+            break;
+        }
+        case TokenType::BOOLEAN: {
+            auto value = std::get<bool>(_cursor->value());
+            ptr = std::make_unique<Node>(
+                NodeType::Boolean, _cursor->location(), value);
+            break;
+        }
+        case TokenType::CHARACTER: {
+            auto value = std::get<char>(_cursor->value());
+            ptr = std::make_unique<Node>(
+                NodeType::Character, _cursor->location(), value);
+            break;
+        }
+        case TokenType::STRING: {
+            auto value = std::get<std::string>(_cursor->value());
+            ptr = std::make_unique<Node>(
+                NodeType::String, _cursor->location(), std::move(value));
+            break;
+        }
+        default: return std::nullopt;
         }
         _cursor++;
         return ptr;
@@ -184,7 +189,7 @@ namespace combinators {
 
         explicit constexpr Def() noexcept = default;
 
-        [[nodiscard]] OptNodeList operator()(
+        DEBUG_TRANSPARENT [[nodiscard]] OptNodeList operator()(
             ParserImpl& parser) const noexcept {
             return Wrapper::rule()(parser);
         }
@@ -257,7 +262,7 @@ namespace combinators {
     struct GetConstant {
         using manages_rollback = std::true_type;
         using produces_nodes = std::true_type;
-    
+
         explicit constexpr GetConstant() noexcept = default;
 
         [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
@@ -358,7 +363,8 @@ namespace combinators {
         explicit constexpr Drop() noexcept = default;
         explicit constexpr Drop(R /* r */) noexcept { };
 
-        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+        DEBUG_TRANSPARENT [[nodiscard]] OptNodeList operator()(
+            ParserImpl& parser) const noexcept;
     };
 
     template <ParserRule R>
@@ -371,7 +377,8 @@ namespace combinators {
         explicit constexpr Flatten() noexcept = default;
         explicit constexpr Flatten(R /* r */) noexcept { };
 
-        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+        DEBUG_TRANSPARENT [[nodiscard]] OptNodeList operator()(
+            ParserImpl& parser) const noexcept;
     };
 
     // It is left-associative, thus looks (and works) like a *
@@ -390,12 +397,12 @@ namespace combinators {
 
     // Drop a syntax-only rule, usually a single token.
     template <ParserRule R>
-    constexpr Drop<R> operator!(R r) {
+    DEBUG_TRANSPARENT constexpr Drop<R> operator!(R r) {
         return Drop<R> { r };
     }
 
     template <ParserRule R>
-    [[nodiscard]] constexpr Flatten<R> operator~(R r) {
+    DEBUG_TRANSPARENT [[nodiscard]] constexpr Flatten<R> operator~(R r) {
         return Flatten<R> { r };
     }
 
@@ -445,5 +452,36 @@ namespace combinators {
         return build_chain<Any>(rules...);
     }
 } // namespace combinators
+
+namespace rules {
+
+#define DECL_RULE(R)                                                           \
+    struct R {                                                                 \
+        DEBUG_TRANSPARENT [[nodiscard]] static constexpr auto rule() noexcept; \
+    }
+
+    DECL_RULE(Program);
+    DECL_RULE(ExprOrDef);
+    DECL_RULE(Expression);
+    DECL_RULE(Literal);
+    DECL_RULE(Quotation);
+    DECL_RULE(ProcedureCall);
+    DECL_RULE(Lambda);
+    DECL_RULE(Formals);
+    DECL_RULE(Body);
+    DECL_RULE(Sequence);
+    DECL_RULE(If);
+    DECL_RULE(Assignment);
+    DECL_RULE(MacroUse);
+    DECL_RULE(MacroBlock);
+    DECL_RULE(LetSyntax);
+    DECL_RULE(LetRecSyntax);
+    DECL_RULE(SyntaxSpec);
+    DECL_RULE(Definition);
+    DECL_RULE(Define);
+    DECL_RULE(DefFormals);
+    DECL_RULE(SyntaxDefinition);
+    DECL_RULE(Datum);
+}
 
 } // namespace lpc::frontend

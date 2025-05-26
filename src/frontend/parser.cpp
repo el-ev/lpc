@@ -12,11 +12,6 @@ using namespace lpc::frontend::combinators;
 // clang-format off
 namespace rules {
 
-#define DECL_RULE(R)                                                           \
-    struct R {                                                                 \
-        [[nodiscard]] static constexpr auto rule() noexcept;                   \
-    }
-
 #define DEF_RULE_BEGIN(R)                                                      \
     constexpr auto R::rule() noexcept {                                        \
         return make_node<NodeType::R>(
@@ -35,29 +30,6 @@ template <NodeType T>
 constexpr auto placeholder() noexcept {
     return !LPAREN>>!RPAREN;
 }
-
-DECL_RULE(Program);
-DECL_RULE(ExprOrDef);
-DECL_RULE(Expression);
-DECL_RULE(Literal);
-DECL_RULE(Quotation);
-DECL_RULE(ProcedureCall);
-DECL_RULE(Lambda);
-DECL_RULE(Formals);
-DECL_RULE(Body);
-DECL_RULE(Sequence);
-DECL_RULE(If);
-DECL_RULE(Assignment);
-DECL_RULE(MacroUse);
-DECL_RULE(MacroBlock);
-DECL_RULE(LetSyntax);
-DECL_RULE(LetRecSyntax);
-DECL_RULE(SyntaxSpec);
-DECL_RULE(Definition);
-DECL_RULE(Define);
-DECL_RULE(DefFormals);
-DECL_RULE(SyntaxDefinition);
-DECL_RULE(Datum);
 
 constexpr const auto GetIdentifier =
     any(
@@ -93,7 +65,7 @@ DEF_RULE_END(ExprOrDef)
 DEF_RULE_BEGIN(Expression)
 any(
     GetVariable()
-  , Def<Literal>()
+  , ~Def<Literal>()
   , Def<ProcedureCall>()
   , Def<Lambda>()
   , Def<If>()
