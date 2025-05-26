@@ -374,19 +374,8 @@ DEF_RULE_END(Template)
 // clang-format on
 
 void Parser::parse() noexcept {
-    OptNodeList program = Def<rules::Program>()(_cursor);
-    if (!program) {
-        Error("Failed to parse program at ", _cursor.loc());
-        _cursor.fail();
-        return;
-    }
-    if (program->size() != 1) {
-        Error("Program should have exactly one root node, found: ",
-            program->size());
-        _cursor.fail();
-        return;
-    }
-    _root = std::move(program.value()[0]);
+    auto rule = rules::Program::rule();
+    _root = std::move(rule(_cursor).value()[0]);
     if (!_cursor.is_eof()) {
         Error("Unexpected tokens after parsing the root node");
         _cursor.fail();
