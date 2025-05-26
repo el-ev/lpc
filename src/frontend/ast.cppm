@@ -45,7 +45,9 @@ namespace lpc::frontend {
     /* TODO transformer spec */                                                \
     X(SyntaxDefinition)                                                        \
     X(TransformerSpec)                                                         \
-    X(Keyword)
+    X(Keyword)                                                                 \
+    X(Datum)                                                                   \
+    X(Token)
 
 #define ENUM_VALUE(name) name,
 export enum class NodeType : std::uint8_t { NODE_TYPE_LIST(ENUM_VALUE) };

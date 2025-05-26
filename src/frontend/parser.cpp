@@ -48,10 +48,20 @@ DECL_RULE(Body);
 DECL_RULE(Sequence);
 DECL_RULE(If);
 DECL_RULE(Assignment);
+DECL_RULE(MacroUse);
+DECL_RULE(MacroBlock);
+DECL_RULE(SyntaxSpec);
 DECL_RULE(Definition);
 DECL_RULE(Define);
 DECL_RULE(DefFormals);
 DECL_RULE(SyntaxDefinition);
+DECL_RULE(Datum);
+
+constexpr const auto GetIdentifier =
+    any(
+        GetVariable(),
+        GetKeyword()
+    );
 
 constexpr const auto TransformerSpec = placeholder<NodeType::TransformerSpec>();
 
@@ -86,8 +96,8 @@ any(
   , Def<Lambda>()
   , Def<If>()
   , Def<Assignment>()
-  , placeholder<NodeType::MacroUse>()
-  , placeholder<NodeType::MacroBlock>()
+  , Def<MacroUse>()
+  , Def<MacroBlock>()
 )
 DEF_RULE_END(Expression)
 
@@ -104,10 +114,8 @@ DEF_RULE_END(Literal)
 DEF_RULE_BEGIN(ProcedureCall)
 chain(
     !LPAREN
-  , Def<Expression>()  // operator
-  , Many(
-        Def<Expression>()  // operands
-    )
+  , Def<Expression>()
+  , Many(Def<Expression>())
   , !RPAREN
 )
 DEF_RULE_END(ProcedureCall)
@@ -179,6 +187,42 @@ chain(
 )
 DEF_RULE_END(Assignment)
 
+DEF_RULE_BEGIN(MacroUse)
+chain(
+    !LPAREN
+  , GetIdentifier
+  , Many(Def<Expression>())   // arguments
+  , !RPAREN
+)
+DEF_RULE_END(MacroUse)
+
+DEF_RULE_BEGIN(MacroBlock)
+chain(
+    !LPAREN
+  , any(
+        !OneVariable<hash_string("let-syntax")>()
+      , !OneVariable<hash_string("letrec-syntax")>()
+    )
+  , !LPAREN
+  , Many(Def<SyntaxSpec>())
+  , !RPAREN
+  , Def<Body>()
+  , !RPAREN
+)
+DEF_RULE_END(MacroBlock)
+
+// Syntax Specification
+DEF_RULE_BEGIN(SyntaxSpec)
+chain(
+    !LPAREN
+  , GetVariable()                  // name
+  , TransformerSpec            // transformer spec
+  , Many(Def<Expression>())    // body
+  , !RPAREN
+)
+DEF_RULE_END(SyntaxSpec)
+
+
 // 5.2 Definitions
 DEF_RULE_BEGIN(Definition)
 any(
@@ -230,7 +274,7 @@ DEF_RULE_BEGIN(SyntaxDefinition)
 chain(
     !LPAREN
   , !OneVariable<hash_string("define-syntax")>()
-  , GetVariable()
+  , GetIdentifier
   , TransformerSpec
   , !RPAREN
 )
@@ -321,6 +365,17 @@ template <Keyword K>
     if (parser.match<K>())
         return NodeList {};
     return std::nullopt;
+}
+
+[[nodiscard]] OptNodeList GetKeyword::operator()(
+    ParserImpl& parser) const noexcept {
+    auto kw = parser.get_keyword();
+    if (!kw)
+        return std::nullopt;
+    NodeList result;
+    result.emplace_back(std::make_unique<Node>(
+        NodeType::Keyword, (parser.cur() - 1)->location(), *kw));
+    return result;
 }
 
 template <std::size_t Hash>
@@ -523,7 +578,8 @@ template <ParserRule R>
     if (!result)
         return std::nullopt;
     if (result->size() != 1) {
-        Error("Flatten rule expected exactly one node, found: ", result->size());
+        Error(
+            "Flatten rule expected exactly one node, found: ", result->size());
         parser.fail();
         return std::nullopt;
     }

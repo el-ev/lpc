@@ -98,6 +98,14 @@ public:
         _cursor++;
         return ident;
     }
+
+    [[nodiscard]] std::optional<Keyword> get_keyword() noexcept {
+        if (_cursor == _tokens.cend() || _cursor->type() != TokenType::KEYWORD)
+            return std::nullopt;
+        auto keyword = std::get<Keyword>(_cursor->value());
+        _cursor++;
+        return keyword;
+    }
 };
 
 class Parser {
@@ -167,6 +175,15 @@ namespace combinators {
 
         explicit constexpr OneKeyword() noexcept = default;
         explicit constexpr OneKeyword(Keyword /* k */) noexcept { };
+
+        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+    };
+
+    struct GetKeyword {
+        using manages_rollback = std::true_type;
+        using produces_nodes = std::true_type;
+
+        explicit constexpr GetKeyword() noexcept = default;
 
         [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
     };
