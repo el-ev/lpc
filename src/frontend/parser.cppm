@@ -13,104 +13,109 @@ using OptNodePtr = std::optional<NodePtr>;
 using NodeList = std::vector<NodePtr>;
 using OptNodeList = std::optional<NodeList>;
 
-export class Parser;
-
 #ifdef NDEBUG
 #define DEBUG_TRANSPARENT
 #else
 #define DEBUG_TRANSPARENT [[__gnu__::__always_inline__]] [[gnu::nodebug]]
 #endif
 
-class ParserImpl {
+class Cursor {
 private:
-    using token_iterator = std::vector<Token>::const_iterator;
-    std::vector<Token> _tokens;
-    token_iterator _cursor;
-    std::vector<token_iterator> _cur_stack;
-    NodePtr _root;
+    const std::vector<Token>& _tokens;
     bool _failed = false;
+    std::vector<Token>::const_iterator _token;
 
 public:
-    explicit constexpr ParserImpl(std::vector<Token>&& tokens) noexcept
-        : _tokens(std::move(tokens))
-        , _cursor(_tokens.cbegin())
-        , _cur_stack(1, _cursor) {
+    explicit constexpr Cursor(const std::vector<Token>& tokens) noexcept
+        : _tokens(tokens)
+        , _token(_tokens.begin()) {
     }
 
-    void run() noexcept;
+    constexpr Cursor(const Cursor&) = delete;
+    constexpr Cursor& operator=(const Cursor&) = delete;
+
+    constexpr Cursor(Cursor&&) noexcept = default;
+
+    [[nodiscard]] inline constexpr const Token* operator->() const noexcept {
+        return &(*_token);
+    }
+
+    [[nodiscard]] inline constexpr const Token& operator*() const noexcept {
+        return *_token;
+    }
+
+    void advance() noexcept {
+        if (_token->type() != TokenType::EOF)
+            ++_token;
+    }
 
     void fail() noexcept {
         _failed = true;
     }
 
-    [[nodiscard]] inline bool is_eof() const noexcept {
-        return _cursor->type() == TokenType::EOF;
+    [[nodiscard]] inline constexpr bool is_failed() const noexcept {
+        return _failed;
+        // || _token->type() == TokenType::INVALID;
     }
+
+    [[nodiscard]] inline constexpr bool is_eof() const noexcept {
+        return _token->type() == TokenType::EOF;
+    }
+
+    [[nodiscard]] inline constexpr std::vector<Token>::const_iterator
+    save() const noexcept {
+        return _token;
+    }
+
+    inline void set(std::vector<Token>::const_iterator other) noexcept {
+        _token = other;
+    }
+
+    [[nodiscard]] inline constexpr Location loc() const noexcept {
+        return _token->location();
+    }
+
+    template <TokenType T>
+    [[nodiscard]] constexpr bool is() const noexcept;
+    template <Keyword K>
+    [[nodiscard]] constexpr bool is() const noexcept;
+    template <std::size_t Hash>
+    [[nodiscard]] constexpr bool is() const noexcept;
+    [[nodiscard]] constexpr OptNodePtr get_keyword() const noexcept;
+    [[nodiscard]] constexpr OptNodePtr get_ident() const noexcept;
+    [[nodiscard]] constexpr OptNodePtr get_constant() const noexcept;
+};
+
+export class Parser {
+private:
+    std::vector<Token> _tokens;
+    Cursor _cursor;
+    NodePtr _root;
+
+    void parse() noexcept;
+
+public:
+    explicit constexpr Parser(std::vector<Token>&& tokens) noexcept
+        : _tokens(std::move(tokens))
+        , _cursor(_tokens) {
+        parse();
+    };
+
+    Parser(const Parser&) = delete;
+    Parser& operator=(const Parser&) = delete;
+
+    Parser(Parser&&) noexcept = default;
 
     [[nodiscard]] inline bool is_failed() const noexcept {
-        return _failed;
+        return _cursor.is_failed();
     }
 
-    [[nodiscard]] inline Location loc() const noexcept {
-        return _cursor->location();
+    [[nodiscard]] inline bool is_eof() const noexcept {
+        return _cursor.is_eof();
     }
 
     [[nodiscard]] inline NodePtr&& root() noexcept {
         return std::move(_root);
-    }
-
-    [[nodiscard]] inline auto cur() const noexcept -> token_iterator {
-        return _cursor;
-    }
-
-    inline void push() noexcept {
-        _cur_stack.push_back(_cursor);
-    }
-
-    inline void pop() noexcept {
-        _cur_stack.pop_back();
-        _cursor = _cur_stack.back();
-    }
-
-    inline void reset_top() noexcept {
-        _cursor = _cur_stack.back();
-    }
-
-    inline void commit() noexcept {
-        _cur_stack.pop_back();
-        _cur_stack.back() = _cursor;
-    }
-
-    inline void sync() noexcept {
-        _cur_stack.back() = _cursor;
-    }
-
-    template <TokenType T>
-    [[nodiscard]] bool match() noexcept;
-    template <Keyword K>
-    [[nodiscard]] bool match() noexcept;
-    [[nodiscard]] bool match(std::size_t hash) noexcept;
-    [[nodiscard]] std::optional<std::string> get_ident() noexcept;
-    [[nodiscard]] std::optional<Keyword> get_keyword() noexcept;
-    [[nodiscard]] OptNodePtr get_constant() noexcept;
-};
-
-class Parser {
-private:
-    ParserImpl _impl;
-
-public:
-    explicit constexpr Parser(std::vector<Token>&& tokens) noexcept
-        : _impl(std::move(tokens)) {
-        _impl.run();
-    }
-
-    [[nodiscard]] inline bool is_failed() const noexcept {
-        return _impl.is_failed();
-    }
-
-    [[nodiscard]] inline NodePtr&& root() noexcept {
-        return std::move(_impl.root());
     }
 };
 
@@ -121,7 +126,7 @@ namespace combinators {
 
     template <typename T>
     concept ParserRule = requires(T t) {
-        { t(std::declval<ParserImpl&>()) } -> std::same_as<OptNodeList>;
+        { t(std::declval<Cursor&>()) } -> std::same_as<OptNodeList>;
         typename T::pure;
         requires BooleanType<typename T::pure>;
         requires(!T::pure::value)
@@ -177,8 +182,8 @@ namespace combinators {
         explicit constexpr Def() noexcept = default;
 
         DEBUG_TRANSPARENT [[nodiscard]] OptNodeList operator()(
-            ParserImpl& parser) const noexcept {
-            return Wrapper::rule()(parser);
+            Cursor& cursor) const noexcept {
+            return Wrapper::rule()(cursor);
         }
     };
 
@@ -187,7 +192,7 @@ namespace combinators {
         using manages_rollback = std::true_type;
         explicit constexpr OneToken() noexcept = default;
 
-        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+        [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
     };
 
     template <Keyword K>
@@ -195,14 +200,14 @@ namespace combinators {
         using manages_rollback = std::true_type;
         explicit constexpr OneKeyword() noexcept = default;
 
-        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+        [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
     };
 
     struct GetKeyword : ImpureCombinator<GetKeyword> {
         using manages_rollback = std::true_type;
         explicit constexpr GetKeyword() noexcept = default;
 
-        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+        [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
     };
 
     template <std::size_t Hash>
@@ -210,7 +215,7 @@ namespace combinators {
         using manages_rollback = std::true_type;
         explicit constexpr OneVariable() noexcept = default;
 
-        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+        [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
     };
 
     template <std::size_t N>
@@ -227,14 +232,14 @@ namespace combinators {
         using manages_rollback = std::true_type;
         explicit constexpr GetVariable() noexcept = default;
 
-        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+        [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
     };
 
     struct GetConstant : ImpureCombinator<GetConstant> {
         using manages_rollback = std::true_type;
         explicit constexpr GetConstant() noexcept = default;
 
-        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+        [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
     };
 
     template <NodeType T, ParserRule R>
@@ -242,7 +247,7 @@ namespace combinators {
         using manages_rollback = std::true_type;
         explicit constexpr OneNode(NodeType /* t */, R /* r */) noexcept { };
 
-        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+        [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
     };
 
     template <NodeType T, ParserRule R>
@@ -260,7 +265,7 @@ namespace combinators {
         explicit constexpr Any() noexcept = default;
         explicit constexpr Any(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
 
-        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+        [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
     };
 
     template <ParserRule Lhs, ParserRule Rhs>
@@ -273,7 +278,7 @@ namespace combinators {
         explicit constexpr Then() noexcept = default;
         explicit constexpr Then(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
 
-        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+        [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
     };
 
     template <ParserRule R>
@@ -285,7 +290,7 @@ namespace combinators {
         explicit constexpr Maybe() noexcept = default;
         explicit constexpr Maybe(R /* r */) noexcept { };
 
-        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+        [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
     };
 
     template <ParserRule R>
@@ -297,7 +302,7 @@ namespace combinators {
         explicit constexpr Many() noexcept = default;
         explicit constexpr Many(R /* r */) noexcept { };
 
-        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+        [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
     };
 
     template <ParserRule R>
@@ -309,7 +314,7 @@ namespace combinators {
         explicit constexpr Require() noexcept = default;
         explicit constexpr Require(R /* r */) noexcept { };
 
-        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+        [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
     };
 
     template <ParserRule R>
@@ -318,7 +323,7 @@ namespace combinators {
         explicit constexpr Drop(R /* r */) noexcept { };
 
         DEBUG_TRANSPARENT [[nodiscard]] OptNodeList operator()(
-            ParserImpl& parser) const noexcept;
+            Cursor& cursor) const noexcept;
     };
 
     template <ParserRule R>
@@ -327,7 +332,7 @@ namespace combinators {
         explicit constexpr Flatten(R /* r */) noexcept { };
 
         DEBUG_TRANSPARENT [[nodiscard]] OptNodeList operator()(
-            ParserImpl& parser) const noexcept;
+            Cursor& cursor) const noexcept;
     };
 
     template <ParserRule R>
@@ -336,7 +341,7 @@ namespace combinators {
         explicit constexpr When(R /* r */) noexcept { };
 
         DEBUG_TRANSPARENT [[nodiscard]] OptNodeList operator()(
-            ParserImpl& parser) const noexcept;
+            Cursor& cursor) const noexcept;
     };
 
     template <ParserRule R>
@@ -345,7 +350,7 @@ namespace combinators {
         explicit constexpr Not(R /* r */) noexcept { };
 
         DEBUG_TRANSPARENT [[nodiscard]] OptNodeList operator()(
-            ParserImpl& parser) const noexcept;
+            Cursor& cursor) const noexcept;
     };
 
     template <ParserRule Lhs, ParserRule Rhs>

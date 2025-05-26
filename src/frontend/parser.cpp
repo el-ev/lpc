@@ -373,52 +373,41 @@ DEF_RULE_END(Template)
 } // namespace rules
 // clang-format on
 
-void ParserImpl::run() noexcept {
-    OptNodeList program = Def<rules::Program>()(*this);
+void Parser::parse() noexcept {
+    OptNodeList program = Def<rules::Program>()(_cursor);
     if (!program) {
-        Error("Failed to parse program at ", loc());
-        _failed = true;
+        Error("Failed to parse program at ", _cursor.loc());
+        _cursor.fail();
         return;
     }
     if (program->size() != 1) {
         Error("Program should have exactly one root node, found: ",
             program->size());
-        _failed = true;
+        _cursor.fail();
         return;
     }
     _root = std::move(program.value()[0]);
-    if (!is_eof()) {
+    if (!_cursor.is_eof()) {
         Error("Unexpected tokens after parsing the root node");
-        _failed = true;
+        _cursor.fail();
         return;
     }
 }
 
 template <TokenType T>
-bool ParserImpl::match() noexcept {
-    if (is_eof())
-        return false;
-    if (_cursor->type() == T) {
-        _cursor++;
-        return true;
-    }
-    return false;
+constexpr bool Cursor::is() const noexcept {
+    return _token->type() == T;
 }
 
 template <Keyword K>
-bool ParserImpl::match() noexcept {
-    if (is_eof())
-        return false;
-    if (_cursor->type() == TokenType::KEYWORD
-        && std::get<Keyword>(_cursor->value()) == K) {
-        _cursor++;
-        return true;
-    }
-    return false;
+constexpr bool Cursor::is() const noexcept {
+    return _token->type() == TokenType::KEYWORD
+        && std::get<Keyword>(_token->value()) == K;
 }
 
-bool ParserImpl::match(std::size_t hash) noexcept {
-    if (is_eof())
+template <std::size_t Hash>
+constexpr bool Cursor::is() const noexcept {
+    if (_token->type() != TokenType::IDENT)
         return false;
     auto string_hash = [](const std::string& str) noexcept {
         std::size_t h = 14695981039346656037ULL;
@@ -428,141 +417,138 @@ bool ParserImpl::match(std::size_t hash) noexcept {
         }
         return h;
     };
-    if (_cursor->type() == TokenType::IDENT
-        && (hash == 0
-            || string_hash(std::get<std::string>(_cursor->value())) == hash)) {
-        _cursor++;
-        return true;
-    }
-    return false;
+    return string_hash(std::get<std::string>(_token->value())) == Hash;
 }
 
-std::optional<std::string> ParserImpl::get_ident() noexcept {
-    if (_cursor == _tokens.cend() || _cursor->type() != TokenType::IDENT)
+constexpr OptNodePtr Cursor::get_keyword() const noexcept {
+    if (_token->type() != TokenType::KEYWORD)
         return std::nullopt;
-    auto ident = std::get<std::string>(_cursor->value());
-    _cursor++;
-    return ident;
+    auto keyword = std::get<Keyword>(_token->value());
+    return std::make_unique<Node>(
+        NodeType::Keyword, _token->location(), keyword);
 }
 
-std::optional<Keyword> ParserImpl::get_keyword() noexcept {
-    if (_cursor == _tokens.cend() || _cursor->type() != TokenType::KEYWORD)
+constexpr OptNodePtr Cursor::get_ident() const noexcept {
+    if (_token->type() != TokenType::IDENT)
         return std::nullopt;
-    auto keyword = std::get<Keyword>(_cursor->value());
-    _cursor++;
-    return keyword;
+    auto ident = std::get<std::string>(_token->value());
+    return std::make_unique<Node>(
+        NodeType::Variable, _token->location(), std::move(ident));
 }
 
-OptNodePtr ParserImpl::get_constant() noexcept {
-    if (_cursor == _tokens.cend())
+constexpr OptNodePtr Cursor::get_constant() const noexcept {
+    if (is_eof())
         return std::nullopt;
     OptNodePtr ptr;
-    switch (_cursor->type()) {
+    switch (_token->type()) {
     case TokenType::NUMBER: {
-        auto value = std::get<std::int64_t>(_cursor->value());
+        auto value = std::get<std::int64_t>(_token->value());
         ptr = std::make_unique<Node>(
-            NodeType::Number, _cursor->location(), value);
+            NodeType::Number, _token->location(), value);
         break;
     }
     case TokenType::BOOLEAN: {
-        auto value = std::get<bool>(_cursor->value());
+        auto value = std::get<bool>(_token->value());
         ptr = std::make_unique<Node>(
-            NodeType::Boolean, _cursor->location(), value);
+            NodeType::Boolean, _token->location(), value);
         break;
     }
     case TokenType::CHARACTER: {
-        auto value = std::get<char>(_cursor->value());
+        auto value = std::get<char>(_token->value());
         ptr = std::make_unique<Node>(
-            NodeType::Character, _cursor->location(), value);
+            NodeType::Character, _token->location(), value);
         break;
     }
     case TokenType::STRING: {
-        auto value = std::get<std::string>(_cursor->value());
+        auto value = std::get<std::string>(_token->value());
         ptr = std::make_unique<Node>(
-            NodeType::String, _cursor->location(), std::move(value));
+            NodeType::String, _token->location(), std::move(value));
         break;
     }
     default: return std::nullopt;
     }
-    _cursor++;
     return ptr;
 }
-
 } // namespace lpc::frontend
 
 namespace lpc::frontend::combinators {
 
 template <TokenType T>
-OptNodeList OneToken<T>::operator()(ParserImpl& parser) const noexcept {
-    if (parser.match<T>())
+OptNodeList OneToken<T>::operator()(Cursor& cursor) const noexcept {
+    if (cursor.is<T>()) {
+        cursor.advance();
         return NodeList {};
+    }
     return std::nullopt;
 }
 
 template <Keyword K>
-OptNodeList OneKeyword<K>::operator()(ParserImpl& parser) const noexcept {
-    if (parser.match<K>())
+OptNodeList OneKeyword<K>::operator()(Cursor& cursor) const noexcept {
+    if (cursor.is<K>()) {
+        cursor.advance();
         return NodeList {};
+    }
     return std::nullopt;
 }
 
-OptNodeList GetKeyword::operator()(ParserImpl& parser) const noexcept {
-    auto kw = parser.get_keyword();
-    if (!kw)
+OptNodeList GetKeyword::operator()(Cursor& cursor) const noexcept {
+    auto keyword = cursor.get_keyword();
+    if (!keyword)
         return std::nullopt;
+    cursor.advance();
     NodeList result;
-    result.emplace_back(std::make_unique<Node>(
-        NodeType::Keyword, (parser.cur() - 1)->location(), *kw));
+    result.emplace_back(std::move(keyword.value()));
     return result;
 }
 
 template <std::size_t Hash>
-OptNodeList OneVariable<Hash>::operator()(ParserImpl& parser) const noexcept {
-    if (parser.match(Hash))
+OptNodeList OneVariable<Hash>::operator()(Cursor& cursor) const noexcept {
+    if (cursor.is<Hash>()) {
+        cursor.advance();
         return NodeList {};
+    }
     return std::nullopt;
 }
 
-OptNodeList GetVariable::operator()(ParserImpl& parser) const noexcept {
-    auto ident = parser.get_ident();
+OptNodeList GetVariable::operator()(Cursor& cursor) const noexcept {
+    auto ident = cursor.get_ident();
     if (!ident)
         return std::nullopt;
+    cursor.advance();
     NodeList result;
-    result.emplace_back(std::make_unique<Node>(
-        NodeType::Variable, (parser.cur() - 1)->location(), std::move(*ident)));
+    result.emplace_back(std::move(ident.value()));
     return result;
 }
 
-OptNodeList GetConstant::operator()(ParserImpl& parser) const noexcept {
-    auto node = parser.get_constant();
+OptNodeList GetConstant::operator()(Cursor& cursor) const noexcept {
+    auto node = cursor.get_constant();
     if (!node)
         return std::nullopt;
+    cursor.advance();
     NodeList result;
     result.emplace_back(std::move(node.value()));
     return result;
 }
 
 template <NodeType T, ParserRule R>
-OptNodeList OneNode<T, R>::operator()(ParserImpl& parser) const noexcept {
+OptNodeList OneNode<T, R>::operator()(Cursor& cursor) const noexcept {
     NodeType t = T;
     (void)t; // Avoid unused variable warning
-    if (parser.is_eof() || parser.is_failed())
+    if (cursor.is_eof() || cursor.is_failed())
         return std::nullopt;
-    Location loc = parser.loc();
+    Location loc = cursor.loc();
     OptNodeList res;
     if constexpr (R::manages_rollback::value) {
-        res = R()(parser);
+        res = R()(cursor);
         if (!res)
             return std::nullopt;
-        parser.sync();
     } else {
-        parser.push();
-        res = R()(parser);
+        auto save = cursor.save();
+        res = R()(cursor);
         if (!res) {
-            parser.pop();
+            cursor.set(save);
             return std::nullopt;
         }
-        parser.commit();
     }
     auto node = std::make_unique<Node>(T, loc, std::move(res.value()));
     NodeList result;
@@ -571,70 +557,54 @@ OptNodeList OneNode<T, R>::operator()(ParserImpl& parser) const noexcept {
 }
 
 template <ParserRule Lhs, ParserRule Rhs>
-OptNodeList Any<Lhs, Rhs>::operator()(ParserImpl& parser) const noexcept {
+OptNodeList Any<Lhs, Rhs>::operator()(Cursor& cursor) const noexcept {
     if constexpr (Lhs::manages_rollback::value
         && Rhs::manages_rollback::value) {
-        auto left = Lhs()(parser);
-        if (left) {
-            parser.sync();
+        auto left = Lhs()(cursor);
+        if (left)
             return left;
-        }
-        if (parser.is_failed())
+        if (cursor.is_failed())
             return std::nullopt;
-        auto right = Rhs()(parser);
-        parser.sync();
+        auto right = Rhs()(cursor);
         return right;
     } else if constexpr (Lhs::manages_rollback::value) {
-        auto left = Lhs()(parser);
-        if (left) {
-            parser.sync();
+        auto left = Lhs()(cursor);
+        if (left)
             return left;
-        }
-        parser.push();
-        auto right = Rhs()(parser);
+        auto save = cursor.save();
+        auto right = Rhs()(cursor);
         if (!right)
-            parser.pop();
-        else
-            parser.commit();
+            cursor.set(save);
         return right;
     } else if constexpr (Rhs::manages_rollback::value) {
-        parser.push();
-        auto left = Lhs()(parser);
-        if (left) {
-            parser.commit();
+        auto save = cursor.save();
+        auto left = Lhs()(cursor);
+        if (left)
             return left;
-        }
-        parser.pop();
-        auto right = Rhs()(parser);
-        parser.sync();
+        cursor.set(save);
+        auto right = Rhs()(cursor);
         return right;
     } else {
-        parser.push();
-        auto left = Lhs()(parser);
-        if (left) {
-            parser.commit();
+        auto save = cursor.save();
+        auto left = Lhs()(cursor);
+        if (left)
             return left;
-        }
-        parser.reset_top();
-        auto right = Rhs()(parser);
+        cursor.set(save);
+        auto right = Rhs()(cursor);
         if (!right)
-            parser.pop();
-        else
-            parser.commit();
+            cursor.set(save);
         return right;
     }
 }
 
 template <ParserRule Lhs, ParserRule Rhs>
-OptNodeList Then<Lhs, Rhs>::operator()(ParserImpl& parser) const noexcept {
-    auto left = Lhs()(parser);
+OptNodeList Then<Lhs, Rhs>::operator()(Cursor& cursor) const noexcept {
+    auto left = Lhs()(cursor);
     if (!left)
         return std::nullopt;
-    parser.sync();
-    auto right = Rhs()(parser);
+    auto right = Rhs()(cursor);
     if (!right)
         return std::nullopt;
-    parser.sync();
 
     left->reserve(left->size() + right->size());
     left->insert(left->end(), std::make_move_iterator(right->begin()),
@@ -644,95 +614,92 @@ OptNodeList Then<Lhs, Rhs>::operator()(ParserImpl& parser) const noexcept {
 }
 
 template <ParserRule R>
-OptNodeList Maybe<R>::operator()(ParserImpl& parser) const noexcept {
+OptNodeList Maybe<R>::operator()(Cursor& cursor) const noexcept {
     if constexpr (R::manages_rollback::value) {
-        auto result = R()(parser);
+        auto result = R()(cursor);
         if (result)
             return std::move(result.value());
         return NodeList {};
     } else {
-        parser.push();
-        auto result = R()(parser);
+        auto save = cursor.save();
+        auto result = R()(cursor);
         if (!result) {
-            parser.pop();
+            cursor.set(save);
             return NodeList {};
         }
-        parser.commit();
         return std::move(result.value());
     }
 }
 
 template <ParserRule R>
-OptNodeList Many<R>::operator()(ParserImpl& parser) const noexcept {
+OptNodeList Many<R>::operator()(Cursor& cursor) const noexcept {
     NodeList result;
     if constexpr (R::manages_rollback::value) {
-        while (auto nl = R()(parser)) {
+        while (auto nl = R()(cursor)) {
             if (result.capacity() - result.size() < nl->size())
                 result.reserve(result.capacity() * 2);
             result.insert(result.end(), std::make_move_iterator(nl->begin()),
                 std::make_move_iterator(nl->end()));
-            parser.sync();
         }
     } else {
-        parser.push();
-        while (auto nl = R()(parser)) {
+        auto save = cursor.save();
+        while (auto nl = R()(cursor)) {
             if (result.capacity() - result.size() < nl->size())
                 result.reserve(result.capacity() * 2);
             result.insert(result.end(), std::make_move_iterator(nl->begin()),
                 std::make_move_iterator(nl->end()));
-            parser.commit();
-            parser.push();
+            save = cursor.save();
         }
-        parser.pop();
+        cursor.set(save);
     }
     return result;
 }
 
 template <ParserRule R>
-OptNodeList Require<R>::operator()(ParserImpl& parser) const noexcept {
-    auto result = R()(parser);
+OptNodeList Require<R>::operator()(Cursor& cursor) const noexcept {
+    auto result = R()(cursor);
     if (!result) {
-        parser.fail();
-        Error("Required rule failed at ", parser.loc());
+        cursor.fail();
+        Error("Required rule failed at ", cursor.loc());
         return std::nullopt;
     }
     return std::move(result.value());
 }
 
 template <ParserRule R>
-OptNodeList Drop<R>::operator()(ParserImpl& parser) const noexcept {
+OptNodeList Drop<R>::operator()(Cursor& cursor) const noexcept {
     if constexpr (!R::produces_nodes::value)
-        return R()(parser);
-    auto result = R()(parser);
+        return R()(cursor);
+    auto result = R()(cursor);
     if (!result)
         return std::nullopt;
     return NodeList {};
 }
 
 template <ParserRule R>
-OptNodeList Flatten<R>::operator()(ParserImpl& parser) const noexcept {
-    auto result = R()(parser);
+OptNodeList Flatten<R>::operator()(Cursor& cursor) const noexcept {
+    auto result = R()(cursor);
     if (!result)
         return std::nullopt;
     if (result->size() != 1) {
         Error(
             "Flatten rule expected exactly one node, found: ", result->size());
-        parser.fail();
+        cursor.fail();
         return std::nullopt;
     }
     return std::move(result.value()[0]->children());
 }
 
 template <ParserRule R>
-OptNodeList When<R>::operator()(ParserImpl& parser) const noexcept {
+OptNodeList When<R>::operator()(Cursor& cursor) const noexcept {
     if constexpr (R::pure::value) {
-        if (R()(parser))
+        if (R()(cursor))
             return NodeList {};
         return std::nullopt;
     } else {
-        parser.push();
-        bool result = !!R()(parser);
-        parser.pop();
+        auto save = cursor.save();
+        bool result = !!R()(cursor);
+        cursor.set(save);
         if (result)
             return NodeList {};
         return std::nullopt;
@@ -740,15 +707,15 @@ OptNodeList When<R>::operator()(ParserImpl& parser) const noexcept {
 }
 
 template <ParserRule R>
-OptNodeList Not<R>::operator()(ParserImpl& parser) const noexcept {
+OptNodeList Not<R>::operator()(Cursor& cursor) const noexcept {
     if constexpr (R::pure::value) {
-        if (R()(parser))
+        if (R()(cursor))
             return std::nullopt;
         return NodeList {};
     } else {
-        parser.push();
-        bool result = !!R()(parser);
-        parser.pop();
+        auto save = cursor.save();
+        bool result = !!R()(cursor);
+        cursor.set(save);
         if (result)
             return std::nullopt;
         return NodeList {};

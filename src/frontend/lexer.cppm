@@ -27,6 +27,7 @@ public:
             if (auto token = advance()) {
                 _tokens.push_back(std::move(*token));
             } else if (!is_eof()) {
+                _tokens.emplace_back(TokenType::INVALID, "INVALID", loc());
                 _failed = true;
                 break;
             }

@@ -61,6 +61,7 @@ export enum class TokenType : std::uint8_t {
     DOT,
 
     EOF,
+    INVALID,
 };
 
 export [[nodiscard]] constexpr auto token_type_to_string(TokenType type)
@@ -81,6 +82,7 @@ export [[nodiscard]] constexpr auto token_type_to_string(TokenType type)
     case TokenType::COMMA_AT    : return "COMMA_AT";
     case TokenType::DOT         : return "DOT";
     case TokenType::EOF         : return "EOF";
+    case TokenType::INVALID     : return "INVALID";
     }
     return "UNKNOWN";
 }
