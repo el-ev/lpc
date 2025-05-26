@@ -67,7 +67,7 @@ DEF_RULE_END(Program)
 
 DEF_RULE_BEGIN(ExprOrDef)
 any(
-    ~Def<Definition>()
+    ~Def<Definitions>()
   , Def<SyntaxDefinition>()
   , Def<Expression>()
   , chain(
@@ -153,7 +153,7 @@ DEF_RULE_END(Formals)
 
 DEF_RULE_BEGIN(Body)
 chain(
-    Many(Def<Definition>())
+    Many(Def<Definitions>())
   , Def<Sequence>()
 )
 DEF_RULE_END(Body)
@@ -233,19 +233,19 @@ DEF_RULE_END(SyntaxSpec)
 
 
 // 5.2 Definitions
-DEF_RULE_BEGIN(Definition)
+DEF_RULE_BEGIN(Definitions)
 any(
-    Def<Define>()
+    Def<Definition>()
   , chain(
         !LPAREN
       , !OneKeyword<Keyword::BEGIN>()
-      , Many(Def<Define>())
+      , Many(Def<Definition>())
       , !RPAREN
     )
 )
 DEF_RULE_END(Definition)
 
-DEF_RULE_BEGIN(Define)
+DEF_RULE_BEGIN(Definition)
 chain(
     !LPAREN
   , !OneKeyword<Keyword::DEFINE>()
@@ -268,7 +268,7 @@ chain(
     )
   , !RPAREN
 )
-DEF_RULE_END(Define)
+DEF_RULE_END(Definition)
 
 // 5.3 Syntax Definitions
 DEF_RULE_BEGIN(SyntaxDefinition)

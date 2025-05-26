@@ -35,8 +35,8 @@ namespace lpc::frontend {
     X(LetSyntax)                                                               \
     X(LetRecSyntax)                                                            \
     X(SyntaxSpec)                                                              \
-    X(Definition)                                                              \
-    X(Define)                                                                  \
+    X(Definitions)                                                              \
+    X(Definition)                                                                  \
     X(SyntaxDefinition)                                                        \
     X(TransformerSpec)                                                         \
     X(SyntaxRule)                                                              \
