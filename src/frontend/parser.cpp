@@ -658,4 +658,36 @@ OptNodeList Flatten<R>::operator()(ParserImpl& parser) const noexcept {
     return std::move(result.value()[0]->children());
 }
 
+template <ParserRule R>
+OptNodeList When<R>::operator()(ParserImpl& parser) const noexcept {
+    if constexpr (R::pure::value) {
+        if (R()(parser))
+            return NodeList {};
+        return std::nullopt;
+    } else {
+        parser.push();
+        bool result = !!R()(parser);
+        parser.pop();
+        if (result)
+            return NodeList {};
+        return std::nullopt;
+    }
+}
+
+template <ParserRule R>
+OptNodeList Not<R>::operator()(ParserImpl& parser) const noexcept {
+    if constexpr (R::pure::value) {
+        if (R()(parser))
+            return std::nullopt;
+        return NodeList {};
+    } else {
+        parser.push();
+        bool result = !!R()(parser);
+        parser.pop();
+        if (result)
+            return std::nullopt;
+        return NodeList {};
+    }
+}
+
 } // namespace lpc::frontend::combinators
