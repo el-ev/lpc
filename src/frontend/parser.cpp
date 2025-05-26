@@ -234,7 +234,7 @@ DEF_RULE_END(DefFormals)
 DEF_RULE_BEGIN(SyntaxDefinition)
 chain(
     !LPAREN
-  , !OneIdent<hash_string<13>("define-syntax")>()
+  , !OneIdent<hash_string("define-syntax")>()
   , one_ident()
   , TransformerSpec
   , !RPAREN
@@ -293,19 +293,17 @@ template <Keyword K>
 [[nodiscard]] OptNodePtr ParserImpl::match(std::size_t hash) noexcept {
     if (_cursor == _tokens.cend())
         return std::nullopt;
-    auto string_hash = [](const char* str) noexcept {
+    auto string_hash = [](const std::string& str) noexcept {
         std::size_t h = 14695981039346656037ULL;
-        for (std::size_t i = 0; str[i] != '\0'; ++i) {
-            h ^= static_cast<std::size_t>(str[i]);
+        for (const char& it : str) {
+            h ^= static_cast<std::size_t>(it);
             h *= 1099511628211ULL;
         }
         return h;
     };
     if (_cursor->type() == TokenType::IDENT
         && (hash == 0
-            || string_hash(
-                   std::get<std::string>(_cursor->value()).c_str())
-                == hash))
+            || string_hash(std::get<std::string>(_cursor->value())) == hash))
         return std::make_unique<TerminalNode>(*_cursor++);
     return std::nullopt;
 }

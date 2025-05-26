@@ -169,15 +169,14 @@ namespace combinators {
         return OneIdent<0>();
     }
 
-    template <std::size_t idx>
-    consteval std::size_t hash_string(const char* str) noexcept {
-        return static_cast<std::size_t>(str[idx])
-            ^ (hash_string<idx - 1>(str) * 1099511628211ULL);
-    }
-
-    template <>
-    consteval std::size_t hash_string<0>(const char* str) noexcept {
-        return 14695981039346656037ULL ^ static_cast<std::size_t>(str[0]);
+    template <std::size_t N>
+    consteval std::size_t hash_string(const char (&str)[N]) noexcept {
+        std::size_t h = 14695981039346656037ULL;
+        for (std::size_t i = 0; i < N - 1; ++i) {
+            h ^= static_cast<std::size_t>(str[i]);
+            h *= 1099511628211ULL;
+        }
+        return h;
     }
 
     template <NodeType T, ParserRule R>
