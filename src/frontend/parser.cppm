@@ -1,3 +1,4 @@
+#include <type_traits>
 export module lpc.frontend.parser;
 
 import std;
@@ -73,7 +74,6 @@ public:
     }
 
     inline void reset_top() noexcept {
-        // assert(_cur_stack.size() > 1);
         _cursor = _cur_stack.back();
     }
 
@@ -83,9 +83,6 @@ public:
     }
 
     inline void sync() noexcept {
-        // if (is_eof())
-        //     return;
-        // assert(_cur_stack.size() > 1);
         _cur_stack.back() = _cursor;
     }
 
@@ -125,8 +122,6 @@ namespace combinators {
         typename T::manages_rollback;
         requires std::same_as<typename T::manages_rollback, std::true_type>
             || std::same_as<typename T::manages_rollback, std::false_type>;
-        // if true, the rule creates an empty list when it succeeds,
-        //          and std::nullopt when it fails.
         typename T::produces_nodes;
         requires std::same_as<typename T::produces_nodes, std::true_type>
             || std::same_as<typename T::produces_nodes, std::false_type>;
@@ -147,8 +142,6 @@ namespace combinators {
 
     template <TokenType T>
     struct OneToken {
-        // If a single token fails to match, it does not
-        // consume the input, so rollback is not needed.
         using manages_rollback = std::true_type;
         using produces_nodes = std::false_type;
 
@@ -160,7 +153,6 @@ namespace combinators {
 
     template <Keyword K>
     struct OneKeyword {
-        // A keyword is lexically the same as a token
         using manages_rollback = std::true_type;
         using produces_nodes = std::false_type;
 
@@ -181,7 +173,6 @@ namespace combinators {
 
     template <std::size_t Hash>
     struct OneVariable {
-        // OneIdent is lexically the same as a token,
         using manages_rollback = std::true_type;
         using produces_nodes = std::false_type;
 
@@ -220,9 +211,6 @@ namespace combinators {
 
     template <NodeType T, ParserRule R>
     struct OneNode {
-        // OneNode is responsible for managing rollback behavior for
-        // the rule it encapsulates. It ensures that rollback will
-        // not propagate to higher levels.
         using manages_rollback = std::true_type;
         using produces_nodes = std::true_type;
 
@@ -239,7 +227,6 @@ namespace combinators {
 
     template <ParserRule Lhs, ParserRule Rhs>
     struct Any {
-        // Any could also stop rollback propagation.
         using manages_rollback = std::true_type;
         using produces_nodes = std::bool_constant<Lhs::produces_nodes::value
             || Rhs::produces_nodes::value>;
@@ -252,10 +239,6 @@ namespace combinators {
 
     template <ParserRule Lhs, ParserRule Rhs>
     struct Then {
-        // Then creates rollback points.
-        // Then itself does not process rollback, because long
-        // Then chain exists, and it may cause performance
-        // issues if rollback is processed for each Then.
         using manages_rollback = std::false_type;
         using produces_nodes = std::bool_constant<Lhs::produces_nodes::value
             || Rhs::produces_nodes::value>;
@@ -268,7 +251,6 @@ namespace combinators {
 
     template <ParserRule R>
     struct Maybe {
-        // Maybe eliminates rollback points.
         using manages_rollback = std::true_type;
         using produces_nodes = R::produces_nodes;
 
@@ -280,7 +262,6 @@ namespace combinators {
 
     template <ParserRule R>
     struct Many {
-        // Many eliminates rollback points.
         using manages_rollback = std::true_type;
         using produces_nodes = R::produces_nodes;
 
@@ -292,8 +273,6 @@ namespace combinators {
 
     template <ParserRule R>
     struct Require {
-        // Require throws an error if the rule fails to match.
-        // So rollback does not matter.
         using manages_rollback = std::true_type;
         using produces_nodes = R::produces_nodes;
 
@@ -305,8 +284,6 @@ namespace combinators {
 
     template <ParserRule R>
     struct Drop {
-        // Drop is used to drop the result of a rule.
-        // It does not access the parser state.
         using manages_rollback = R::manages_rollback;
         using produces_nodes = std::false_type;
 
@@ -319,8 +296,6 @@ namespace combinators {
 
     template <ParserRule R>
     struct Flatten {
-        // Flatten is used to flatten the result of a rule.
-        // It does not access the parser state.
         using manages_rollback = R::manages_rollback;
         using produces_nodes = std::true_type;
 
@@ -331,15 +306,11 @@ namespace combinators {
             ParserImpl& parser) const noexcept;
     };
 
-    // It is left-associative, thus looks (and works) like a *
-    // when debugging.
     template <ParserRule Lhs, ParserRule Rhs>
     constexpr Any<Lhs, Rhs> operator|(Lhs lhs, Rhs rhs) {
         return Any<Lhs, Rhs> { lhs, rhs };
     }
 
-    // It is left-associative, thus looks (and works) like a *
-    // when debugging.
     template <ParserRule Lhs, ParserRule Rhs>
     constexpr Then<Lhs, Rhs> operator>>(Lhs lhs, Rhs rhs) {
         return Then<Lhs, Rhs> { lhs, rhs };
