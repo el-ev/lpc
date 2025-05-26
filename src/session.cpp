@@ -39,7 +39,7 @@ int Session::run() noexcept {
 
     if (_print_tokens) {
         for (const auto& token : tokens)
-            std::print("{} ", token.literal());
+            std::print("{} ", token.lexeme());
         std::println("\n");
     }
 

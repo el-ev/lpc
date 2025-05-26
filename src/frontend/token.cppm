@@ -51,7 +51,6 @@ export enum class TokenType : std::uint8_t {
     CHARACTER,
     STRING,
 
-    // operators
     LPAREN,
     RPAREN,
     SHELL_LPAREN,
@@ -130,7 +129,7 @@ export class Token {
 private:
     TokenType _type;
     std::variant<std::int64_t, bool, char, std::string, Keyword> _value_storage;
-    std::string _literal;
+    std::string _lexeme;
     Location _location;
 
     friend std::ostream& operator<<(std::ostream& os, const Token& token);
@@ -139,43 +138,43 @@ private:
 
 public:
     explicit constexpr Token(TokenType type, std::int64_t value,
-        std::string&& literal, Location location) noexcept
+        std::string&& lexeme, Location location) noexcept
         : _type(type)
         , _value_storage(value)
-        , _literal(std::move(literal))
+        , _lexeme(std::move(lexeme))
         , _location(location) {
     }
 
-    explicit constexpr Token(TokenType type, bool value, std::string&& literal,
+    explicit constexpr Token(TokenType type, bool value, std::string&& lexeme,
         Location location) noexcept
         : _type(type)
         , _value_storage(value)
-        , _literal(std::move(literal))
+        , _lexeme(std::move(lexeme))
         , _location(location) {
     }
 
-    explicit constexpr Token(TokenType type, char value, std::string&& literal,
+    explicit constexpr Token(TokenType type, char value, std::string&& lexeme,
         Location location) noexcept
         : _type(type)
         , _value_storage(value)
-        , _literal(std::move(literal))
+        , _lexeme(std::move(lexeme))
         , _location(location) {
     }
 
     explicit constexpr Token(TokenType type, std::string&& value,
-        std::string&& literal, Location location) noexcept
+        std::string&& lexeme, Location location) noexcept
         : _type(type)
         , _value_storage(std::move(value))
-        , _literal(std::move(literal))
+        , _lexeme(std::move(lexeme))
         , _location(location) {
     }
 
     // keyword token constructor
     explicit constexpr Token(TokenType type, Keyword keyword,
-        std::string&& literal, Location location) noexcept
+        std::string&& lexeme, Location location) noexcept
         : _type(type)
         , _value_storage(keyword)
-        , _literal(std::move(literal))
+        , _lexeme(std::move(lexeme))
         , _location(location) {
     }
 
@@ -195,8 +194,8 @@ public:
         return _value_storage;
     }
 
-    [[nodiscard]] constexpr auto literal() const noexcept -> std::string_view {
-        return _literal;
+    [[nodiscard]] constexpr auto lexeme() const noexcept -> std::string_view {
+        return _lexeme;
     }
 
     [[nodiscard]] constexpr auto location() const noexcept -> const Location& {
@@ -204,7 +203,7 @@ public:
     }
 
     [[nodiscard]] constexpr auto len() const noexcept -> std::size_t {
-        return _literal.length();
+        return _lexeme.length();
     }
 };
 
@@ -227,7 +226,7 @@ inline auto operator<<(std::ostream& os, const Token& token) -> std::ostream& {
         default  : value_str = "#\\" + std::string(1, c); break;
         }
         break;
-    case TokenType::STRING : value_str = token._literal; break;
+    case TokenType::STRING : value_str = token._lexeme; break;
     case TokenType::KEYWORD: {
         auto keyword = std::get<Keyword>(token.value());
         value_str = lex_defs::KEYWORDS[static_cast<std::size_t>(keyword)];

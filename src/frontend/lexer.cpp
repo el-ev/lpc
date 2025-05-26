@@ -235,9 +235,9 @@ std::optional<Token> Lexer::read_number(std::optional<int> radix) noexcept {
 
     std::string value_string(value_start.substr(0, size - sharp_count));
     std::int64_t value = std::stoll(value_string, nullptr, radix_value);
-    std::string literal = std::string(_cursor.substr(0, size));
+    std::string lexeme = std::string(_cursor.substr(0, size));
     _cursor.remove_prefix(size);
-    return Token(TokenType::NUMBER, value, std::move(literal), _loc);
+    return Token(TokenType::NUMBER, value, std::move(lexeme), _loc);
 }
 
 std::optional<Token> Lexer::read_character() noexcept {
