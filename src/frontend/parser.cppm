@@ -90,7 +90,7 @@ public:
     template <Keyword K>
     [[nodiscard]] OptNodePtr match() noexcept;
 
-    [[nodiscard]] OptNodePtr match(std::string_view id) noexcept;
+    [[nodiscard]] OptNodePtr match(std::size_t hash) noexcept;
 };
 
 class Parser {
@@ -155,16 +155,30 @@ namespace combinators {
         [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
     };
 
+    template <std::size_t Hash>
     struct OneIdent {
         // OneIdent is lexically the same as a token,
         using no_rollback = std::true_type;
-        std::string_view id;
 
-        explicit constexpr OneIdent(std::string_view id = "") noexcept
-            : id(id) { };
+        explicit constexpr OneIdent() noexcept = default;
 
         [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
     };
+
+    [[nodiscard]] constexpr auto one_ident() noexcept {
+        return OneIdent<0>();
+    }
+
+    template <std::size_t idx>
+    consteval std::size_t hash_string(const char* str) noexcept {
+        return static_cast<std::size_t>(str[idx])
+            ^ (hash_string<idx - 1>(str) * 1099511628211ULL);
+    }
+
+    template <>
+    consteval std::size_t hash_string<0>(const char* str) noexcept {
+        return 14695981039346656037ULL ^ static_cast<std::size_t>(str[0]);
+    }
 
     template <NodeType T, ParserRule R>
     struct OneNode {

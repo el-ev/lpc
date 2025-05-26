@@ -33,7 +33,7 @@ DEFTOKEN(DOT);
 
 template <NodeType T>
 constexpr auto placeholder() noexcept {
-    return OneIdent(" !won't match anything! ");
+    return !LPAREN>>!RPAREN;
 }
 
 DECL_RULE(Program);
@@ -71,6 +71,7 @@ any(
         !LPAREN
       , !OneKeyword<Keyword::BEGIN>()
       , Def<TopLevel>()
+      , Many(Def<TopLevel>())
       , !RPAREN
     )
 )
@@ -92,7 +93,7 @@ DEF_RULE_END(Expression)
 
 // (4.1.1) a variable reference
 DEF_RULE_BEGIN(Variable)
-OneIdent()
+one_ident()
 DEF_RULE_END(Variable)
 
 // (4.1.2) a literal
@@ -121,26 +122,26 @@ DEF_RULE_BEGIN(Lambda)
 chain(
     !LPAREN
   , !OneKeyword<Keyword::LAMBDA>()
-  , placeholder<NodeType::Formals>()
-  , placeholder<NodeType::Body>()
+  , Def<Formals>()
+  , Def<Body>()
   , !RPAREN
 )
 DEF_RULE_END(Lambda)
 
 DEF_RULE_BEGIN(Formals)
 any(
-    OneIdent()
+    one_ident()
   , chain(
         !LPAREN
-      , Many(OneIdent())
+      , Many(one_ident())
       , !RPAREN
     )
   , chain(
         !LPAREN
-      , OneIdent()
-      , Many<OneIdent>()
+      , one_ident()
+      , Many(one_ident())
       , !DOT   // FIXME: maybe confusing
-      , OneIdent()
+      , one_ident()
       , !RPAREN
     )
 )
@@ -202,12 +203,12 @@ chain(
   , !OneKeyword<Keyword::DEFINE>()
   , any(
         chain(
-            OneIdent()
+            one_ident()
           , Def<Expression>()
         )
       , chain(
             !LPAREN
-          , OneIdent()
+          , one_ident()
           , Def<DefFormals>()
           , !RPAREN
           , Def<Body>()
@@ -219,11 +220,11 @@ DEF_RULE_END(Define)
 
 DEF_RULE_BEGIN(DefFormals)
 chain(
-    Many(OneIdent())
+    Many(one_ident())
   , Maybe(
         chain(
             !DOT  // FIXME: maybe confusing
-          , OneIdent()
+          , one_ident()
         )
     )
 )
@@ -233,9 +234,9 @@ DEF_RULE_END(DefFormals)
 DEF_RULE_BEGIN(SyntaxDefinition)
 chain(
     !LPAREN
-  , !OneIdent("define-syntax")
-  , OneIdent()
-  , TransformerSpec 
+  , !OneIdent<hash_string<13>("define-syntax")>()
+  , one_ident()
+  , TransformerSpec
   , !RPAREN
 )
 DEF_RULE_END(SyntaxDefinition)
@@ -257,6 +258,7 @@ void ParserImpl::run() noexcept {
         return;
     }
     _root = std::move(program.value()[0]);
+    std::println("{}", _root->dump_json());
     if (!is_eof()) {
         Error("Unexpected tokens after parsing the root node");
         _failed = true;
@@ -288,11 +290,22 @@ template <Keyword K>
     return std::nullopt;
 }
 
-[[nodiscard]] OptNodePtr ParserImpl::match(std::string_view id) noexcept {
+[[nodiscard]] OptNodePtr ParserImpl::match(std::size_t hash) noexcept {
     if (_cursor == _tokens.cend())
         return std::nullopt;
+    auto string_hash = [](const char* str) noexcept {
+        std::size_t h = 14695981039346656037ULL;
+        for (std::size_t i = 0; str[i] != '\0'; ++i) {
+            h ^= static_cast<std::size_t>(str[i]);
+            h *= 1099511628211ULL;
+        }
+        return h;
+    };
     if (_cursor->type() == TokenType::IDENT
-        && (id.empty() || std::get<std::string>(_cursor->value()) == id))
+        && (hash == 0
+            || string_hash(
+                   std::get<std::string>(_cursor->value()).c_str())
+                == hash))
         return std::make_unique<TerminalNode>(*_cursor++);
     return std::nullopt;
 }
@@ -323,9 +336,10 @@ template <Keyword K>
     return std::nullopt;
 }
 
-[[nodiscard]] OptNodeList OneIdent::operator()(
+template <std::size_t Hash>
+[[nodiscard]] OptNodeList OneIdent<Hash>::operator()(
     ParserImpl& parser) const noexcept {
-    if (auto node = parser.match(id)) {
+    if (auto node = parser.match(Hash)) {
         NodeList result;
         result.emplace_back(std::move(node.value()));
         return result;
@@ -336,6 +350,10 @@ template <Keyword K>
 template <NodeType T, ParserRule R>
 [[nodiscard]] OptNodeList OneNode<T, R>::operator()(
     ParserImpl& parser) const noexcept {
+    NodeType t = T;
+    (void)t; // Avoid unused variable warning
+    if (parser.is_eof() || parser.is_failed())
+        return std::nullopt;
     Location loc = parser.loc();
     OptNodeList res;
     if constexpr (R::no_rollback::value) {
