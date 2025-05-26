@@ -1,3 +1,3 @@
 # LPC
 
-This project seems to be evolving into a toy compiler.
+This project seems to be evolving into a toy transplier.
