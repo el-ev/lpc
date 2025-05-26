@@ -141,7 +141,8 @@ namespace combinators {
     template <typename Derived, BooleanType Pure>
     struct CombinatorBase {
         using pure = Pure;
-        using produces_nodes = std::bool_constant<!Pure::value>;
+        using produces_nodes
+            = std::conditional_t<Pure::value, std::false_type, void>;
         using manages_rollback
             = std::conditional_t<Pure::value, std::true_type, void>;
 
@@ -189,6 +190,7 @@ namespace combinators {
 
     template <TokenType T>
     struct OneToken : ImpureCombinator<OneToken<T>> {
+        using produces_nodes = std::false_type;
         using manages_rollback = std::true_type;
         explicit constexpr OneToken() noexcept = default;
 
@@ -197,6 +199,7 @@ namespace combinators {
 
     template <Keyword K>
     struct OneKeyword : ImpureCombinator<OneKeyword<K>> {
+        using produces_nodes = std::false_type;
         using manages_rollback = std::true_type;
         explicit constexpr OneKeyword() noexcept = default;
 
@@ -204,6 +207,7 @@ namespace combinators {
     };
 
     struct GetKeyword : ImpureCombinator<GetKeyword> {
+        using produces_nodes = std::true_type;
         using manages_rollback = std::true_type;
         explicit constexpr GetKeyword() noexcept = default;
 
@@ -212,6 +216,7 @@ namespace combinators {
 
     template <std::size_t Hash>
     struct OneVariable : ImpureCombinator<OneVariable<Hash>> {
+        using produces_nodes = std::false_type;
         using manages_rollback = std::true_type;
         explicit constexpr OneVariable() noexcept = default;
 
@@ -229,6 +234,7 @@ namespace combinators {
     }
 
     struct GetVariable : ImpureCombinator<GetVariable> {
+        using produces_nodes = std::true_type;
         using manages_rollback = std::true_type;
         explicit constexpr GetVariable() noexcept = default;
 
@@ -236,6 +242,7 @@ namespace combinators {
     };
 
     struct GetConstant : ImpureCombinator<GetConstant> {
+        using produces_nodes = std::true_type;
         using manages_rollback = std::true_type;
         explicit constexpr GetConstant() noexcept = default;
 
@@ -244,6 +251,7 @@ namespace combinators {
 
     template <NodeType T, ParserRule R>
     struct OneNode : ImpureCombinator<OneNode<T, R>> {
+        using produces_nodes = std::false_type;
         using manages_rollback = std::true_type;
         explicit constexpr OneNode(NodeType /* t */, R /* r */) noexcept { };
 
@@ -319,6 +327,7 @@ namespace combinators {
 
     template <ParserRule R>
     struct Drop : TransparentUnaryCombinator<Drop<R>, R> {
+        using produces_nodes = std::false_type;
         explicit constexpr Drop() noexcept = default;
         explicit constexpr Drop(R /* r */) noexcept { };
 

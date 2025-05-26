@@ -426,8 +426,6 @@ constexpr OptNodePtr Cursor::get_ident() const noexcept {
 }
 
 constexpr OptNodePtr Cursor::get_constant() const noexcept {
-    if (is_eof())
-        return std::nullopt;
     OptNodePtr ptr;
     switch (_token->type()) {
     case TokenType::NUMBER: {

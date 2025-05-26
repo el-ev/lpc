@@ -45,7 +45,8 @@ namespace lpc::frontend {
     X(Template)                                                                \
     X(Keyword)                                                                 \
     X(Datum)                                                                   \
-    X(Token)
+    X(List)                                                                    \
+    X(Vector)                                                                  
 
 #define ENUM_VALUE(name) name,
 export enum class NodeType : std::uint8_t { NODE_TYPE_LIST(ENUM_VALUE) };
