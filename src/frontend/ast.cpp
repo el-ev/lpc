@@ -16,26 +16,33 @@ std::string ASTNode::dump_json(std::size_t indent) const {
     switch (_type) {
     case NodeType::Variable:
     case NodeType::String:
-        result += ",\n" + prefix + R"(  "value": ")"
-            + std::get<std::string>(_value) + "\"";
+        result += ",\n" + prefix + R"(  "value": ")";
+        for (char c : std::get<std::string>(_value)) {
+            switch (c) {
+            case '"' : result += "\\\""; break;
+            case '\\': result += "\\\\"; break;
+            default  : result += c; break;
+            }
+        }
+        result += "\"";
         break;
     case NodeType::Character: {
         char c = std::get<char>(_value);
-        result += ",\n" + prefix + R"(  "value": ")";
+        result += ",\n" + prefix + R"(  "value": "#\)";
         switch (c) {
         case '\n': result += "newline"; break;
         case ' ' : result += "space"; break;
         default  : result += c; break;
         }
         result += "\"";
-    }
+    } break;
     case NodeType::Number:
         result += ",\n" + prefix
             + "  \"value\": " + std::to_string(std::get<std::int64_t>(_value));
         break;
     case NodeType::Boolean:
         result += ",\n" + prefix
-            + "  \"value\": " + (std::get<bool>(_value) ? "#t" : "#f");
+            + "  \"value\": " + (std::get<bool>(_value) ? "\"#t\"" : "\"#f\"");
         break;
     case NodeType::Keyword:
         result += ",\n" + prefix + R"(  "value": ")"
