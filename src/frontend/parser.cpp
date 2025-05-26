@@ -26,12 +26,8 @@ DEFTOKEN(LPAREN);
 DEFTOKEN(RPAREN);
 DEFTOKEN(DOT);
 
-
-constexpr const auto GetIdentifier =
-    any(
-        GetVariable(),
-        GetKeyword()
-    );
+constexpr const auto GetIdentifier
+    = []() noexcept { return any(GetVariable(), GetKeyword()); };
 
 // 5.1 Programs
 // A program is a sequence of expressions, definitions,
@@ -173,7 +169,7 @@ DEF_RULE_END(Assignment)
 DEF_RULE_BEGIN(MacroUse)
 chain(
     !LPAREN
-  , GetIdentifier
+  , GetIdentifier()
   , Many(~Def<Expression>())   // arguments
   , !RPAREN
 )
@@ -265,7 +261,7 @@ DEF_RULE_BEGIN(SyntaxDefinition)
 chain(
     !LPAREN
   , !OneVariable<hash_string("define-syntax")>()
-  , GetIdentifier
+  , GetIdentifier()
   , Def<TransformerSpec>()
   , !RPAREN
 )
@@ -278,7 +274,7 @@ DEF_RULE_END(TransformerSpec)
 DEF_RULE_BEGIN(Datum)
 any(
     GetConstant()
-  , GetIdentifier
+  , GetIdentifier()
   , chain(
         !LPAREN
       , Many(~Def<Datum>())
