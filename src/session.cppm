@@ -6,8 +6,6 @@ namespace lpc {
 
 export class Session {
 private:
-    bool _failed = false;
-    std::optional<std::ofstream> _output_file;
     std::string_view _output_file_path;
     std::vector<std::string_view> _input_file_paths;
 
@@ -22,14 +20,8 @@ public:
     Session(Session&&) = default;
     Session& operator=(Session&&) = default;
 
-    ~Session() {
-        if (_output_file)
-            _output_file->close();
-    }
-
     void set_output_file(std::string_view path) {
         _output_file_path = path;
-        _output_file.emplace(path.data());
     }
 
     void set_input_files(std::vector<std::string_view>&& input_file_paths) {
@@ -42,10 +34,6 @@ public:
 
     void enable_print_ast() {
         _print_ast = true;
-    }
-
-    void fail() noexcept {
-        _failed = true;
     }
 
     [[nodiscard]] int run() noexcept;

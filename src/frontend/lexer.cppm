@@ -22,7 +22,7 @@ public:
         , _source(source)
         , _cursor(source)
         , _line_start(source.begin())
-        , _loc(file, 1, 0) {
+        , _loc(loc()) {
         while (!is_eof() && !_failed) {
             if (auto token = advance()) {
                 _tokens.push_back(std::move(*token));

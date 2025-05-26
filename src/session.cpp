@@ -9,13 +9,12 @@ namespace lpc {
 
 int Session::run() noexcept {
     if (_input_file_paths.empty()) {
-        Error("No input files provided");
+        Error("No input files");
         return 1;
     }
-    if (_input_file_paths.size() > 1) {
+    if (_input_file_paths.size() > 1)
         Warn("Warning: Multiple input files provided, "
              "only the first one will be used");
-    }
 
     std::ifstream input_file(_input_file_paths[0].data());
 
@@ -53,10 +52,8 @@ int Session::run() noexcept {
 
     auto root = parser.root();
 
-    if (_print_ast) {
-        std::print("{}", root->dump_json());
-        std::println();
-    }
+    if (_print_ast)
+        std::println("{}\n", root->dump_json());
 
     return 0;
 }

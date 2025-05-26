@@ -258,14 +258,8 @@ void ParserImpl::run() noexcept {
         return;
     }
     _root = std::move(program.value()[0]);
-    std::println("{}", _root->dump_json());
     if (!is_eof()) {
         Error("Unexpected tokens after parsing the root node");
-        _failed = true;
-        return;
-    }
-    if (_cur_stack.size() != 1) {
-        Error("Parser stack is not empty");
         _failed = true;
         return;
     }
