@@ -129,7 +129,7 @@ public:
     }
 };
 
-inline AppBuilder App::builder(
+AppBuilder App::builder(
     std::string name, std::string author, std::string description) noexcept {
     return AppBuilder(
         std::move(name), std::move(author), std::move(description));

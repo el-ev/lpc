@@ -53,7 +53,7 @@ bool Lexer::skip_whitespaces() noexcept {
     return true;
 }
 
-[[nodiscard]] std::optional<Token> Lexer::advance() noexcept {
+std::optional<Token> Lexer::advance() noexcept {
     while (skip_atmosphere())
         ;
     if (is_eof())
@@ -73,7 +73,7 @@ bool Lexer::skip_whitespaces() noexcept {
     return std::nullopt;
 }
 
-[[nodiscard]] std::optional<Token> Lexer::read_ident() noexcept {
+std::optional<Token> Lexer::read_ident() noexcept {
     // <identifier> -> <initial> <subsequent>* | <peculiar identifier>
     // <initial> -> <letter> | <special initial>
     // <subsequent> -> <letter> | <digit> | <special subsequent>
@@ -136,7 +136,7 @@ bool Lexer::skip_whitespaces() noexcept {
     return std::nullopt;
 }
 
-[[nodiscard]] std::optional<Token> Lexer::read_sharp() noexcept {
+std::optional<Token> Lexer::read_sharp() noexcept {
     // <boolean> -> #t | #f
     if (_cursor.length() < 2) {
         Error("Incomplete token \"#\" at", _loc);
@@ -176,7 +176,7 @@ bool Lexer::skip_whitespaces() noexcept {
 }
 
 // TODO: only signed integers are supported for now
-[[nodiscard]] std::optional<Token> Lexer::read_number(
+std::optional<Token> Lexer::read_number(
     std::optional<int> radix) noexcept {
     int radix_value = 10;
     bool number_pattern = false;
@@ -241,7 +241,7 @@ bool Lexer::skip_whitespaces() noexcept {
     return Token(TokenType::NUMBER, value, std::move(literal), _loc);
 }
 
-[[nodiscard]] std::optional<Token> Lexer::read_character() noexcept {
+std::optional<Token> Lexer::read_character() noexcept {
     // <character> -> #\<char> | #\<char name>
     // <char> -> (any character)
     // <char name> -> newline | space
@@ -286,7 +286,7 @@ bool Lexer::skip_whitespaces() noexcept {
         TokenType::CHARACTER, character[2], std::string(character), _loc);
 }
 
-[[nodiscard]] std::optional<Token> Lexer::read_string() noexcept {
+std::optional<Token> Lexer::read_string() noexcept {
     // <string> -> "<string element>*"
     // <string element> -> <string char> | \\ | \"
     // <string char> -> [^"\\]
@@ -345,7 +345,7 @@ bool Lexer::skip_whitespaces() noexcept {
         TokenType::STRING, unescape(unescaped_value), std::move(lexeme), _loc);
 }
 
-[[nodiscard]] std::optional<Token> Lexer::read_operator() noexcept {
+std::optional<Token> Lexer::read_operator() noexcept {
     // ()'`,. #( ,@
     switch (_cursor[0]) {
     case '(':
