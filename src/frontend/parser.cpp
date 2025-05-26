@@ -361,7 +361,7 @@ DEF_RULE_END(Pattern)
 
 constexpr const auto TemplateElement = []() noexcept {
     return chain(
-        Def<Template>()
+        ~Def<Template>()
       , Maybe(Ellipsis())
     );
 };
@@ -383,7 +383,7 @@ any(
           , TemplateElement()
           , Many(TemplateElement())
           , OneToken<TokenType::DOT>()
-          , Def<Template>()
+          , ~Def<Template>()
           , !RPAREN
         )
     )
