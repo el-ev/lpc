@@ -10,25 +10,20 @@ namespace lpc::frontend {
 #define NODE_TYPE_LIST(X)                                                      \
     X(Program)                                                                 \
     X(ExprOrDef)                                                               \
-    /* Expressions */                                                          \
     X(Expression)                                                              \
     X(Variable)                                                                \
-    /* literals */                                                             \
     X(Literal)                                                                 \
     X(Quotation)                                                               \
     X(Boolean)                                                                 \
     X(Number)                                                                  \
     X(Character)                                                               \
     X(String)                                                                  \
-    /* Procedures */                                                           \
     X(ProcedureCall)                                                           \
     X(Lambda)                                                                  \
     X(Formals)                                                                 \
     X(Body)                                                                    \
     X(Sequence)                                                                \
-    /* Conditional */                                                          \
     X(If)                                                                      \
-    /* Binding constructs */                                                   \
     X(Assignment)                                                              \
     /* Derived */                                                              \
     X(Quasiquote)                                                              \
@@ -43,9 +38,11 @@ namespace lpc::frontend {
     X(Definition)                                                              \
     X(Define)                                                                  \
     X(DefFormals)                                                              \
-    /* TODO transformer spec */                                                \
     X(SyntaxDefinition)                                                        \
     X(TransformerSpec)                                                         \
+    X(SyntaxRule)                                                              \
+    X(Pattern)                                                                 \
+    X(Template)                                                                \
     X(Keyword)                                                                 \
     X(Datum)                                                                   \
     X(Token)

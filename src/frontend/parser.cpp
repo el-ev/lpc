@@ -122,7 +122,7 @@ any(
         !LPAREN
       , GetVariable()
       , Many(GetVariable())
-      , !DOT
+      , DOT
       , GetVariable()
       , !RPAREN
     )
@@ -267,10 +267,6 @@ chain(
 )
 DEF_RULE_END(SyntaxDefinition)
 
-DEF_RULE_BEGIN(TransformerSpec)
-!LPAREN >> !RPAREN // TODO
-DEF_RULE_END(TransformerSpec)
-
 DEF_RULE_BEGIN(Datum)
 any(
     GetConstant()
@@ -284,7 +280,7 @@ any(
         !LPAREN
       , ~Def<Datum>()
       , Many(~Def<Datum>())
-      , !DOT
+      , DOT
       , ~Def<Datum>()
       , !RPAREN
     )
@@ -304,6 +300,75 @@ any(
     )
 )
 DEF_RULE_END(Datum)
+
+DEF_RULE_BEGIN(TransformerSpec)
+chain(
+    !LPAREN
+  , !OneVariable<hash_string("syntax-rules")>()
+  , !LPAREN
+  , Many(GetIdentifier())
+  , !RPAREN
+  , Many(Def<SyntaxRule>())
+  , !RPAREN
+)
+DEF_RULE_END(TransformerSpec)
+
+DEF_RULE_BEGIN(SyntaxRule)
+chain(
+    !LPAREN
+  , Def<Pattern>()
+  , Def<Template>()
+  , !RPAREN
+)
+DEF_RULE_END(SyntaxRule)
+
+DEF_RULE_BEGIN(Pattern)
+any(
+    chain(
+        Not<OneVariable<hash_string("...")>>()
+      , GetVariable()
+    )
+  , chain(
+        !LPAREN
+      , Many(~Def<Pattern>())
+      , !RPAREN
+    )
+  , chain(
+        !LPAREN
+      , ~Def<Pattern>()
+      , Many(~Def<Pattern>())
+      , DOT
+      , ~Def<Pattern>()
+      , !RPAREN
+    )
+  , chain(
+        !LPAREN
+      , ~Def<Pattern>()
+      , Many(~Def<Pattern>())
+      , When<OneVariable<hash_string("...")>>()
+      , GetVariable()                        // TODO Bad solution
+    )
+  , chain(
+        !OneToken<TokenType::SHELL_LPAREN>() // TODO Won't work
+      , Many(~Def<Pattern>())
+      , !RPAREN
+    )
+  , chain(
+        !OneToken<TokenType::SHELL_LPAREN>()  // TODO Define vector
+      , ~Def<Pattern>()
+      , Many(~Def<Pattern>())
+      , When<OneVariable<hash_string("...")>>()
+      , GetVariable()                        // TODO Bad solution
+    )
+  , GetConstant()
+)
+DEF_RULE_END(Pattern)
+
+DEF_RULE_BEGIN(Template)
+
+    !LPAREN >> !RPAREN
+
+DEF_RULE_END(Template)
 
 } // namespace rules
 // clang-format on
