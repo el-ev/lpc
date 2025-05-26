@@ -8,7 +8,6 @@ import lpc.frontend.ast;
 namespace lpc::frontend {
 
 using Node = ASTNode;
-using TerminalNode = TerminalASTNode;
 using NodePtr = std::unique_ptr<Node>;
 using OptNodePtr = std::optional<NodePtr>;
 using NodeList = std::vector<NodePtr>;
@@ -85,12 +84,20 @@ public:
     }
 
     template <TokenType T>
-    [[nodiscard]] OptNodePtr match() noexcept;
+    [[nodiscard]] bool match() noexcept;
 
     template <Keyword K>
-    [[nodiscard]] OptNodePtr match() noexcept;
+    [[nodiscard]] bool match() noexcept;
 
-    [[nodiscard]] OptNodePtr match(std::size_t hash) noexcept;
+    [[nodiscard]] bool match(std::size_t hash) noexcept;
+
+    [[nodiscard]] std::optional<std::string> get_ident() noexcept {
+        if (_cursor == _tokens.cend() || _cursor->type() != TokenType::IDENT)
+            return std::nullopt;
+        auto ident = std::get<std::string>(_cursor->value());
+        _cursor++;
+        return ident;
+    }
 };
 
 class Parser {
@@ -115,14 +122,21 @@ public:
 namespace combinators {
     template <typename T>
     concept ParserRule = requires(T t) {
-        typename T::no_rollback;
         { t(std::declval<ParserImpl&>()) } -> std::same_as<OptNodeList>;
-        { T::no_rollback::value } -> std::convertible_to<bool>;
+        typename T::manages_rollback;
+        requires std::same_as<typename T::manages_rollback, std::true_type>
+            || std::same_as<typename T::manages_rollback, std::false_type>;
+        // if true, the rule creates an empty list when it succeeds,
+        //          and std::nullopt when it fails.
+        typename T::produces_nodes;
+        requires std::same_as<typename T::produces_nodes, std::true_type>
+            || std::same_as<typename T::produces_nodes, std::false_type>;
     };
 
     template <typename Wrapper>
     struct Def {
-        using no_rollback = std::true_type;
+        using manages_rollback = std::true_type;
+        using produces_nodes = std::true_type;
 
         explicit constexpr Def() noexcept = default;
 
@@ -136,7 +150,8 @@ namespace combinators {
     struct OneToken {
         // If a single token fails to match, it does not
         // consume the input, so rollback is not needed.
-        using no_rollback = std::true_type;
+        using manages_rollback = std::true_type;
+        using produces_nodes = std::false_type;
 
         explicit constexpr OneToken() noexcept = default;
         explicit constexpr OneToken(TokenType /* t */) noexcept { };
@@ -147,7 +162,8 @@ namespace combinators {
     template <Keyword K>
     struct OneKeyword {
         // A keyword is lexically the same as a token
-        using no_rollback = std::true_type;
+        using manages_rollback = std::true_type;
+        using produces_nodes = std::false_type;
 
         explicit constexpr OneKeyword() noexcept = default;
         explicit constexpr OneKeyword(Keyword /* k */) noexcept { };
@@ -156,18 +172,15 @@ namespace combinators {
     };
 
     template <std::size_t Hash>
-    struct OneIdent {
+    struct OneVariable {
         // OneIdent is lexically the same as a token,
-        using no_rollback = std::true_type;
+        using manages_rollback = std::true_type;
+        using produces_nodes = std::false_type;
 
-        explicit constexpr OneIdent() noexcept = default;
+        explicit constexpr OneVariable() noexcept = default;
 
         [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
     };
-
-    [[nodiscard]] constexpr auto one_ident() noexcept {
-        return OneIdent<0>();
-    }
 
     template <std::size_t N>
     consteval std::size_t hash_string(const char (&str)[N]) noexcept {
@@ -179,12 +192,22 @@ namespace combinators {
         return h;
     }
 
+    struct GetVariable {
+        using manages_rollback = std::true_type;
+        using produces_nodes = std::true_type;
+
+        explicit constexpr GetVariable() noexcept = default;
+
+        [[nodiscard]] OptNodeList operator()(ParserImpl& parser) const noexcept;
+    };
+
     template <NodeType T, ParserRule R>
     struct OneNode {
         // OneNode is responsible for managing rollback behavior for
         // the rule it encapsulates. It ensures that rollback will
         // not propagate to higher levels.
-        using no_rollback = std::true_type;
+        using manages_rollback = std::true_type;
+        using produces_nodes = std::true_type;
 
         explicit constexpr OneNode() noexcept = default;
         explicit constexpr OneNode(NodeType /* t */, R /* r */) noexcept { };
@@ -200,7 +223,9 @@ namespace combinators {
     template <ParserRule Lhs, ParserRule Rhs>
     struct Any {
         // Any could also stop rollback propagation.
-        using no_rollback = std::true_type;
+        using manages_rollback = std::true_type;
+        using produces_nodes = std::bool_constant<Lhs::produces_nodes::value
+            || Rhs::produces_nodes::value>;
 
         explicit constexpr Any() noexcept = default;
         explicit constexpr Any(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
@@ -210,13 +235,13 @@ namespace combinators {
 
     template <ParserRule Lhs, ParserRule Rhs>
     struct Then {
-        using is_then = std::true_type;
-
         // Then creates rollback points.
         // Then itself does not process rollback, because long
         // Then chain exists, and it may cause performance
         // issues if rollback is processed for each Then.
-        using no_rollback = std::false_type;
+        using manages_rollback = std::false_type;
+        using produces_nodes = std::bool_constant<Lhs::produces_nodes::value
+            || Rhs::produces_nodes::value>;
 
         explicit constexpr Then() noexcept = default;
         explicit constexpr Then(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
@@ -227,7 +252,8 @@ namespace combinators {
     template <ParserRule R>
     struct Maybe {
         // Maybe eliminates rollback points.
-        using no_rollback = std::true_type;
+        using manages_rollback = std::true_type;
+        using produces_nodes = R::produces_nodes;
 
         explicit constexpr Maybe() noexcept = default;
         explicit constexpr Maybe(R /* r */) noexcept { };
@@ -238,7 +264,8 @@ namespace combinators {
     template <ParserRule R>
     struct Many {
         // Many eliminates rollback points.
-        using no_rollback = std::true_type;
+        using manages_rollback = std::true_type;
+        using produces_nodes = R::produces_nodes;
 
         explicit constexpr Many() noexcept = default;
         explicit constexpr Many(R /* r */) noexcept { };
@@ -250,7 +277,8 @@ namespace combinators {
     struct Require {
         // Require throws an error if the rule fails to match.
         // So rollback does not matter.
-        using no_rollback = std::true_type;
+        using manages_rollback = std::true_type;
+        using produces_nodes = R::produces_nodes;
 
         explicit constexpr Require() noexcept = default;
         explicit constexpr Require(R /* r */) noexcept { };
@@ -262,7 +290,8 @@ namespace combinators {
     struct Drop {
         // Drop is used to drop the result of a rule.
         // It does not access the parser state.
-        using no_rollback = R::no_rollback;
+        using manages_rollback = R::manages_rollback;
+        using produces_nodes = std::false_type;
 
         explicit constexpr Drop() noexcept = default;
         explicit constexpr Drop(R /* r */) noexcept { };

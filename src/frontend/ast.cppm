@@ -9,7 +9,7 @@ namespace lpc::frontend {
 // 7.1 Formal Syntax
 #define NODE_TYPE_LIST(X)                                                      \
     X(Program)                                                                 \
-    X(TopLevel)                                                                \
+    X(ExprOrDef)                                                               \
     /* Expressions */                                                          \
     X(Expression)                                                              \
     X(Variable)                                                                \
@@ -45,8 +45,7 @@ namespace lpc::frontend {
     /* TODO transformer spec */                                                \
     X(SyntaxDefinition)                                                        \
     X(TransformerSpec)                                                         \
-    X(Keyword)                                                                 \
-    X(Token)
+    X(Keyword)
 
 #define ENUM_VALUE(name) name,
 export enum class NodeType : std::uint8_t { NODE_TYPE_LIST(ENUM_VALUE) };
@@ -61,8 +60,6 @@ export [[nodiscard]] constexpr auto node_type_to_string(NodeType type)
 }
 #undef CASE_STATEMENT
 
-export class TerminalASTNode;
-
 export class ASTNode {
 private:
     using Node = ASTNode;
@@ -71,12 +68,20 @@ private:
     NodeType _type;
     Location _location;
     NodeList _children;
+    std::variant<Keyword, std::string, std::int64_t, char, bool> _value;
 
 public:
     explicit ASTNode(NodeType type, Location location, NodeList&& children = {})
         : _type(type)
         , _location(location)
         , _children(std::move(children)) {
+    }
+
+    explicit ASTNode(NodeType type, Location location,
+        std::variant<Keyword, std::string, std::int64_t, char, bool> value)
+        : _type(type)
+        , _location(location)
+        , _value(std::move(value)) {
     }
 
     explicit ASTNode(const ASTNode&) = delete;
@@ -95,10 +100,6 @@ public:
         return _location;
     }
 
-    [[nodiscard]] bool is_terminal() const noexcept {
-        return _type == NodeType::Token;
-    }
-
     [[nodiscard]] const NodeList& children() const noexcept {
         return _children;
     }
@@ -107,28 +108,7 @@ public:
         _children.push_back(std::move(child));
     }
 
-    [[nodiscard]] std::string dump(std::size_t indent = 0) const;
     [[nodiscard]] std::string dump_json(std::size_t indent = 0) const;
-};
-
-class TerminalASTNode : public ASTNode {
-private:
-    Token _token;
-
-public:
-    explicit TerminalASTNode(const Token& token)
-        : ASTNode(NodeType::Token, token.location())
-        , _token(token.copied()) { };
-
-    explicit TerminalASTNode(const TerminalASTNode&) = delete;
-    TerminalASTNode& operator=(const TerminalASTNode&) = delete;
-
-    TerminalASTNode(TerminalASTNode&&) = default;
-    TerminalASTNode& operator=(TerminalASTNode&&) = default;
-
-    [[nodiscard]] const Token& token() const noexcept {
-        return _token;
-    }
 };
 
 } // namespace lpc::frontend

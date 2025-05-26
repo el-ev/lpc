@@ -37,10 +37,10 @@ constexpr auto placeholder() noexcept {
 }
 
 DECL_RULE(Program);
-DECL_RULE(TopLevel);
+DECL_RULE(ExprOrDef);
 DECL_RULE(Expression);
-DECL_RULE(Variable);
 DECL_RULE(Literal);
+DECL_RULE(Quotation);
 DECL_RULE(ProcedureCall);
 DECL_RULE(Lambda);
 DECL_RULE(Formals);
@@ -59,10 +59,10 @@ constexpr const auto TransformerSpec = placeholder<NodeType::TransformerSpec>();
 // A program is a sequence of expressions, definitions,
 // and syntax definitions.
 DEF_RULE_BEGIN(Program)
-Many(Def<TopLevel>())
+Many(Def<ExprOrDef>())
 DEF_RULE_END(Program)
 
-DEF_RULE_BEGIN(TopLevel)
+DEF_RULE_BEGIN(ExprOrDef)
 any(
     Def<Definition>()
   , Def<SyntaxDefinition>()
@@ -70,17 +70,17 @@ any(
   , chain(
         !LPAREN
       , !OneKeyword<Keyword::BEGIN>()
-      , Def<TopLevel>()
-      , Many(Def<TopLevel>())
+      , Def<ExprOrDef>()
+      , Many(Def<ExprOrDef>())
       , !RPAREN
     )
 )
-DEF_RULE_END(TopLevel)
+DEF_RULE_END(ExprOrDef)
 
 // (4.) (7.1.3.) Expressions
 DEF_RULE_BEGIN(Expression)
 any(
-    Def<Variable>()
+    GetVariable()
   , Def<Literal>()
   , Def<ProcedureCall>()
   , Def<Lambda>()
@@ -90,11 +90,6 @@ any(
   , placeholder<NodeType::MacroBlock>()
 )
 DEF_RULE_END(Expression)
-
-// (4.1.1) a variable reference
-DEF_RULE_BEGIN(Variable)
-one_ident()
-DEF_RULE_END(Variable)
 
 // (4.1.2) a literal
 DEF_RULE_BEGIN(Literal)
@@ -130,18 +125,18 @@ DEF_RULE_END(Lambda)
 
 DEF_RULE_BEGIN(Formals)
 any(
-    one_ident()
+    GetVariable()
   , chain(
         !LPAREN
-      , Many(one_ident())
+      , Many(GetVariable())
       , !RPAREN
     )
   , chain(
         !LPAREN
-      , one_ident()
-      , Many(one_ident())
+      , GetVariable()
+      , Many(GetVariable())
       , !DOT   // FIXME: maybe confusing
-      , one_ident()
+      , GetVariable()
       , !RPAREN
     )
 )
@@ -178,7 +173,7 @@ DEF_RULE_BEGIN(Assignment)
 chain(
     !LPAREN
   , !OneKeyword<Keyword::SET>()
-  , Def<Variable>()           // variable
+  , GetVariable()           // variable
   , Def<Expression>()         // value
   , !RPAREN
 )
@@ -203,12 +198,12 @@ chain(
   , !OneKeyword<Keyword::DEFINE>()
   , any(
         chain(
-            one_ident()
+            GetVariable()
           , Def<Expression>()
         )
       , chain(
             !LPAREN
-          , one_ident()
+          , GetVariable()
           , Def<DefFormals>()
           , !RPAREN
           , Def<Body>()
@@ -220,11 +215,11 @@ DEF_RULE_END(Define)
 
 DEF_RULE_BEGIN(DefFormals)
 chain(
-    Many(one_ident())
+    Many(GetVariable())
   , Maybe(
         chain(
             !DOT  // FIXME: maybe confusing
-          , one_ident()
+          , GetVariable()
         )
     )
 )
@@ -234,8 +229,8 @@ DEF_RULE_END(DefFormals)
 DEF_RULE_BEGIN(SyntaxDefinition)
 chain(
     !LPAREN
-  , !OneIdent<hash_string("define-syntax")>()
-  , one_ident()
+  , !OneVariable<hash_string("define-syntax")>()
+  , GetVariable()
   , TransformerSpec
   , !RPAREN
 )
@@ -266,27 +261,31 @@ void ParserImpl::run() noexcept {
 }
 
 template <TokenType T>
-[[nodiscard]] OptNodePtr ParserImpl::match() noexcept {
-    if (_cursor == _tokens.cend())
-        return std::nullopt;
-    if (_cursor->type() == T)
-        return std::make_unique<TerminalNode>(*_cursor++);
-    return std::nullopt;
+[[nodiscard]] bool ParserImpl::match() noexcept {
+    if (is_eof())
+        return false;
+    if (_cursor->type() == T) {
+        _cursor++;
+        return true;
+    }
+    return false;
 }
 
 template <Keyword K>
-[[nodiscard]] OptNodePtr ParserImpl::match() noexcept {
-    if (_cursor == _tokens.cend())
-        return std::nullopt;
+[[nodiscard]] bool ParserImpl::match() noexcept {
+    if (is_eof())
+        return false;
     if (_cursor->type() == TokenType::KEYWORD
-        && std::get<Keyword>(_cursor->value()) == K)
-        return std::make_unique<TerminalNode>(*_cursor++);
-    return std::nullopt;
+        && std::get<Keyword>(_cursor->value()) == K) {
+        _cursor++;
+        return true;
+    }
+    return false;
 }
 
-[[nodiscard]] OptNodePtr ParserImpl::match(std::size_t hash) noexcept {
-    if (_cursor == _tokens.cend())
-        return std::nullopt;
+[[nodiscard]] bool ParserImpl::match(std::size_t hash) noexcept {
+    if (is_eof())
+        return false;
     auto string_hash = [](const std::string& str) noexcept {
         std::size_t h = 14695981039346656037ULL;
         for (const char& it : str) {
@@ -297,9 +296,11 @@ template <Keyword K>
     };
     if (_cursor->type() == TokenType::IDENT
         && (hash == 0
-            || string_hash(std::get<std::string>(_cursor->value())) == hash))
-        return std::make_unique<TerminalNode>(*_cursor++);
-    return std::nullopt;
+            || string_hash(std::get<std::string>(_cursor->value())) == hash)) {
+        _cursor++;
+        return true;
+    }
+    return false;
 }
 
 } // namespace lpc::frontend
@@ -309,34 +310,36 @@ namespace lpc::frontend::combinators {
 template <TokenType T>
 [[nodiscard]] OptNodeList OneToken<T>::operator()(
     ParserImpl& parser) const noexcept {
-    if (auto node = parser.match<T>()) {
-        NodeList result;
-        result.emplace_back(std::move(node.value()));
-        return result;
-    }
+    if (parser.match<T>())
+        return NodeList {};
     return std::nullopt;
 }
 
 template <Keyword K>
 [[nodiscard]] OptNodeList OneKeyword<K>::operator()(
     ParserImpl& parser) const noexcept {
-    if (auto node = parser.match<K>()) {
-        NodeList result;
-        result.emplace_back(std::move(node.value()));
-        return result;
-    }
+    if (parser.match<K>())
+        return NodeList {};
     return std::nullopt;
 }
 
 template <std::size_t Hash>
-[[nodiscard]] OptNodeList OneIdent<Hash>::operator()(
+[[nodiscard]] OptNodeList OneVariable<Hash>::operator()(
     ParserImpl& parser) const noexcept {
-    if (auto node = parser.match(Hash)) {
-        NodeList result;
-        result.emplace_back(std::move(node.value()));
-        return result;
-    }
+    if (parser.match(Hash))
+        return NodeList {};
     return std::nullopt;
+}
+
+[[nodiscard]] OptNodeList GetVariable::operator()(
+    ParserImpl& parser) const noexcept {
+    auto ident = parser.get_ident();
+    if (!ident)
+        return std::nullopt;
+    NodeList result;
+    result.emplace_back(std::make_unique<Node>(
+        NodeType::Variable, (parser.cur() - 1)->location(), std::move(*ident)));
+    return result;
 }
 
 template <NodeType T, ParserRule R>
@@ -348,7 +351,7 @@ template <NodeType T, ParserRule R>
         return std::nullopt;
     Location loc = parser.loc();
     OptNodeList res;
-    if constexpr (R::no_rollback::value) {
+    if constexpr (R::manages_rollback::value) {
         res = R()(parser);
         if (!res)
             return std::nullopt;
@@ -371,7 +374,8 @@ template <NodeType T, ParserRule R>
 template <ParserRule Lhs, ParserRule Rhs>
 [[nodiscard]] OptNodeList Any<Lhs, Rhs>::operator()(
     ParserImpl& parser) const noexcept {
-    if constexpr (Lhs::no_rollback::value && Rhs::no_rollback::value) {
+    if constexpr (Lhs::manages_rollback::value
+        && Rhs::manages_rollback::value) {
         auto left = Lhs()(parser);
         if (left) {
             parser.sync();
@@ -382,7 +386,7 @@ template <ParserRule Lhs, ParserRule Rhs>
         auto right = Rhs()(parser);
         parser.sync();
         return right;
-    } else if constexpr (Lhs::no_rollback::value) {
+    } else if constexpr (Lhs::manages_rollback::value) {
         auto left = Lhs()(parser);
         if (left) {
             parser.sync();
@@ -395,7 +399,7 @@ template <ParserRule Lhs, ParserRule Rhs>
         else
             parser.commit();
         return right;
-    } else if constexpr (Rhs::no_rollback::value) {
+    } else if constexpr (Rhs::manages_rollback::value) {
         parser.push();
         auto left = Lhs()(parser);
         if (left) {
@@ -445,7 +449,7 @@ template <ParserRule Lhs, ParserRule Rhs>
 template <ParserRule R>
 [[nodiscard]] OptNodeList Maybe<R>::operator()(
     ParserImpl& parser) const noexcept {
-    if constexpr (R::no_rollback::value) {
+    if constexpr (R::manages_rollback::value) {
         auto result = R()(parser);
         if (result)
             return std::move(result.value());
@@ -466,7 +470,7 @@ template <ParserRule R>
 [[nodiscard]] OptNodeList Many<R>::operator()(
     ParserImpl& parser) const noexcept {
     NodeList result;
-    if constexpr (R::no_rollback::value) {
+    if constexpr (R::manages_rollback::value) {
         while (auto nl = R()(parser)) {
             if (result.capacity() - result.size() < nl->size())
                 result.reserve(result.capacity() * 2);
@@ -504,6 +508,8 @@ template <ParserRule R>
 template <ParserRule R>
 [[nodiscard]] OptNodeList Drop<R>::operator()(
     ParserImpl& parser) const noexcept {
+    if constexpr (!R::produces_nodes::value)
+        return R()(parser);
     auto result = R()(parser);
     if (!result)
         return std::nullopt;
