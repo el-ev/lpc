@@ -176,8 +176,7 @@ std::optional<Token> Lexer::read_sharp() noexcept {
 }
 
 // TODO: only signed integers are supported for now
-std::optional<Token> Lexer::read_number(
-    std::optional<int> radix) noexcept {
+std::optional<Token> Lexer::read_number(std::optional<int> radix) noexcept {
     int radix_value = 10;
     bool number_pattern = false;
     auto value_start = _cursor;
