@@ -7,8 +7,6 @@ import lpc.frontend.ast;
 
 namespace lpc::frontend {
 
-using namespace lpc::frontend::combinators;
-
 // clang-format off
 namespace rules {
 
@@ -24,7 +22,32 @@ namespace rules {
 
 DEFTOKEN(LPAREN);
 DEFTOKEN(RPAREN);
-DEFTOKEN(DOT);
+
+template<ParserRule R>
+constexpr auto List = [] () noexcept {
+    return make_node<NodeType::List>(
+        chain(
+            !LPAREN
+          , R() 
+          , Many(R())
+          , OneToken<TokenType::DOT>()
+          , R()
+          , !RPAREN
+        )
+    );
+};
+
+
+template<ParserRule R>
+constexpr auto Vector = [] () noexcept {
+    return make_node<NodeType::Vector>(
+        chain(
+            !OneToken<TokenType::SHELL_LPAREN>()
+          , R()
+          , !RPAREN
+        )
+    );
+};
 
 constexpr const auto GetIdentifier
     = []() noexcept { return any(GetVariable(), GetKeyword()); };
@@ -118,14 +141,7 @@ any(
       , Many(GetVariable())
       , !RPAREN
     )
-  , chain(
-        !LPAREN
-      , GetVariable()
-      , Many(GetVariable())
-      , DOT
-      , GetVariable()
-      , !RPAREN
-    )
+  , List<GetVariable>()
 )
 DEF_RULE_END(Formals)
 
@@ -233,28 +249,20 @@ chain(
           , ~Def<Expression>()
         )
       , chain(
-            !LPAREN
-          , GetVariable()
-          , Def<DefFormals>()
-          , !RPAREN
+            any(
+                chain(
+                    !LPAREN
+                    , GetVariable()
+                    , !RPAREN
+                ),
+                List<GetVariable>()
+            )
           , Def<Body>()
         )
     )
   , !RPAREN
 )
 DEF_RULE_END(Define)
-
-DEF_RULE_BEGIN(DefFormals)
-chain(
-    Many(GetVariable())
-  , Maybe(
-        chain(
-            !DOT
-          , GetVariable()
-        )
-    )
-)
-DEF_RULE_END(DefFormals)
 
 // 5.3 Syntax Definitions
 DEF_RULE_BEGIN(SyntaxDefinition)
@@ -276,17 +284,10 @@ any(
       , Many(~Def<Datum>())
       , !RPAREN
     )
-  , chain(
-        !LPAREN
-      , ~Def<Datum>()
-      , Many(~Def<Datum>())
-      , DOT
-      , ~Def<Datum>()
-      , !RPAREN
-    )
+  , List<Flatten<Def<Datum>>>()
   , chain(
         any(
-            OneToken<TokenType::APOSTROPHE>()
+            OneToken<TokenType::APOSTROPHE>()  // TODO Won't work
           , OneToken<TokenType::BACKTICK>()
           , OneToken<TokenType::COMMA>()
           , OneToken<TokenType::COMMA_AT>()
@@ -333,33 +334,23 @@ any(
       , Many(~Def<Pattern>())
       , !RPAREN
     )
-  , chain(
-        !LPAREN
-      , ~Def<Pattern>()
-      , Many(~Def<Pattern>())
-      , DOT
-      , ~Def<Pattern>()
-      , !RPAREN
-    )
+  , List<Flatten<Def<Pattern>>>()
   , chain(
         !LPAREN
       , ~Def<Pattern>()
       , Many(~Def<Pattern>())
       , When<OneVariable<hash_string("...")>>()
       , GetVariable()                        // TODO Bad solution
-    )
-  , chain(
-        !OneToken<TokenType::SHELL_LPAREN>() // TODO Won't work
-      , Many(~Def<Pattern>())
       , !RPAREN
     )
-  , chain(
-        !OneToken<TokenType::SHELL_LPAREN>()  // TODO Define vector
-      , ~Def<Pattern>()
-      , Many(~Def<Pattern>())
-      , When<OneVariable<hash_string("...")>>()
-      , GetVariable()                        // TODO Bad solution
-    )
+  , Vector<Many<Flatten<Def<Pattern>>>>()
+  , Vector<decltype(
+        chain(
+          Many(~Def<Pattern>())
+          , When<OneVariable<hash_string("...")>>()
+          , GetVariable()                        // TODO Bad solution
+        )
+    )>()
   , GetConstant()
 )
 DEF_RULE_END(Pattern)

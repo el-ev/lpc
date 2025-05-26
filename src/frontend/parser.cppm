@@ -253,6 +253,7 @@ namespace combinators {
     struct OneNode : ImpureCombinator<OneNode<T, R>> {
         using produces_nodes = std::false_type;
         using manages_rollback = std::true_type;
+        explicit constexpr OneNode() noexcept = default;
         explicit constexpr OneNode(NodeType /* t */, R /* r */) noexcept { };
 
         [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
@@ -432,6 +433,8 @@ namespace combinators {
 
 namespace rules {
 
+using namespace lpc::frontend::combinators;
+
 #define DECL_RULE(R)                                                           \
     struct R {                                                                 \
         DEBUG_TRANSPARENT [[nodiscard]] static constexpr auto rule() noexcept; \
@@ -456,7 +459,6 @@ namespace rules {
     DECL_RULE(SyntaxSpec);
     DECL_RULE(Definition);
     DECL_RULE(Define);
-    DECL_RULE(DefFormals);
     DECL_RULE(SyntaxDefinition);
     DECL_RULE(Datum);
     DECL_RULE(TransformerSpec);

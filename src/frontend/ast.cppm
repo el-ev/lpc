@@ -37,7 +37,6 @@ namespace lpc::frontend {
     X(SyntaxSpec)                                                              \
     X(Definition)                                                              \
     X(Define)                                                                  \
-    X(DefFormals)                                                              \
     X(SyntaxDefinition)                                                        \
     X(TransformerSpec)                                                         \
     X(SyntaxRule)                                                              \
