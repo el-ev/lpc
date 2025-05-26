@@ -52,6 +52,12 @@ constexpr auto Vector = [] () noexcept {
 constexpr const auto GetIdentifier
     = []() noexcept { return any(GetVariable(), GetKeyword()); };
 
+constexpr const auto Ellipsis = []() noexcept {
+    return chain(
+        When<OneVariable<hash_string("...")>>(),
+        GetVariable() // TODO Bad solution
+    );
+};
 // 5.1 Programs
 // A program is a sequence of expressions, definitions,
 // and syntax definitions.
@@ -339,26 +345,51 @@ any(
         !LPAREN
       , ~Def<Pattern>()
       , Many(~Def<Pattern>())
-      , When<OneVariable<hash_string("...")>>()
-      , GetVariable()                        // TODO Bad solution
+      , Ellipsis()
       , !RPAREN
     )
   , Vector<Many<Flatten<Def<Pattern>>>>()
   , Vector<decltype(
         chain(
           Many(~Def<Pattern>())
-          , When<OneVariable<hash_string("...")>>()
-          , GetVariable()                        // TODO Bad solution
+          , Ellipsis()
         )
     )>()
   , GetConstant()
 )
 DEF_RULE_END(Pattern)
 
+constexpr const auto TemplateElement = []() noexcept {
+    return chain(
+        Def<Template>()
+      , Maybe(Ellipsis())
+    );
+};
+
 DEF_RULE_BEGIN(Template)
-
-    !LPAREN >> !RPAREN
-
+any(
+    chain(
+        Not<OneVariable<hash_string("...")>>()
+      , GetVariable()
+    )
+  , chain(
+        !LPAREN
+      , Many(TemplateElement())
+      , !RPAREN
+    )
+  , make_node<NodeType::List>(
+        chain(
+            !LPAREN
+          , TemplateElement()
+          , Many(TemplateElement())
+          , OneToken<TokenType::DOT>()
+          , Def<Template>()
+          , !RPAREN
+        )
+    )
+  , Vector<Many<Flatten<Def<Template>>>>()
+  , GetConstant()
+)
 DEF_RULE_END(Template)
 
 } // namespace rules
