@@ -26,18 +26,12 @@ DEFTOKEN(LPAREN);
 DEFTOKEN(RPAREN);
 DEFTOKEN(DOT);
 
-template <NodeType T>
-constexpr auto placeholder() noexcept {
-    return !LPAREN>>!RPAREN;
-}
 
 constexpr const auto GetIdentifier =
     any(
         GetVariable(),
         GetKeyword()
     );
-
-constexpr const auto TransformerSpec = placeholder<NodeType::TransformerSpec>();
 
 // 5.1 Programs
 // A program is a sequence of expressions, definitions,
@@ -70,6 +64,7 @@ any(
   , Def<Lambda>()
   , Def<If>()
   , Def<Assignment>()
+  // TODO Quasiquote
   , Def<MacroUse>()
   , Def<MacroBlock>()
 )
@@ -87,12 +82,12 @@ DEF_RULE_BEGIN(Quotation)
 any(
     chain(
         !OneToken<TokenType::APOSTROPHE>(),
-        Def<Datum>()
+        ~Def<Datum>()
     )
   , chain(
         !LPAREN
       , !OneKeyword<Keyword::QUOTE>(),
-        Def<Datum>()
+        ~Def<Datum>()
       , !RPAREN
     )
 )
@@ -211,9 +206,9 @@ DEF_RULE_END(LetRecSyntax)
 DEF_RULE_BEGIN(SyntaxSpec)
 chain(
     !LPAREN
-  , GetVariable()              // name
-  , TransformerSpec            // transformer spec
-  , Many(~Def<Expression>())    // body
+  , GetVariable()
+  , Def<TransformerSpec>()
+  , Many(~Def<Expression>())
   , !RPAREN
 )
 DEF_RULE_END(SyntaxSpec)
@@ -271,13 +266,47 @@ chain(
     !LPAREN
   , !OneVariable<hash_string("define-syntax")>()
   , GetIdentifier
-  , TransformerSpec
+  , Def<TransformerSpec>()
   , !RPAREN
 )
 DEF_RULE_END(SyntaxDefinition)
 
-DEF_RULE_BEGIN(Datum)
+DEF_RULE_BEGIN(TransformerSpec)
 !LPAREN >> !RPAREN // TODO
+DEF_RULE_END(TransformerSpec)
+
+DEF_RULE_BEGIN(Datum)
+any(
+    GetConstant()
+  , GetIdentifier
+  , chain(
+        !LPAREN
+      , Many(~Def<Datum>())
+      , !RPAREN
+    )
+  , chain(
+        !LPAREN
+      , ~Def<Datum>()
+      , Many(~Def<Datum>())
+      , !DOT
+      , ~Def<Datum>()
+      , !RPAREN
+    )
+  , chain(
+        any(
+            OneToken<TokenType::APOSTROPHE>()
+          , OneToken<TokenType::BACKTICK>()
+          , OneToken<TokenType::COMMA>()
+          , OneToken<TokenType::COMMA_AT>()
+        )
+      , ~Def<Datum>()
+    )
+  , chain(
+        OneToken<TokenType::SHELL_LPAREN>()
+      , Many(~Def<Datum>())
+      , RPAREN
+    )
+)
 DEF_RULE_END(Datum)
 
 } // namespace rules

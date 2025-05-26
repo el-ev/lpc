@@ -432,6 +432,7 @@ namespace rules {
     DECL_RULE(DefFormals);
     DECL_RULE(SyntaxDefinition);
     DECL_RULE(Datum);
+    DECL_RULE(TransformerSpec);
 }
 
 } // namespace lpc::frontend
