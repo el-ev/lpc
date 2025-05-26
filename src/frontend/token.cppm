@@ -59,6 +59,8 @@ export enum class TokenType : std::uint8_t {
     COMMA,
     COMMA_AT,
     DOT,
+
+    EOF,
 };
 
 export [[nodiscard]] constexpr auto token_type_to_string(TokenType type)
@@ -78,6 +80,7 @@ export [[nodiscard]] constexpr auto token_type_to_string(TokenType type)
     case TokenType::COMMA       : return "COMMA";
     case TokenType::COMMA_AT    : return "COMMA_AT";
     case TokenType::DOT         : return "DOT";
+    case TokenType::EOF         : return "EOF";
     }
     return "UNKNOWN";
 }
@@ -142,41 +145,41 @@ public:
         : _type(type)
         , _value_storage(value)
         , _lexeme(std::move(lexeme))
-        , _location(location) {
-    }
+        , _location(location) { };
 
     explicit constexpr Token(TokenType type, bool value, std::string&& lexeme,
         Location location) noexcept
         : _type(type)
         , _value_storage(value)
         , _lexeme(std::move(lexeme))
-        , _location(location) {
-    }
+        , _location(location) { };
 
     explicit constexpr Token(TokenType type, char value, std::string&& lexeme,
         Location location) noexcept
         : _type(type)
         , _value_storage(value)
         , _lexeme(std::move(lexeme))
-        , _location(location) {
-    }
+        , _location(location) { };
 
     explicit constexpr Token(TokenType type, std::string&& value,
         std::string&& lexeme, Location location) noexcept
         : _type(type)
         , _value_storage(std::move(value))
         , _lexeme(std::move(lexeme))
-        , _location(location) {
-    }
+        , _location(location) { };
 
-    // keyword token constructor
     explicit constexpr Token(TokenType type, Keyword keyword,
         std::string&& lexeme, Location location) noexcept
         : _type(type)
         , _value_storage(keyword)
         , _lexeme(std::move(lexeme))
-        , _location(location) {
-    }
+        , _location(location) { };
+
+    explicit constexpr Token(
+        TokenType type, std::string&& lexeme, Location location) noexcept
+        : _type(type)
+        , _lexeme(std::move(lexeme))
+        , _location(location) { };
 
     Token(Token&&) = default;
     Token& operator=(Token&&) = default;

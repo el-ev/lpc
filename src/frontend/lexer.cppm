@@ -31,6 +31,8 @@ public:
                 break;
             }
         }
+        if (is_eof())
+            _tokens.emplace_back(TokenType::EOF, "EOF", loc());
     }
 
     [[nodiscard]] std::vector<Token>&& tokens() noexcept {

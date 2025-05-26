@@ -44,7 +44,7 @@ public:
     }
 
     [[nodiscard]] inline bool is_eof() const noexcept {
-        return _cursor == _tokens.cend();
+        return _cursor->type() == TokenType::EOF;
     }
 
     [[nodiscard]] inline bool is_failed() const noexcept {
