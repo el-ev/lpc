@@ -1,6 +1,7 @@
 export module lpc.frontend.parser;
 
 import std;
+import lpc.frontend.location;
 import lpc.frontend.token;
 import lpc.frontend.ast;
 
@@ -70,7 +71,7 @@ public:
         _token = other;
     }
 
-    [[nodiscard]] inline constexpr Location loc() const noexcept {
+    [[nodiscard]] inline constexpr LocRef loc() const noexcept {
         return _token->location();
     }
 

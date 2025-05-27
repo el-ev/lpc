@@ -1,6 +1,8 @@
 export module lpc.frontend.token;
 
 import std;
+import lpc.frontend.location;
+import lpc.utils.arena;
 
 namespace lpc::frontend {
 
@@ -87,55 +89,12 @@ export [[nodiscard]] constexpr auto token_type_to_string(TokenType type)
     return "UNKNOWN";
 }
 
-export struct Location {
-private:
-    std::string_view _file; // location can never outlive the session
-    std::size_t _line;
-    std::size_t _column;
-
-    friend std::ostream& operator<<(std::ostream& os, const Location& loc);
-
-public:
-    explicit constexpr Location(
-        std::string_view file, std::size_t line, std::size_t column) noexcept
-        : _file(file)
-        , _line(line)
-        , _column(column) {
-    }
-
-    [[nodiscard]] inline constexpr Location operator-(
-        this Location lhs, std::size_t offset) {
-        lhs._column -= offset;
-        return lhs;
-    }
-
-    [[nodiscard]] constexpr auto file() const noexcept -> std::string_view {
-        return _file;
-    }
-
-    [[nodiscard]] constexpr auto line() const noexcept -> std::size_t {
-        return _line;
-    }
-
-    [[nodiscard]] constexpr auto column() const noexcept -> std::size_t {
-        return _column;
-    }
-
-    [[nodiscard]] auto to_string() const noexcept -> std::string {
-        return std::format("{}:{}:{}", _file, _line, _column);
-    }
-};
-
-inline auto operator<<(std::ostream& os, const Location& loc) -> std::ostream& {
-    return os << loc.to_string();
-}
-
 export class Token {
 private:
     TokenType _type;
     std::variant<std::int64_t, bool, char, std::string, Keyword> _value_storage;
     std::string _lexeme;
-    Location _location;
+    LocRef _location;
 
     friend std::ostream& operator<<(std::ostream& os, const Token& token);
 
@@ -143,42 +102,42 @@ private:
 
 public:
     explicit constexpr Token(TokenType type, std::int64_t value,
-        std::string&& lexeme, Location location) noexcept
+        std::string&& lexeme, LocRef location) noexcept
         : _type(type)
         , _value_storage(value)
         , _lexeme(std::move(lexeme))
         , _location(location) { };
 
     explicit constexpr Token(TokenType type, bool value, std::string&& lexeme,
-        Location location) noexcept
+        LocRef location) noexcept
         : _type(type)
         , _value_storage(value)
         , _lexeme(std::move(lexeme))
         , _location(location) { };
 
     explicit constexpr Token(TokenType type, char value, std::string&& lexeme,
-        Location location) noexcept
+        LocRef location) noexcept
         : _type(type)
         , _value_storage(value)
         , _lexeme(std::move(lexeme))
         , _location(location) { };
 
     explicit constexpr Token(TokenType type, std::string&& value,
-        std::string&& lexeme, Location location) noexcept
+        std::string&& lexeme, LocRef location) noexcept
         : _type(type)
         , _value_storage(std::move(value))
         , _lexeme(std::move(lexeme))
         , _location(location) { };
 
     explicit constexpr Token(TokenType type, Keyword keyword,
-        std::string&& lexeme, Location location) noexcept
+        std::string&& lexeme, LocRef location) noexcept
         : _type(type)
         , _value_storage(keyword)
         , _lexeme(std::move(lexeme))
         , _location(location) { };
 
     explicit constexpr Token(
-        TokenType type, std::string&& lexeme, Location location) noexcept
+        TokenType type, std::string&& lexeme, LocRef location) noexcept
         : _type(type)
         , _lexeme(std::move(lexeme))
         , _location(location) { };
@@ -203,7 +162,7 @@ public:
         return _lexeme;
     }
 
-    [[nodiscard]] constexpr auto location() const noexcept -> const Location& {
+    [[nodiscard]] constexpr auto location() const noexcept -> LocRef {
         return _location;
     }
 
@@ -240,7 +199,7 @@ inline auto operator<<(std::ostream& os, const Token& token) -> std::ostream& {
         value_str = std::get<std::string>(token.value());
         break;
     }
-    return os << token.location() << ": " << value_str;
+    return os << value_str;
 }
 
 } // namespace lpc::frontend

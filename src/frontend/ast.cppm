@@ -2,6 +2,7 @@ export module lpc.frontend.ast;
 
 import std;
 import lpc.frontend.token;
+import lpc.frontend.location;
 
 namespace lpc::frontend {
 
@@ -45,7 +46,7 @@ namespace lpc::frontend {
     X(Keyword)                                                                 \
     X(Datum)                                                                   \
     X(List)                                                                    \
-    X(Vector)                                                                  
+    X(Vector)
 
 #define ENUM_VALUE(name) name,
 export enum class NodeType : std::uint8_t { NODE_TYPE_LIST(ENUM_VALUE) };
@@ -61,6 +62,7 @@ export [[nodiscard]] constexpr auto node_type_to_string(NodeType type)
 #undef CASE_STATEMENT
 
 // TODO Arena
+
 export class ASTNode {
 private:
     using Node = ASTNode;
@@ -68,19 +70,19 @@ private:
     using NodeList = std::vector<NodePtr>;
     NodeType _type;
     // TODO: ref only
-    Location _location;
+    LocRef _location;
     // TODO could move into variant
     NodeList _children;
     std::variant<Keyword, std::string, std::int64_t, char, bool> _value;
 
 public:
-    explicit ASTNode(NodeType type, Location location, NodeList&& children = {})
+    explicit ASTNode(NodeType type, LocRef location, NodeList&& children = {})
         : _type(type)
         , _location(location)
         , _children(std::move(children)) {
     }
 
-    explicit ASTNode(NodeType type, Location location,
+    explicit ASTNode(NodeType type, LocRef location,
         std::variant<Keyword, std::string, std::int64_t, char, bool> value)
         : _type(type)
         , _location(location)
@@ -99,7 +101,7 @@ public:
         return _type;
     }
 
-    [[nodiscard]] const Location& location() const noexcept {
+    [[nodiscard]] const LocRef& location() const noexcept {
         return _location;
     }
 
@@ -115,7 +117,8 @@ public:
         _children.push_back(std::move(child));
     }
 
-    [[nodiscard]] std::string dump_json(std::size_t indent = 0) const;
+    [[nodiscard]] std::string dump_json(
+        const LocationArena& loc_arena, std::size_t indent = 0) const;
 };
 
 } // namespace lpc::frontend

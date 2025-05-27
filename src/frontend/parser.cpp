@@ -545,7 +545,7 @@ OptNodeList OneNode<T, R>::operator()(Cursor& cursor) const noexcept {
     (void)t; // Avoid unused variable warning
     if (cursor.is_eof() || cursor.is_failed())
         return std::nullopt;
-    Location loc = cursor.loc();
+    LocRef loc = cursor.loc();
     OptNodeList res;
     if constexpr (R::manages_rollback::value) {
         res = R()(cursor);

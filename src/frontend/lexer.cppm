@@ -1,27 +1,30 @@
 export module lpc.frontend.lexer;
 
 import std;
+import lpc.frontend.location;
 import lpc.frontend.token;
 
 namespace lpc::frontend {
 
 export class Lexer {
 private:
-    std::string_view _file;
     std::string_view _source;
     std::string_view _cursor;
     std::size_t _line = 1;
     std::string_view::iterator _line_start;
     std::vector<Token> _tokens;
+    LocationArena _loc_arena;
+
+    LocRef _loc;
+
     bool _failed = false;
-    Location _loc;
 
 public:
     explicit Lexer(std::string_view file, std::string_view source) noexcept
-        : _file(file)
-        , _source(source)
+        : _source(source)
         , _cursor(source)
         , _line_start(source.begin())
+        , _loc_arena(std::string(file))
         , _loc(loc()) {
         while (!is_eof() && !_failed) {
             if (auto token = advance()) {
@@ -36,7 +39,11 @@ public:
             _tokens.emplace_back(TokenType::EOF, "EOF", loc());
     }
 
-    [[nodiscard]] std::vector<Token>&& tokens() noexcept {
+    [[nodiscard]] inline LocationArena&& loc_arena() noexcept {
+        return std::move(_loc_arena);
+    }
+
+    [[nodiscard]] inline std::vector<Token>&& tokens() noexcept {
         return std::move(_tokens);
     }
 
@@ -49,9 +56,13 @@ public:
     }
 
 private:
-    [[nodiscard]] inline constexpr Location loc() const noexcept {
-        return Location(_file, _line,
+    [[nodiscard]] inline constexpr LocRef loc() noexcept {
+        return _loc_arena.insert(_line,
             (_line == 1 ? 1 : 0) + std::distance(_line_start, _cursor.begin()));
+    }
+
+    [[nodiscard]] inline constexpr std::string loc_string(LocRef ref) noexcept {
+        return _loc_arena.at(ref).to_string();
     }
 
     bool skip_atmosphere() noexcept;

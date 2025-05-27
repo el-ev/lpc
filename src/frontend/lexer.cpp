@@ -101,7 +101,7 @@ std::optional<Token> Lexer::read_ident() noexcept {
         std::ranges::transform(value.begin(), value.end(), value.begin(),
             [](unsigned char c) { return std::tolower(c); });
         if (pos != size) {
-            Error("Invalid identifier: \"", ident, "\" at", _loc);
+            Error("Invalid identifier: \"", ident, "\" at", loc_string(_loc));
             _failed = true;
             return std::nullopt;
         }
@@ -140,7 +140,7 @@ std::optional<Token> Lexer::read_ident() noexcept {
 std::optional<Token> Lexer::read_sharp() noexcept {
     // <boolean> -> #t | #f
     if (_cursor.length() < 2) {
-        Error("Incomplete token \"#\" at", _loc);
+        Error("Incomplete token \"#\" at", loc_string(_loc));
         return std::nullopt;
     }
     char c = _cursor[1];
@@ -158,7 +158,7 @@ std::optional<Token> Lexer::read_sharp() noexcept {
     case 'x' : token = read_number(16); break;
     case '\\': token = read_character(); break;
     default  : {
-        Error("Invalid token: \"#", c, "\" at", _loc);
+        Error("Invalid token: \"#", c, "\" at", loc_string(_loc));
         _failed = true;
         return std::nullopt;
     }
@@ -187,7 +187,7 @@ std::optional<Token> Lexer::read_number(std::optional<int> radix) noexcept {
         // radix is explicitly provided
         value_start.remove_prefix(2);
         if (*radix != 2 && *radix != 8 && *radix != 10 && *radix != 16) {
-            Error("Invalid radix: ", *radix, " at", _loc);
+            Error("Invalid radix: ", *radix, " at", loc_string(_loc));
             _failed = true;
             return std::nullopt;
         }
@@ -209,9 +209,9 @@ std::optional<Token> Lexer::read_number(std::optional<int> radix) noexcept {
         if (!number_pattern)
             return std::nullopt;
         if (pos.empty())
-            Error("Incomplete number literal at ", _loc);
+            Error("Incomplete number literal at ", loc_string(_loc));
         else
-            Error("Invalid number literal at ", _loc, ". Expected radix-",
+            Error("Invalid number literal at ", loc_string(_loc), ". Expected radix-",
                 radix_value, " digit, found '", pos[0], "'");
         _failed = true;
         return std::nullopt;
@@ -228,7 +228,7 @@ std::optional<Token> Lexer::read_number(std::optional<int> radix) noexcept {
 
     if (std::ranges::distance(_cursor.begin(), pos.begin()) != (long)size) {
         Error("Invalid number literal: \"", _cursor.substr(0, size), "\" at ",
-            _loc);
+            loc_string(_loc));
         _cursor = pos;
         _failed = true;
         return std::nullopt;
@@ -249,7 +249,7 @@ std::optional<Token> Lexer::read_character() noexcept {
 
     // #\ handled in read_sharp
     if (_cursor.length() < 3) {
-        Error("Incomplete character literal at ", _loc);
+        Error("Incomplete character literal at ", loc_string(_loc));
         _failed = true;
         return std::nullopt;
     }
@@ -273,7 +273,7 @@ std::optional<Token> Lexer::read_character() noexcept {
                 return Token(
                     TokenType::CHARACTER, ' ', std::string(name), _loc);
             }
-            Error("Invalid character name: \"", name, "\" at", _loc);
+            Error("Invalid character name: \"", name, "\" at", loc_string(_loc));
             _failed = true;
             return std::nullopt;
         }
@@ -300,7 +300,7 @@ std::optional<Token> Lexer::read_string() noexcept {
     while (search_start < content_view.length()) {
         std::size_t current_find = content_view.find('"', search_start);
         if (current_find == std::string_view::npos) {
-            Error("Unterminated string literal at", _loc);
+            Error("Unterminated string literal at", loc_string(_loc));
             _failed = true;
             return std::nullopt;
         }
@@ -317,7 +317,7 @@ std::optional<Token> Lexer::read_string() noexcept {
     }
 
     if (end == std::string_view::npos) {
-        Error("Unterminated string literal at", _loc);
+        Error("Unterminated string literal at", loc_string(_loc));
         _failed = true;
         return std::nullopt;
     }

@@ -2,6 +2,7 @@ module lpc.session;
 
 import std;
 import lpc.logging;
+import lpc.frontend.location;
 import lpc.frontend.lexer;
 import lpc.frontend.parser;
 
@@ -39,6 +40,7 @@ int Session::run() noexcept {
     }
 
     auto tokens = lexer.tokens();
+    auto loc_arena = lexer.loc_arena();
 
     if (_print_tokens) {
         for (const auto& token : tokens)
@@ -56,7 +58,7 @@ int Session::run() noexcept {
     auto root = parser.root();
 
     if (_print_ast)
-        std::println("{}\n", root->dump_json());
+        std::println("{}\n", root->dump_json(loc_arena));
 
     return 0;
 }
