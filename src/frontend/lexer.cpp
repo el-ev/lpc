@@ -211,8 +211,9 @@ std::optional<Token> Lexer::read_number(std::optional<int> radix) noexcept {
         if (pos.empty())
             Error("Incomplete number literal at ", loc_string(_loc));
         else
-            Error("Invalid number literal at ", loc_string(_loc), ". Expected radix-",
-                radix_value, " digit, found '", pos[0], "'");
+            Error("Invalid number literal at ", loc_string(_loc),
+                ". Expected radix-", radix_value, " digit, found '", pos[0],
+                "'");
         _failed = true;
         return std::nullopt;
     }
@@ -273,7 +274,8 @@ std::optional<Token> Lexer::read_character() noexcept {
                 return Token(
                     TokenType::CHARACTER, ' ', std::string(name), _loc);
             }
-            Error("Invalid character name: \"", name, "\" at", loc_string(_loc));
+            Error(
+                "Invalid character name: \"", name, "\" at", loc_string(_loc));
             _failed = true;
             return std::nullopt;
         }

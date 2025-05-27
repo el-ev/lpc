@@ -9,7 +9,8 @@ std::string ASTNode::dump_json(
 
     result += prefix + "{\n";
     result += prefix + R"(  "type": ")" + node_type_to_string(_type) + "\",\n";
-    result += prefix + R"(  "location": ")" + loc_arena[_location].to_string() + "\"";
+    result += prefix + R"(  "location": ")" + loc_arena[_location].to_string()
+        + "\"";
 
     switch (_type) {
     case NodeType::Variable:
@@ -51,8 +52,7 @@ std::string ASTNode::dump_json(
     default:
         result += ",\n" + prefix + "  \"children\": [\n";
         for (std::size_t i = 0; i < _children.size(); ++i) {
-            result += _children[i]->dump_json(loc_arena,
-                indent + 4);
+            result += _children[i]->dump_json(loc_arena, indent + 4);
             if (i < _children.size() - 1) {
                 result += ",";
             }

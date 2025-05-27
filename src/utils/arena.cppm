@@ -40,10 +40,10 @@ public:
     }
 
     IndexType insert(const T& value);
-    template<typename... Args>
+    template <typename... Args>
     IndexType emplace(Args&&... args);
     IndexType emplace(T&& value);
-    
+
     [[nodiscard]] constexpr T& operator[](IndexType index);
     [[nodiscard]] constexpr const T& operator[](IndexType index) const;
     [[nodiscard]] constexpr T& at(IndexType index);
@@ -69,13 +69,30 @@ public:
 
     using iterator = typename std::vector<T>::iterator;
     using const_iterator = typename std::vector<T>::const_iterator;
+
+    [[nodiscard]] inline constexpr iterator begin() noexcept {
+        return _data.begin();
+    }
     
-    [[nodiscard]] inline constexpr iterator begin() noexcept { return _data.begin(); }
-    [[nodiscard]] inline constexpr iterator end() noexcept { return _data.end(); }
-    [[nodiscard]] inline constexpr const_iterator begin() const noexcept { return _data.begin(); }
-    [[nodiscard]] inline constexpr const_iterator end() const noexcept { return _data.end(); }
-    [[nodiscard]] inline constexpr const_iterator cbegin() const noexcept { return _data.cbegin(); }
-    [[nodiscard]] inline constexpr const_iterator cend() const noexcept { return _data.cend(); }
+    [[nodiscard]] inline constexpr iterator end() noexcept {
+        return _data.end();
+    }
+
+    [[nodiscard]] inline constexpr const_iterator begin() const noexcept {
+        return _data.begin();
+    }
+
+    [[nodiscard]] inline constexpr const_iterator end() const noexcept {
+        return _data.end();
+    }
+
+    [[nodiscard]] inline constexpr const_iterator cbegin() const noexcept {
+        return _data.cbegin();
+    }
+
+    [[nodiscard]] inline constexpr const_iterator cend() const noexcept {
+        return _data.cend();
+    }
 };
 
 template <typename T, typename IndexType>

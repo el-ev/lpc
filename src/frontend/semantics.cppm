@@ -4,6 +4,6 @@ import std;
 
 namespace lpc::frontend {
 
-    // 
+//
 
 } // namespace lpc::frontend
