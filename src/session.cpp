@@ -7,6 +7,9 @@ import lpc.frontend.parser;
 
 namespace lpc {
 
+using lpc::utils::Error;
+using lpc::utils::Warn;
+
 int Session::run() noexcept {
     if (_input_file_paths.empty()) {
         Error("No input files");

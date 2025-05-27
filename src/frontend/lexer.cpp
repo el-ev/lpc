@@ -1,9 +1,10 @@
 module lpc.frontend.lexer;
 
-import std;
 import lpc.logging;
 
 namespace lpc::frontend {
+
+using lpc::utils::Error;
 
 std::size_t count_till_delimeter(std::string_view str) {
     const char* it = std::ranges::find_if(str.begin(), str.end(), [](char c) {

@@ -3,7 +3,7 @@ export module lpc.option;
 import std;
 import lpc.logging;
 
-namespace lpc {
+namespace lpc::utils {
 
 class AppBuilder;
 

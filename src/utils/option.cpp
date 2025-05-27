@@ -1,9 +1,6 @@
 module lpc.option;
 
-import std;
-import lpc.logging;
-
-namespace lpc {
+namespace lpc::utils {
 
 void App::display_help() const noexcept {
     std::println("Help for {}", _name);
@@ -167,4 +164,4 @@ void App::add_option(Option&& option) noexcept {
     _options.push_back(std::move(option));
 }
 
-} // namespace lpc
+} // namespace lpc::utils

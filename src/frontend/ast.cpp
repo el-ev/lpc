@@ -1,8 +1,5 @@
 module lpc.frontend.ast;
 
-import std;
-import lpc.frontend.token;
-
 namespace lpc::frontend {
 
 std::string ASTNode::dump_json(std::size_t indent) const {

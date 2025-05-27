@@ -35,8 +35,8 @@ namespace lpc::frontend {
     X(LetSyntax)                                                               \
     X(LetRecSyntax)                                                            \
     X(SyntaxSpec)                                                              \
-    X(Definitions)                                                              \
-    X(Definition)                                                                  \
+    X(Definitions)                                                             \
+    X(Definition)                                                              \
     X(SyntaxDefinition)                                                        \
     X(TransformerSpec)                                                         \
     X(SyntaxRule)                                                              \
@@ -60,13 +60,16 @@ export [[nodiscard]] constexpr auto node_type_to_string(NodeType type)
 }
 #undef CASE_STATEMENT
 
+// TODO Arena
 export class ASTNode {
 private:
     using Node = ASTNode;
     using NodePtr = std::unique_ptr<Node>;
     using NodeList = std::vector<NodePtr>;
     NodeType _type;
+    // TODO: ref only
     Location _location;
+    // TODO could move into variant
     NodeList _children;
     std::variant<Keyword, std::string, std::int64_t, char, bool> _value;
 

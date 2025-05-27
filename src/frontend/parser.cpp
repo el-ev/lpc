@@ -1,11 +1,11 @@
 module lpc.frontend.parser;
 
-import std;
 import lpc.logging;
-import lpc.frontend.token;
-import lpc.frontend.ast;
 
 namespace lpc::frontend {
+
+using lpc::utils::Debug;
+using lpc::utils::Error;
 
 // clang-format off
 namespace rules {

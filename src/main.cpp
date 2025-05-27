@@ -5,6 +5,8 @@ import lpc.session;
 
 using namespace lpc;
 
+using namespace lpc::utils;
+
 auto main(int argc, char* argv[]) noexcept -> int {
     Session session;
     // maybe move the logger into the session, don't know though

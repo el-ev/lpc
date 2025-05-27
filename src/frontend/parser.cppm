@@ -1,7 +1,6 @@
 export module lpc.frontend.parser;
 
 import std;
-import lpc.logging;
 import lpc.frontend.token;
 import lpc.frontend.ast;
 

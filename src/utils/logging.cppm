@@ -2,7 +2,7 @@ export module lpc.logging;
 
 import std;
 
-namespace lpc {
+namespace lpc::utils {
 
 enum class LogLevel : std::uint8_t {
     DEBUG,
@@ -207,4 +207,5 @@ export template <typename... Args>
 using Warn = log_wrapper::Warn<Args...>;
 export template <typename... Args>
 using Error = log_wrapper::Error<Args...>;
-} // namespace lpc
+
+} // namespace lpc::utils
