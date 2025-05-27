@@ -69,7 +69,6 @@ private:
     using NodePtr = std::unique_ptr<Node>;
     using NodeList = std::vector<NodePtr>;
     NodeType _type;
-    // TODO: ref only
     LocRef _location;
     // TODO could move into variant
     NodeList _children;
