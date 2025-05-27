@@ -686,8 +686,9 @@ OptNodeList Flatten<R>::operator()(Cursor& cursor) const noexcept {
         cursor.fail();
         return std::nullopt;
     }
+    auto children = cursor.arena()[result.value()[0]].children();
     cursor.arena().pop_back();
-    return std::move(cursor.arena()[result.value()[0]].children());
+    return std::move(children);
 }
 
 template <ParserRule R>
