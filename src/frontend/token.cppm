@@ -3,8 +3,11 @@ export module lpc.frontend.token;
 import std;
 import lpc.frontend.location;
 import lpc.utils.arena;
+import lpc.utils.tagged_union;
 
 namespace lpc::frontend {
+
+using lpc::utils::TaggedUnion;
 
 export namespace lex_defs {
     constexpr char COMMENT_START = ';';
@@ -92,7 +95,7 @@ export [[nodiscard]] constexpr auto token_type_to_string(TokenType type)
 export class Token {
 private:
     TokenType _type;
-    std::variant<std::int64_t, bool, char, std::string, Keyword> _value_storage;
+    TaggedUnion<Keyword, std::string, std::int64_t, char, bool> _value;
     std::string _lexeme;
     LocRef _location;
 
@@ -101,38 +104,22 @@ private:
     Token(const Token&) = default;
 
 public:
-    explicit constexpr Token(TokenType type, std::int64_t value,
-        std::string&& lexeme, LocRef location) noexcept
+    template <typename T>
+    explicit Token(
+        TokenType type, T value, std::string&& lexeme, LocRef location)
+        requires(std::same_as<std::remove_cvref_t<T>, Keyword>
+                    || std::same_as<std::remove_cvref_t<T>, std::int64_t>
+                    || std::same_as<std::remove_cvref_t<T>, char>
+                    || std::same_as<std::remove_cvref_t<T>, bool>)
         : _type(type)
-        , _value_storage(value)
+        , _value(std::forward<T>(value))
         , _lexeme(std::move(lexeme))
-        , _location(location) { };
+        , _location(location) {};
 
-    explicit constexpr Token(TokenType type, bool value, std::string&& lexeme,
-        LocRef location) noexcept
+    explicit Token(TokenType type, std::string&& value, std::string&& lexeme,
+        LocRef location)
         : _type(type)
-        , _value_storage(value)
-        , _lexeme(std::move(lexeme))
-        , _location(location) { };
-
-    explicit constexpr Token(TokenType type, char value, std::string&& lexeme,
-        LocRef location) noexcept
-        : _type(type)
-        , _value_storage(value)
-        , _lexeme(std::move(lexeme))
-        , _location(location) { };
-
-    explicit constexpr Token(TokenType type, std::string&& value,
-        std::string&& lexeme, LocRef location) noexcept
-        : _type(type)
-        , _value_storage(std::move(value))
-        , _lexeme(std::move(lexeme))
-        , _location(location) { };
-
-    explicit constexpr Token(TokenType type, Keyword keyword,
-        std::string&& lexeme, LocRef location) noexcept
-        : _type(type)
-        , _value_storage(keyword)
+        , _value(std::move(value))
         , _lexeme(std::move(lexeme))
         , _location(location) { };
 
@@ -153,9 +140,8 @@ public:
         return _type;
     }
 
-    [[nodiscard]] constexpr auto value() const noexcept
-        -> std::variant<std::int64_t, bool, char, std::string, Keyword> {
-        return _value_storage;
+    [[nodiscard]] constexpr const auto& value() const noexcept {
+        return _value;
     }
 
     [[nodiscard]] constexpr auto lexeme() const noexcept -> std::string_view {
@@ -175,16 +161,16 @@ inline auto operator<<(std::ostream& os, const Token& token) -> std::ostream& {
     std::string value_str;
     switch (token.type()) {
     case TokenType::IDENT:
-        value_str = std::get<std::string>(token.value());
+        value_str = token.value().get_unchecked<std::string>();
         break;
     case TokenType::BOOLEAN:
-        value_str = std::get<bool>(token.value()) ? "#t" : "#f";
+        value_str = token.value().get_unchecked<bool>() ? "#t" : "#f";
         break;
     case TokenType::NUMBER:
-        value_str = std::to_string(std::get<std::int64_t>(token.value()));
+        value_str = std::to_string(token.value().get_unchecked<std::int64_t>());
         break;
     case TokenType::CHARACTER:
-        switch (char c = std::get<char>(token.value())) {
+        switch (char c = token.value().get_unchecked<char>()) {
         case ' ' : value_str = "#\\space"; break;
         case '\n': value_str = "#\\newline"; break;
         default  : value_str = "#\\" + std::string(1, c); break;
@@ -192,11 +178,11 @@ inline auto operator<<(std::ostream& os, const Token& token) -> std::ostream& {
         break;
     case TokenType::STRING : value_str = token._lexeme; break;
     case TokenType::KEYWORD: {
-        auto keyword = std::get<Keyword>(token.value());
+        auto keyword = token.value().get_unchecked<Keyword>();
         value_str = lex_defs::KEYWORDS[static_cast<std::size_t>(keyword)];
     }
     default: // operators
-        value_str = std::get<std::string>(token.value());
+        value_str = token.value().get_unchecked<std::string>();
         break;
     }
     return os << value_str;

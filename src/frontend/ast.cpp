@@ -16,7 +16,7 @@ std::string ASTNode::dump_json(
     case NodeType::Variable:
     case NodeType::String:
         result += ",\n" + prefix + R"(  "value": ")";
-        for (char c : std::get<std::string>(_value)) {
+        for (char c : _value.get_unchecked<std::string>()) {
             switch (c) {
             case '"' : result += "\\\""; break;
             case '\\': result += "\\\\"; break;
@@ -26,7 +26,7 @@ std::string ASTNode::dump_json(
         result += "\"";
         break;
     case NodeType::Character: {
-        char c = std::get<char>(_value);
+        char c = _value.get_unchecked<char>();
         result += ",\n" + prefix + R"(  "value": "#\)";
         switch (c) {
         case '\n': result += "newline"; break;
@@ -34,26 +34,28 @@ std::string ASTNode::dump_json(
         default  : result += c; break;
         }
         result += "\"";
-    } break;
+        break;
+    }
     case NodeType::Number:
-        result += ",\n" + prefix
-            + "  \"value\": " + std::to_string(std::get<std::int64_t>(_value));
+        result += ",\n" + prefix + "  \"value\": "
+            + std::to_string(_value.get_unchecked<std::int64_t>());
         break;
     case NodeType::Boolean:
-        result += ",\n" + prefix
-            + "  \"value\": " + (std::get<bool>(_value) ? "\"#t\"" : "\"#f\"");
+        result += ",\n" + prefix + "  \"value\": "
+            + (_value.get_unchecked<bool>() ? "\"#t\"" : "\"#f\"");
         break;
     case NodeType::Keyword:
         result += ",\n" + prefix + R"(  "value": ")"
             + std::string(lex_defs::KEYWORDS[static_cast<std::size_t>(
-                std::get<Keyword>(_value))])
+                _value.get_unchecked<Keyword>())])
             + "\"";
         break;
     default:
         result += ",\n" + prefix + "  \"children\": [\n";
-        for (std::size_t i = 0; i < _children.size(); ++i) {
-            result += _children[i]->dump_json(loc_arena, indent + 4);
-            if (i < _children.size() - 1) {
+        const auto& children = _value.get_unchecked<NodeList>();
+        for (std::size_t i = 0; i < children.size(); ++i) {
+            result += children[i]->dump_json(loc_arena, indent + 4);
+            if (i < children.size() - 1) {
                 result += ",";
             }
             result += "\n";

@@ -413,7 +413,7 @@ constexpr bool Cursor::is() const noexcept {
 template <Keyword K>
 constexpr bool Cursor::is() const noexcept {
     return _token->type() == TokenType::KEYWORD
-        && std::get<Keyword>(_token->value()) == K;
+        && _token->value().get_unchecked<Keyword>() == K;
 }
 
 template <std::size_t Hash>
@@ -428,13 +428,13 @@ constexpr bool Cursor::is() const noexcept {
         }
         return h;
     };
-    return string_hash(std::get<std::string>(_token->value())) == Hash;
+    return string_hash(_token->value().get_unchecked<std::string>()) == Hash;
 }
 
 constexpr OptNodePtr Cursor::get_keyword() const noexcept {
     if (_token->type() != TokenType::KEYWORD)
         return std::nullopt;
-    auto keyword = std::get<Keyword>(_token->value());
+    auto keyword = _token->value().get_unchecked<Keyword>();
     return std::make_unique<Node>(
         NodeType::Keyword, _token->location(), keyword);
 }
@@ -442,7 +442,7 @@ constexpr OptNodePtr Cursor::get_keyword() const noexcept {
 constexpr OptNodePtr Cursor::get_ident() const noexcept {
     if (_token->type() != TokenType::IDENT)
         return std::nullopt;
-    auto ident = std::get<std::string>(_token->value());
+    auto ident = _token->value().get_unchecked<std::string>();
     return std::make_unique<Node>(
         NodeType::Variable, _token->location(), std::move(ident));
 }
@@ -451,25 +451,25 @@ constexpr OptNodePtr Cursor::get_constant() const noexcept {
     OptNodePtr ptr;
     switch (_token->type()) {
     case TokenType::NUMBER: {
-        auto value = std::get<std::int64_t>(_token->value());
+        auto value = _token->value().get_unchecked<std::int64_t>();
         ptr = std::make_unique<Node>(
             NodeType::Number, _token->location(), value);
         break;
     }
     case TokenType::BOOLEAN: {
-        auto value = std::get<bool>(_token->value());
+        auto value = _token->value().get_unchecked<bool>();
         ptr = std::make_unique<Node>(
             NodeType::Boolean, _token->location(), value);
         break;
     }
     case TokenType::CHARACTER: {
-        auto value = std::get<char>(_token->value());
+        auto value = _token->value().get_unchecked<char>();
         ptr = std::make_unique<Node>(
             NodeType::Character, _token->location(), value);
         break;
     }
     case TokenType::STRING: {
-        auto value = std::get<std::string>(_token->value());
+        auto value = _token->value().get_unchecked<std::string>();
         ptr = std::make_unique<Node>(
             NodeType::String, _token->location(), std::move(value));
         break;

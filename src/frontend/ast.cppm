@@ -3,8 +3,12 @@ export module lpc.frontend.ast;
 import std;
 import lpc.frontend.token;
 import lpc.frontend.location;
+import lpc.utils.arena;
+import lpc.utils.tagged_union;
 
 namespace lpc::frontend {
+
+using lpc::utils::TaggedUnion;
 
 // AST node types
 // 7.1 Formal Syntax
@@ -70,22 +74,27 @@ private:
     using NodeList = std::vector<NodePtr>;
     NodeType _type;
     LocRef _location;
-    // TODO could move into variant
-    NodeList _children;
-    std::variant<Keyword, std::string, std::int64_t, char, bool> _value;
+    TaggedUnion<NodeList, Keyword, std::string, std::int64_t, char, bool>
+        _value;
 
 public:
-    explicit ASTNode(NodeType type, LocRef location, NodeList&& children = {})
+    template <typename T>
+    explicit ASTNode(NodeType type, LocRef location, T value)
+        requires(std::same_as<std::remove_cvref_t<T>, Keyword>
+                    || std::same_as<std::remove_cvref_t<T>, std::int64_t>
+                    || std::same_as<std::remove_cvref_t<T>, char>
+                    || std::same_as<std::remove_cvref_t<T>, bool>)
         : _type(type)
         , _location(location)
-        , _children(std::move(children)) {
+        , _value(std::forward<T>(value)) {
     }
 
-    explicit ASTNode(NodeType type, LocRef location,
-        std::variant<Keyword, std::string, std::int64_t, char, bool> value)
+    template <typename T>
+    explicit ASTNode(NodeType type, LocRef location, T&& value)
+        requires(std::same_as<T, NodeList> || std::same_as<T, std::string>)
         : _type(type)
         , _location(location)
-        , _value(std::move(value)) {
+        , _value(std::forward<T>(value)) {
     }
 
     explicit ASTNode(const ASTNode&) = delete;
@@ -104,16 +113,12 @@ public:
         return _location;
     }
 
-    [[nodiscard]] const NodeList& children() const& noexcept {
-        return _children;
-    }
-
     [[nodiscard]] NodeList&& children() noexcept {
-        return std::move(_children);
+        return std::move(_value.get_unchecked<NodeList>());
     }
 
-    void add_child(NodePtr child) {
-        _children.push_back(std::move(child));
+    [[nodiscard]] const NodeList& children() const& noexcept {
+        return _value.get_unchecked<NodeList>();
     }
 
     [[nodiscard]] std::string dump_json(
