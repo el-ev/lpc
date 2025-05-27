@@ -5,6 +5,8 @@ import lpc.utils.arena;
 
 namespace lpc::frontend {
 
+using lpc::utils::Arena;
+
 export struct Location;
 export class LocationArena;
 
@@ -46,18 +48,15 @@ public:
 };
 
 class LocationArena
-    : utils::Arena<std::pair<std::uint32_t, std::uint32_t>, std::uint32_t> {
+    : Arena<std::pair<std::uint32_t, std::uint32_t>, std::uint32_t> {
 private:
     std::string _file;
 
 public:
-    using Arena::Arena;
-    using elem_ref = utils::Arena<std::pair<std::uint32_t, std::uint32_t>,
+    using LocRef = Arena<std::pair<std::uint32_t, std::uint32_t>,
         std::uint32_t>::elem_ref;
-    using LocRef = elem_ref;
     explicit LocationArena(std::string&& file) noexcept
-        : _file(std::move(file)) {
-    }
+        : _file(std::move(file)) { };
 
     [[nodiscard]] inline LocRef insert(
         std::uint32_t line, std::uint32_t column) {
