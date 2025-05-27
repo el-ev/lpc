@@ -4,7 +4,7 @@ import std;
 
 namespace lpc::utils {
 
-template<typename... Types>
+export template<typename... Types>
 class TaggedUnion {
 private:
     static constexpr std::size_t max_size = std::max({sizeof(Types)...});
