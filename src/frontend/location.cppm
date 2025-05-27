@@ -6,7 +6,6 @@ import lpc.utils.arena;
 namespace lpc::frontend {
 
 export struct Location;
-export struct LocRef;
 export class LocationArena;
 
 struct Location {
@@ -46,17 +45,6 @@ public:
     }
 };
 
-struct LocRef {
-private:
-    std::uint32_t _index;
-    friend class LocationArena;
-
-public:
-    explicit LocRef(std::uint32_t idx) noexcept
-        : _index(idx) {
-    }
-};
-
 class LocationArena
     : utils::Arena<std::pair<std::uint32_t, std::uint32_t>, std::uint32_t> {
 private:
@@ -64,6 +52,8 @@ private:
 
 public:
     using Arena::Arena;
+    using elem_ref = utils::Arena<std::pair<std::uint32_t, std::uint32_t>, std::uint32_t>::elem_ref;
+    using LocRef = elem_ref;
     explicit LocationArena(std::string&& file) noexcept
         : _file(std::move(file)) {
     }
@@ -72,20 +62,22 @@ public:
         std::uint32_t line, std::uint32_t column) {
         if (!Arena::empty() && Arena::back().first == line
             && Arena::back().second == column) {
-            return LocRef(Arena::size() - 1);
+            return Arena::back_ref();
         }
-        return LocRef(Arena::insert({ line, column }));
+        return Arena::insert({ line, column });
     }
 
     [[nodiscard]] inline Location operator[](LocRef ref) const {
-        auto [line, column] = Arena::operator[](ref._index);
+        auto [line, column] = Arena::at(ref);
         return Location(_file, line, column);
     }
 
     [[nodiscard]] inline Location at(LocRef ref) const {
-        auto [line, column] = Arena::at(ref._index);
+        auto [line, column] = Arena::at(ref);
         return Location(_file, line, column);
     }
 };
+
+export using LocRef = LocationArena::LocRef;
 
 } // namespace lpc::frontend

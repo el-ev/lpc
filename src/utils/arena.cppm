@@ -10,8 +10,24 @@ private:
     std::vector<T> _data;
     IndexType _next_index = 0;
 
-public:
+    struct ElementReference {
+    private:
+        IndexType _index;
+        explicit ElementReference(IndexType idx) noexcept : _index(idx) {}
+    
+        friend Arena<T, IndexType>;
+    };
+
+protected:
     explicit Arena() noexcept = default;
+    explicit Arena(std::size_t initial_capacity) noexcept
+        : _data() {
+        _data.reserve(initial_capacity);
+    }
+
+public:
+    using elem_ref = ElementReference;
+
     Arena(const Arena&) = delete;
     Arena& operator=(const Arena&) = delete;
 
@@ -39,17 +55,21 @@ public:
         _next_index = 0;
     }
 
-    IndexType insert(const T& value);
+    elem_ref insert(const T& value);
     template <typename... Args>
-    IndexType emplace(Args&&... args);
-    IndexType emplace(T&& value);
+    elem_ref emplace(Args&&... args);
+    elem_ref emplace(T&& value);
 
-    [[nodiscard]] constexpr T& operator[](IndexType index);
-    [[nodiscard]] constexpr const T& operator[](IndexType index) const;
-    [[nodiscard]] constexpr T& at(IndexType index);
-    [[nodiscard]] constexpr const T& at(IndexType index) const;
-    [[nodiscard]] constexpr T* get(IndexType index) noexcept;
-    [[nodiscard]] constexpr const T* get(IndexType index) const noexcept;
+    [[nodiscard]] constexpr T& at(elem_ref ref);
+    [[nodiscard]] constexpr const T& at(elem_ref ref) const;
+    [[nodiscard]] constexpr T* get(elem_ref ref) noexcept;
+    [[nodiscard]] constexpr const T* get(elem_ref ref) const noexcept;
+
+    [[nodiscard]] inline constexpr elem_ref back_ref() const {
+        if (_data.empty())
+            throw std::out_of_range("Arena is empty");
+        return elem_ref(_next_index - 1);
+    }
 
     [[nodiscard]] inline constexpr T& back() {
         if (_data.empty())
@@ -63,17 +83,13 @@ public:
         return _data.back();
     }
 
-    [[nodiscard]] inline constexpr IndexType next_index() const noexcept {
-        return _next_index;
-    }
-
     using iterator = typename std::vector<T>::iterator;
     using const_iterator = typename std::vector<T>::const_iterator;
 
     [[nodiscard]] inline constexpr iterator begin() noexcept {
         return _data.begin();
     }
-    
+
     [[nodiscard]] inline constexpr iterator end() noexcept {
         return _data.end();
     }
@@ -96,64 +112,50 @@ public:
 };
 
 template <typename T, typename IndexType>
-IndexType Arena<T, IndexType>::insert(const T& value) {
+Arena<T, IndexType>::elem_ref Arena<T, IndexType>::insert(const T& value) {
     _data.push_back(value);
-    return _next_index++;
+    return Arena<T, IndexType>::elem_ref(_next_index++);
 }
 
 template <typename T, typename IndexType>
 template <typename... Args>
-IndexType Arena<T, IndexType>::emplace(Args&&... args) {
+Arena<T, IndexType>::elem_ref Arena<T, IndexType>::emplace(Args&&... args) {
     _data.emplace_back(std::forward<Args>(args)...);
-    return _next_index++;
+    return Arena<T, IndexType>::elem_ref(_next_index++);
 }
 
 template <typename T, typename IndexType>
-IndexType Arena<T, IndexType>::emplace(T&& value) {
+Arena<T, IndexType>::elem_ref Arena<T, IndexType>::emplace(T&& value) {
     _data.push_back(std::move(value));
-    return _next_index++;
+    return Arena<T, IndexType>::elem_ref(_next_index++);
 }
 
 template <typename T, typename IndexType>
-constexpr T& Arena<T, IndexType>::operator[](IndexType index) {
-    if (index >= _data.size())
+constexpr T& Arena<T, IndexType>::at(Arena<T, IndexType>::elem_ref ref) {
+    if (ref._index >= _data.size())
         throw std::out_of_range("Index out of range");
-    return _data[index];
+    return _data[ref._index];
 }
 
 template <typename T, typename IndexType>
-constexpr const T& Arena<T, IndexType>::operator[](IndexType index) const {
-    if (index >= _data.size())
+constexpr const T& Arena<T, IndexType>::at(Arena<T, IndexType>::elem_ref ref) const {
+    if (ref._index >= _data.size())
         throw std::out_of_range("Index out of range");
-    return _data[index];
+    return _data[ref._index];
 }
 
 template <typename T, typename IndexType>
-constexpr T& Arena<T, IndexType>::at(IndexType index) {
-    if (index >= _data.size())
-        throw std::out_of_range("Index out of range");
-    return _data[index];
-}
-
-template <typename T, typename IndexType>
-constexpr const T& Arena<T, IndexType>::at(IndexType index) const {
-    if (index >= _data.size())
-        throw std::out_of_range("Index out of range");
-    return _data[index];
-}
-
-template <typename T, typename IndexType>
-constexpr T* Arena<T, IndexType>::get(IndexType index) noexcept {
-    if (index >= _data.size())
+constexpr T* Arena<T, IndexType>::get(Arena<T, IndexType>::elem_ref ref) noexcept {
+    if (ref._index >= _data.size())
         return nullptr;
-    return &_data[index];
+    return &_data[ref._index];
 }
 
 template <typename T, typename IndexType>
-constexpr const T* Arena<T, IndexType>::get(IndexType index) const noexcept {
-    if (index >= _data.size())
+constexpr const T* Arena<T, IndexType>::get(Arena<T, IndexType>::elem_ref ref) const noexcept {
+    if (ref._index >= _data.size())
         return nullptr;
-    return &_data[index];
+    return &_data[ref._index];
 }
 
 } // namespace lpc::utils
