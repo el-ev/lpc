@@ -60,10 +60,9 @@ public:
 
     [[nodiscard]] inline LocRef insert(
         std::uint32_t line, std::uint32_t column) {
-        if (!Arena::empty() && Arena::back().first == line
-            && Arena::back().second == column) {
-            return Arena::back_ref();
-        }
+        LocRef back = Arena::back_ref();
+        if (back.is_valid() && Arena::at(back) == std::make_pair(line, column))
+            return back;
         return Arena::insert({ line, column });
     }
 

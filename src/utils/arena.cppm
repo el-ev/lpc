@@ -11,11 +11,30 @@ private:
     IndexType _next_index = 0;
 
     struct ElementReference {
+    public:
+        static const IndexType invalid_ref
+            = std::numeric_limits<IndexType>::max();
+
+        [[nodiscard]] inline static ElementReference invalid() noexcept {
+            return ElementReference(invalid_ref);
+        }
+
+        [[nodiscard]] inline bool operator==(const ElementReference& other) const noexcept {
+            return _index == other._index;
+        }
+
+        [[nodiscard]] inline bool operator!=(const ElementReference& other) const noexcept {
+            return !(*this == other);
+        }
+
+        [[nodiscard]] inline bool is_valid() const noexcept {
+            return _index != invalid_ref;
+        }
+
     private:
         IndexType _index;
         explicit ElementReference(IndexType idx) noexcept
-            : _index(idx) {
-        }
+            : _index(idx) { };
 
         friend Arena<T, IndexType>;
     };
@@ -62,39 +81,25 @@ public:
     elem_ref emplace(Args&&... args);
     elem_ref emplace(T&& value);
 
+    inline void pop_back() {
+        if (!_data.empty()) {
+            _data.pop_back();
+            --_next_index;
+        }
+    }
+
     [[nodiscard]] constexpr T& at(elem_ref ref);
     [[nodiscard]] constexpr const T& at(elem_ref ref) const;
     [[nodiscard]] constexpr T* get(elem_ref ref) noexcept;
     [[nodiscard]] constexpr const T* get(elem_ref ref) const noexcept;
 
-    [[nodiscard]] inline constexpr elem_ref back_ref() const {
+    [[nodiscard]] inline constexpr elem_ref back_ref() const noexcept {
         if (_data.empty())
-            throw std::out_of_range("Arena is empty");
+            return elem_ref::invalid();
         return elem_ref(_next_index - 1);
     }
 
-    [[nodiscard]] inline constexpr T& back() {
-        if (_data.empty())
-            throw std::out_of_range("Arena is empty");
-        return _data.back();
-    }
-
-    [[nodiscard]] inline constexpr const T& back() const {
-        if (_data.empty())
-            throw std::out_of_range("Arena is empty");
-        return _data.back();
-    }
-
-    using iterator = typename std::vector<T>::iterator;
     using const_iterator = typename std::vector<T>::const_iterator;
-
-    [[nodiscard]] inline constexpr iterator begin() noexcept {
-        return _data.begin();
-    }
-
-    [[nodiscard]] inline constexpr iterator end() noexcept {
-        return _data.end();
-    }
 
     [[nodiscard]] inline constexpr const_iterator begin() const noexcept {
         return _data.begin();
