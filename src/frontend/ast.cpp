@@ -2,7 +2,7 @@ module lpc.frontend.ast;
 
 namespace lpc::frontend {
 
-std::string ASTNode::dump_json(
+std::string ASTNode::dump_json(const ASTNodeArena& arena,
     const LocationArena& loc_arena, std::size_t indent) const {
     std::string result;
     std::string prefix(indent, ' ');
@@ -54,7 +54,8 @@ std::string ASTNode::dump_json(
         result += ",\n" + prefix + "  \"children\": [\n";
         const auto& children = _value.get_unchecked<NodeList>();
         for (std::size_t i = 0; i < children.size(); ++i) {
-            result += children[i]->dump_json(loc_arena, indent + 4);
+            result
+                += arena[children[i]].dump_json(arena, loc_arena, indent + 4);
             if (i < children.size() - 1) {
                 result += ",";
             }
@@ -66,5 +67,21 @@ std::string ASTNode::dump_json(
 
     result += "\n" + prefix + "}";
     return result;
+}
+
+[[nodiscard]] ASTNodeArena::NodeRef ASTNodeArena::emplace(ASTNode&& node) {
+    return Arena::emplace(std::move(node));
+}
+
+[[nodiscard]] ASTNodeArena::NodeRef ASTNodeArena::back_ref() const noexcept {
+    return Arena::back_ref();
+}
+
+[[nodiscard]] const ASTNode& ASTNodeArena::at(NodeRef ref) const& {
+    return Arena::at(ref);
+}
+
+[[nodiscard]] const ASTNode* ASTNodeArena::get(NodeRef ref) const noexcept {
+    return Arena::get(ref);
 }
 } // namespace lpc::frontend

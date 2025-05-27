@@ -56,9 +56,10 @@ int Session::run() noexcept {
     }
 
     auto root = parser.root();
+    auto ast_arena = std::move(parser.arena());
 
     if (_print_ast)
-        std::println("{}\n", root->dump_json(loc_arena));
+        std::println("{}\n", ast_arena[root].dump_json(ast_arena, loc_arena));
 
     return 0;
 }

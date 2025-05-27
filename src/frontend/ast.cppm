@@ -8,6 +8,7 @@ import lpc.utils.tagged_union;
 
 namespace lpc::frontend {
 
+using lpc::utils::Arena;
 using lpc::utils::TaggedUnion;
 
 // AST node types
@@ -65,13 +66,38 @@ export [[nodiscard]] constexpr auto node_type_to_string(NodeType type)
 }
 #undef CASE_STATEMENT
 
-// TODO Arena
+export class ASTNode;
+export class ASTNodeArena;
 
-export class ASTNode {
+class ASTNodeArena : Arena<ASTNode, std::uint32_t> {
+public:
+    using NodeRef = Arena<ASTNode, std::uint32_t>::elem_ref;
+
+    explicit ASTNodeArena() noexcept = default;
+
+    [[nodiscard]] const ASTNode& operator[](NodeRef ref) const& {
+        return at(ref);
+    }
+
+    [[nodiscard]] NodeRef emplace(ASTNode&& node);
+    template <typename... Args>
+    [[nodiscard]] NodeRef emplace(Args&&... args) {
+        return Arena::emplace(
+            ASTNode(std::forward<Args>(args)...));
+    }
+
+    inline void pop_back() {
+        Arena::pop_back();
+    }
+
+    [[nodiscard]] NodeRef back_ref() const noexcept;
+    [[nodiscard]] const ASTNode& at(NodeRef ref) const&;
+    [[nodiscard]] const ASTNode* get(NodeRef ref) const noexcept;
+};
+
+class ASTNode {
 private:
-    using Node = ASTNode;
-    using NodePtr = std::unique_ptr<Node>;
-    using NodeList = std::vector<NodePtr>;
+    using NodeList = std::vector<ASTNodeArena::NodeRef>;
     NodeType _type;
     LocRef _location;
     TaggedUnion<NodeList, Keyword, std::string, std::int64_t, char, bool>
@@ -122,6 +148,7 @@ public:
     }
 
     [[nodiscard]] std::string dump_json(
+        const ASTNodeArena& arena,
         const LocationArena& loc_arena, std::size_t indent = 0) const;
 };
 

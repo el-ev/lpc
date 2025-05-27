@@ -396,29 +396,31 @@ DEF_RULE_END(Template)
 // clang-format on
 
 void Parser::parse() noexcept {
-    auto rule = rules::Program::rule();
-    _root = std::move(rule(_cursor).value()[0]);
+    auto program = rules::Program::rule()(_cursor);
+    if (_cursor.is_failed())
+        return;
     if (!_cursor.is_eof()) {
         Error("Unexpected tokens after parsing the root node");
         _cursor.fail();
         return;
     }
+    _root = program.value()[0];
 }
 
 template <TokenType T>
 constexpr bool Cursor::is() const noexcept {
-    return _token->type() == T;
+    return type() == T;
 }
 
 template <Keyword K>
 constexpr bool Cursor::is() const noexcept {
-    return _token->type() == TokenType::KEYWORD
-        && _token->value().get_unchecked<Keyword>() == K;
+    return type() == TokenType::KEYWORD
+        && value().get_unchecked<Keyword>() == K;
 }
 
 template <std::size_t Hash>
 constexpr bool Cursor::is() const noexcept {
-    if (_token->type() != TokenType::IDENT)
+    if (type() != TokenType::IDENT)
         return false;
     auto string_hash = [](const std::string& str) noexcept {
         std::size_t h = 14695981039346656037ULL;
@@ -428,55 +430,49 @@ constexpr bool Cursor::is() const noexcept {
         }
         return h;
     };
-    return string_hash(_token->value().get_unchecked<std::string>()) == Hash;
+    return string_hash(value().get_unchecked<std::string>()) == Hash;
 }
 
-constexpr OptNodePtr Cursor::get_keyword() const noexcept {
-    if (_token->type() != TokenType::KEYWORD)
-        return std::nullopt;
-    auto keyword = _token->value().get_unchecked<Keyword>();
-    return std::make_unique<Node>(
-        NodeType::Keyword, _token->location(), keyword);
+constexpr NodeRef Cursor::get_keyword() const noexcept {
+    if (type() != TokenType::KEYWORD)
+        return NodeRef::invalid();
+    Keyword keyword = value().get_unchecked<Keyword>();
+    return arena().emplace(NodeType::Keyword, loc(), keyword);
 }
 
-constexpr OptNodePtr Cursor::get_ident() const noexcept {
-    if (_token->type() != TokenType::IDENT)
-        return std::nullopt;
-    auto ident = _token->value().get_unchecked<std::string>();
-    return std::make_unique<Node>(
-        NodeType::Variable, _token->location(), std::move(ident));
+constexpr NodeRef Cursor::get_ident() const noexcept {
+    if (type() != TokenType::IDENT)
+        return NodeRef::invalid();
+    auto ident = value().get_unchecked<std::string>();
+    return arena().emplace(NodeType::Variable, loc(), std::move(ident));
 }
 
-constexpr OptNodePtr Cursor::get_constant() const noexcept {
-    OptNodePtr ptr;
-    switch (_token->type()) {
+constexpr NodeRef Cursor::get_constant() const noexcept {
+    NodeRef ref = NodeRef::invalid();
+    switch (type()) {
     case TokenType::NUMBER: {
-        auto value = _token->value().get_unchecked<std::int64_t>();
-        ptr = std::make_unique<Node>(
-            NodeType::Number, _token->location(), value);
+        std::int64_t v = value().get_unchecked<std::int64_t>();
+        ref = arena().emplace(NodeType::Number, loc(), v);
         break;
     }
     case TokenType::BOOLEAN: {
-        auto value = _token->value().get_unchecked<bool>();
-        ptr = std::make_unique<Node>(
-            NodeType::Boolean, _token->location(), value);
+        bool v = value().get_unchecked<bool>();
+        ref = arena().emplace(NodeType::Boolean, loc(), v);
         break;
     }
     case TokenType::CHARACTER: {
-        auto value = _token->value().get_unchecked<char>();
-        ptr = std::make_unique<Node>(
-            NodeType::Character, _token->location(), value);
+        char v = value().get_unchecked<char>();
+        ref = arena().emplace(NodeType::Character, loc(), v);
         break;
     }
     case TokenType::STRING: {
-        auto value = _token->value().get_unchecked<std::string>();
-        ptr = std::make_unique<Node>(
-            NodeType::String, _token->location(), std::move(value));
+        auto v = value().get_unchecked<std::string>();
+        ref = arena().emplace(NodeType::String, loc(), std::move(v));
         break;
     }
-    default: return std::nullopt;
+    default: break;
     }
-    return ptr;
+    return ref;
 }
 } // namespace lpc::frontend
 
@@ -501,13 +497,11 @@ OptNodeList OneKeyword<K>::operator()(Cursor& cursor) const noexcept {
 }
 
 OptNodeList GetKeyword::operator()(Cursor& cursor) const noexcept {
-    auto keyword = cursor.get_keyword();
-    if (!keyword)
+    NodeRef node = cursor.get_keyword();
+    if (!node.is_valid())
         return std::nullopt;
     cursor.advance();
-    NodeList result;
-    result.emplace_back(std::move(keyword.value()));
-    return result;
+    return NodeList(1, node);
 }
 
 template <std::size_t Hash>
@@ -520,23 +514,19 @@ OptNodeList OneVariable<Hash>::operator()(Cursor& cursor) const noexcept {
 }
 
 OptNodeList GetVariable::operator()(Cursor& cursor) const noexcept {
-    auto ident = cursor.get_ident();
-    if (!ident)
+    NodeRef node = cursor.get_ident();
+    if (!node.is_valid())
         return std::nullopt;
     cursor.advance();
-    NodeList result;
-    result.emplace_back(std::move(ident.value()));
-    return result;
+    return NodeList(1, node);
 }
 
 OptNodeList GetConstant::operator()(Cursor& cursor) const noexcept {
-    auto node = cursor.get_constant();
-    if (!node)
+    NodeRef node = cursor.get_constant();
+    if (!node.is_valid())
         return std::nullopt;
     cursor.advance();
-    NodeList result;
-    result.emplace_back(std::move(node.value()));
-    return result;
+    return NodeList(1, node);
 }
 
 template <NodeType T, ParserRule R>
@@ -559,10 +549,8 @@ OptNodeList OneNode<T, R>::operator()(Cursor& cursor) const noexcept {
             return std::nullopt;
         }
     }
-    auto node = std::make_unique<Node>(T, loc, std::move(res.value()));
-    NodeList result;
-    result.emplace_back(std::move(node));
-    return result;
+    NodeRef node = cursor.arena().emplace(t, loc, std::move(res.value()));
+    return NodeList(1, node);
 }
 
 template <ParserRule Lhs, ParserRule Rhs>
@@ -682,6 +670,7 @@ OptNodeList Drop<R>::operator()(Cursor& cursor) const noexcept {
     auto result = R()(cursor);
     if (!result)
         return std::nullopt;
+    // TODO Drop from arena
     return NodeList {};
 }
 
@@ -696,7 +685,7 @@ OptNodeList Flatten<R>::operator()(Cursor& cursor) const noexcept {
         cursor.fail();
         return std::nullopt;
     }
-    return std::move(result.value()[0]->children());
+    return std::move(cursor.arena()[result.value()[0]].children());
 }
 
 template <ParserRule R>

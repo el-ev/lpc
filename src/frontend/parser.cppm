@@ -8,9 +8,8 @@ import lpc.frontend.ast;
 namespace lpc::frontend {
 
 using Node = ASTNode;
-using NodePtr = std::unique_ptr<Node>;
-using OptNodePtr = std::optional<NodePtr>;
-using NodeList = std::vector<NodePtr>;
+using NodeRef = ASTNodeArena::NodeRef;
+using NodeList = std::vector<NodeRef>;
 using OptNodeList = std::optional<NodeList>;
 
 #ifdef NDEBUG
@@ -24,21 +23,19 @@ private:
     const std::vector<Token>& _tokens;
     bool _failed = false;
     std::vector<Token>::const_iterator _token;
+    ASTNodeArena& _arena;
 
 public:
-    explicit constexpr Cursor(const std::vector<Token>& tokens) noexcept
+    explicit constexpr Cursor(
+        const std::vector<Token>& tokens, ASTNodeArena& arena) noexcept
         : _tokens(tokens)
-        , _token(_tokens.begin()) {
-    }
+        , _token(_tokens.begin())
+        , _arena(arena) { };
 
     constexpr Cursor(const Cursor&) = delete;
     constexpr Cursor& operator=(const Cursor&) = delete;
 
     constexpr Cursor(Cursor&&) noexcept = default;
-
-    [[nodiscard]] inline constexpr const Token* operator->() const noexcept {
-        return &(*_token);
-    }
 
     [[nodiscard]] inline constexpr const Token& operator*() const noexcept {
         return *_token;
@@ -71,8 +68,24 @@ public:
         _token = other;
     }
 
+    [[nodiscard]] inline constexpr TokenType type() const noexcept {
+        return _token->type();
+    }
+
     [[nodiscard]] inline constexpr LocRef loc() const noexcept {
         return _token->location();
+    }
+
+    [[nodiscard]] inline constexpr auto value() const& noexcept {
+        return _token->value();
+    }
+
+    [[nodiscard]] inline constexpr ASTNodeArena& arena() & noexcept {
+        return _arena;
+    }
+
+    [[nodiscard]] inline constexpr ASTNodeArena& arena() const& noexcept {
+        return _arena;
     }
 
     template <TokenType T>
@@ -81,23 +94,25 @@ public:
     [[nodiscard]] constexpr bool is() const noexcept;
     template <std::size_t Hash>
     [[nodiscard]] constexpr bool is() const noexcept;
-    [[nodiscard]] constexpr OptNodePtr get_keyword() const noexcept;
-    [[nodiscard]] constexpr OptNodePtr get_ident() const noexcept;
-    [[nodiscard]] constexpr OptNodePtr get_constant() const noexcept;
+    [[nodiscard]] constexpr NodeRef get_keyword() const noexcept;
+    [[nodiscard]] constexpr NodeRef get_ident() const noexcept;
+    [[nodiscard]] constexpr NodeRef get_constant() const noexcept;
 };
 
 export class Parser {
 private:
     std::vector<Token> _tokens;
     Cursor _cursor;
-    NodePtr _root;
+    ASTNodeArena _arena;
+    NodeRef _root;
 
     void parse() noexcept;
 
 public:
     explicit constexpr Parser(std::vector<Token>&& tokens) noexcept
         : _tokens(std::move(tokens))
-        , _cursor(_tokens) {
+        , _cursor(_tokens, _arena)
+        , _root(NodeRef::invalid()) {
         parse();
     };
 
@@ -114,8 +129,12 @@ public:
         return _cursor.is_eof();
     }
 
-    [[nodiscard]] inline NodePtr&& root() noexcept {
-        return std::move(_root);
+    [[nodiscard]] inline NodeRef root() noexcept {
+        return _arena.back_ref();
+    }
+
+    [[nodiscard]] inline ASTNodeArena&& arena() noexcept {
+        return std::move(_arena);
     }
 };
 
@@ -433,7 +452,7 @@ namespace combinators {
 
 namespace rules {
 
-using namespace lpc::frontend::combinators;
+    using namespace lpc::frontend::combinators;
 
 #define DECL_RULE(R)                                                           \
     struct R {                                                                 \
