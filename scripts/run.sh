@@ -12,12 +12,11 @@ if [[ "$1" == "-r" ]]; then
     BUILD_TYPE="release"
 fi
 
-"$PROJECT_ROOT/scripts/build.sh" "$1"
+"$PROJECT_ROOT/scripts/build.sh" "$1" >&2
+
 if [[ $? -ne 0 ]]; then
     echo "Build failed"
     exit 1
 fi
-
-echo ""
 
 "$PROJECT_ROOT/build/$BUILD_TYPE/lpc" "${@:2}"
