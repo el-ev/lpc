@@ -27,7 +27,7 @@ std::string ASTNode::dump_json(
         break;
     case NodeType::Character: {
         char c = _value.get_unchecked<char>();
-        result += ",\n" + prefix + R"(  "value": "#\)";
+        result += ",\n" + prefix + R"(  "value": "#\\)";
         switch (c) {
         case '\n': result += "newline"; break;
         case ' ' : result += "space"; break;

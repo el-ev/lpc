@@ -13,8 +13,10 @@ private:
     struct ElementReference {
     private:
         IndexType _index;
-        explicit ElementReference(IndexType idx) noexcept : _index(idx) {}
-    
+        explicit ElementReference(IndexType idx) noexcept
+            : _index(idx) {
+        }
+
         friend Arena<T, IndexType>;
     };
 
@@ -138,21 +140,24 @@ constexpr T& Arena<T, IndexType>::at(Arena<T, IndexType>::elem_ref ref) {
 }
 
 template <typename T, typename IndexType>
-constexpr const T& Arena<T, IndexType>::at(Arena<T, IndexType>::elem_ref ref) const {
+constexpr const T& Arena<T, IndexType>::at(
+    Arena<T, IndexType>::elem_ref ref) const {
     if (ref._index >= _data.size())
         throw std::out_of_range("Index out of range");
     return _data[ref._index];
 }
 
 template <typename T, typename IndexType>
-constexpr T* Arena<T, IndexType>::get(Arena<T, IndexType>::elem_ref ref) noexcept {
+constexpr T* Arena<T, IndexType>::get(
+    Arena<T, IndexType>::elem_ref ref) noexcept {
     if (ref._index >= _data.size())
         return nullptr;
     return &_data[ref._index];
 }
 
 template <typename T, typename IndexType>
-constexpr const T* Arena<T, IndexType>::get(Arena<T, IndexType>::elem_ref ref) const noexcept {
+constexpr const T* Arena<T, IndexType>::get(
+    Arena<T, IndexType>::elem_ref ref) const noexcept {
     if (ref._index >= _data.size())
         return nullptr;
     return &_data[ref._index];

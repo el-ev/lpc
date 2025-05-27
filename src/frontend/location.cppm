@@ -52,7 +52,8 @@ private:
 
 public:
     using Arena::Arena;
-    using elem_ref = utils::Arena<std::pair<std::uint32_t, std::uint32_t>, std::uint32_t>::elem_ref;
+    using elem_ref = utils::Arena<std::pair<std::uint32_t, std::uint32_t>,
+        std::uint32_t>::elem_ref;
     using LocRef = elem_ref;
     explicit LocationArena(std::string&& file) noexcept
         : _file(std::move(file)) {
