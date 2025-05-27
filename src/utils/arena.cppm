@@ -19,11 +19,13 @@ private:
             return ElementReference(invalid_ref);
         }
 
-        [[nodiscard]] inline bool operator==(const ElementReference& other) const noexcept {
+        [[nodiscard]] inline bool operator==(
+            const ElementReference& other) const noexcept {
             return _index == other._index;
         }
 
-        [[nodiscard]] inline bool operator!=(const ElementReference& other) const noexcept {
+        [[nodiscard]] inline bool operator!=(
+            const ElementReference& other) const noexcept {
             return !(*this == other);
         }
 

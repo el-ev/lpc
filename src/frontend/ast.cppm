@@ -82,8 +82,7 @@ public:
     [[nodiscard]] NodeRef emplace(ASTNode&& node);
     template <typename... Args>
     [[nodiscard]] NodeRef emplace(Args&&... args) {
-        return Arena::emplace(
-            ASTNode(std::forward<Args>(args)...));
+        return Arena::emplace(ASTNode(std::forward<Args>(args)...));
     }
 
     inline void pop_back() {
@@ -147,8 +146,7 @@ public:
         return _value.get_unchecked<NodeList>();
     }
 
-    [[nodiscard]] std::string dump_json(
-        const ASTNodeArena& arena,
+    [[nodiscard]] std::string dump_json(const ASTNodeArena& arena,
         const LocationArena& loc_arena, std::size_t indent = 0) const;
 };
 

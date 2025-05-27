@@ -63,7 +63,7 @@ public:
         LocRef back = Arena::back_ref();
         if (back.is_valid() && Arena::at(back) == std::make_pair(line, column))
             return back;
-        return Arena::insert({ line, column });
+        return Arena::emplace(line, column);
     }
 
     [[nodiscard]] inline Location operator[](LocRef ref) const {
