@@ -83,11 +83,18 @@ public:
     elem_ref emplace(Args&&... args);
     elem_ref emplace(T&& value);
 
-    inline void pop_back() {
+    inline void pop_back() noexcept {
         if (!_data.empty()) {
             _data.pop_back();
             --_next_index;
         }
+    }
+
+    inline void reset_to(elem_ref ref) noexcept {
+        if (ref._index >= _data.size())
+            return;
+        _data.resize(ref._index + 1);
+        _next_index = ref._index + 1;
     }
 
     [[nodiscard]] constexpr T& at(elem_ref ref);

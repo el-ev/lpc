@@ -51,7 +51,8 @@ using lpc::utils::TaggedUnion;
     X(Keyword)                                                                 \
     X(Datum)                                                                   \
     X(List)                                                                    \
-    X(Vector)
+    X(Vector)                                                                  \
+    X(Invalid)
 
 #define ENUM_VALUE(name) name,
 export enum class NodeType : std::uint8_t { NODE_TYPE_LIST(ENUM_VALUE) };
@@ -82,11 +83,15 @@ public:
     [[nodiscard]] NodeRef emplace(ASTNode&& node);
     template <typename... Args>
     [[nodiscard]] NodeRef emplace(Args&&... args) {
-        return Arena::emplace(ASTNode(std::forward<Args>(args)...));
+        return Arena::emplace(std::forward<Args>(args)...);
+    }
+    
+    inline void pop_back() noexcept {
+        Arena::pop_back();
     }
 
-    inline void pop_back() {
-        Arena::pop_back();
+    inline void reset_to(NodeRef ref) noexcept {
+        Arena::reset_to(ref);
     }
 
     [[nodiscard]] NodeRef back_ref() const noexcept;
@@ -103,6 +108,10 @@ private:
         _value;
 
 public:
+    explicit ASTNode()
+        : _type(NodeType::Invalid)
+        , _location(LocRef::invalid()) { };
+
     template <typename T>
     explicit ASTNode(NodeType type, LocRef location, T value)
         requires(std::same_as<std::remove_cvref_t<T>, Keyword>
@@ -125,8 +134,8 @@ public:
     explicit ASTNode(const ASTNode&) = delete;
     ASTNode& operator=(const ASTNode&) = delete;
 
-    ASTNode(ASTNode&&) = default;
-    ASTNode& operator=(ASTNode&&) = default;
+    ASTNode(ASTNode&&) noexcept = default;
+    ASTNode& operator=(ASTNode&&) noexcept = default;
 
     virtual ~ASTNode() = default;
 
@@ -139,10 +148,12 @@ public:
     }
 
     [[nodiscard]] NodeList&& children() noexcept {
+        // TODO: Fix behavior
         return std::move(_value.get_unchecked<NodeList>());
     }
 
     [[nodiscard]] const NodeList& children() const& noexcept {
+        // TODO: Fix behavior
         return _value.get_unchecked<NodeList>();
     }
 

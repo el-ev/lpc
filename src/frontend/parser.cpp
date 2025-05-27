@@ -670,7 +670,8 @@ OptNodeList Drop<R>::operator()(Cursor& cursor) const noexcept {
     auto result = R()(cursor);
     if (!result)
         return std::nullopt;
-    // TODO Drop from arena
+    // FIXME: What if Drop<R> is applied to an non-terimal node?
+    cursor.arena().pop_back();
     return NodeList {};
 }
 
@@ -685,6 +686,7 @@ OptNodeList Flatten<R>::operator()(Cursor& cursor) const noexcept {
         cursor.fail();
         return std::nullopt;
     }
+    cursor.arena().pop_back();
     return std::move(cursor.arena()[result.value()[0]].children());
 }
 

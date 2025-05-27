@@ -25,6 +25,19 @@ private:
     std::vector<Token>::const_iterator _token;
     ASTNodeArena& _arena;
 
+    struct SavePoint {
+    private:
+        std::vector<Token>::const_iterator _token;
+        NodeRef _node;
+
+        explicit constexpr SavePoint(
+            std::vector<Token>::const_iterator token, NodeRef node) noexcept
+            : _token(token)
+            , _node(node) { };
+
+        friend class Cursor;
+    };
+
 public:
     explicit constexpr Cursor(
         const std::vector<Token>& tokens, ASTNodeArena& arena) noexcept
@@ -59,13 +72,13 @@ public:
         return _token->type() == TokenType::EOF;
     }
 
-    [[nodiscard]] inline constexpr std::vector<Token>::const_iterator
-    save() const noexcept {
-        return _token;
+    [[nodiscard]] inline constexpr SavePoint save() const noexcept {
+        return SavePoint(_token, _arena.back_ref());
     }
 
-    inline void set(std::vector<Token>::const_iterator other) noexcept {
-        _token = other;
+    inline void set(SavePoint sp) noexcept {
+        _token = sp._token;
+        _arena.reset_to(sp._node);
     }
 
     [[nodiscard]] inline constexpr TokenType type() const noexcept {
