@@ -71,7 +71,6 @@ private:
 public:
     static constexpr std::size_t npos = static_cast<std::size_t>(-1);
     
-
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init, hicpp-member-init)
     constexpr TaggedUnion() : index_(static_cast<index_t>(-1)) {}
     
@@ -173,6 +172,36 @@ public:
     constexpr T&& get() && {
         constexpr auto idx = type_index<T>();
         if (index_ != idx) throw std::bad_variant_access{};
+        return std::move(*storage_as<T>());
+    }
+    
+    template<std::size_t I>
+    constexpr auto& get_unchecked() & noexcept {
+        return *storage_as<type_at<I>>();
+    }
+    
+    template<std::size_t I>
+    constexpr const auto& get_unchecked() const& noexcept {
+        return *storage_as<type_at<I>>();
+    }
+    
+    template<std::size_t I>
+    constexpr auto&& get_unchecked() && noexcept {
+        return std::move(*storage_as<type_at<I>>());
+    }
+    
+    template<typename T>
+    constexpr T& get_unchecked() & noexcept {
+        return *storage_as<T>();
+    }
+    
+    template<typename T>
+    constexpr const T& get_unchecked() const& noexcept {
+        return *storage_as<T>();
+    }
+    
+    template<typename T>
+    constexpr T&& get_unchecked() && noexcept {
         return std::move(*storage_as<T>());
     }
     
@@ -282,6 +311,36 @@ constexpr const T& get(const TaggedUnion<Types...>& v) {
 template<typename T, typename... Types>
 constexpr T&& get(TaggedUnion<Types...>&& v) {
     return std::move(v).template get<T>();
+}
+
+template<std::size_t I, typename... Types>
+constexpr auto& get_unchecked(TaggedUnion<Types...>& v) noexcept {
+    return v.template get_unchecked<I>();
+}
+
+template<std::size_t I, typename... Types>
+constexpr const auto& get_unchecked(const TaggedUnion<Types...>& v) noexcept {
+    return v.template get_unchecked<I>();
+}
+
+template<std::size_t I, typename... Types>
+constexpr auto&& get_unchecked(TaggedUnion<Types...>&& v) noexcept {
+    return std::move(v).template get_unchecked<I>();
+}
+
+template<typename T, typename... Types>
+constexpr T& get_unchecked(TaggedUnion<Types...>& v) noexcept {
+    return v.template get_unchecked<T>();
+}
+
+template<typename T, typename... Types>
+constexpr const T& get_unchecked(const TaggedUnion<Types...>& v) noexcept {
+    return v.template get_unchecked<T>();
+}
+
+template<typename T, typename... Types>
+constexpr T&& get_unchecked(TaggedUnion<Types...>&& v) noexcept {
+    return std::move(v).template get_unchecked<T>();
 }
 
 template<typename Visitor, typename... Types>
