@@ -10,14 +10,14 @@ fi
 
 case $opt in
     d)
-        cmake --build "$PROJECT_ROOT/build/debug"
+        cmake --build "$PROJECT_ROOT/build/debug" -j "$(nproc)"
         ;;
     r)
-        cmake --build "$PROJECT_ROOT/build/release"
+        cmake --build "$PROJECT_ROOT/build/release" -j "$(nproc)"
         ;;
     a)
-        cmake --build "$PROJECT_ROOT/build/debug"
-        cmake --build "$PROJECT_ROOT/build/release"
+        cmake --build "$PROJECT_ROOT/build/debug" -j "$(nproc)"
+        cmake --build "$PROJECT_ROOT/build/release" -j "$(nproc)"
         ;;
     *)
         echo "Usage: $0 (-d (debug) | -r (release) | -a (all))"
