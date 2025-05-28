@@ -19,6 +19,19 @@
             "stopOnEntry": true,
             "cwd": "${workspaceFolder}",
             "preLaunchTask": "LPC debug build"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug Active File",
+            "program": "${workspaceFolder}/build/debug/bin/${fileBasenameNoExtension}",
+            "args": [],
+            "initCommands": [
+                // "settings set target.source-map . ${workspaceFolder}",
+            ],
+            "stopOnEntry": true,
+            "cwd": "${workspaceFolder}",
+            "preLaunchTask": "LPC debug build"
         }
     ]
 }
