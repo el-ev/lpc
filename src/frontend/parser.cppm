@@ -64,7 +64,6 @@ public:
 
     [[nodiscard]] inline constexpr bool is_failed() const noexcept {
         return _failed;
-        // || _token->type() == TokenType::INVALID;
     }
 
     [[nodiscard]] inline constexpr bool is_eof() const noexcept {

@@ -67,7 +67,6 @@ export enum class TokenType : std::uint8_t {
     DOT,
 
     EOF,
-    INVALID,
 };
 
 export [[nodiscard]] constexpr auto token_type_to_string(TokenType type)
@@ -88,17 +87,15 @@ export [[nodiscard]] constexpr auto token_type_to_string(TokenType type)
     case TokenType::COMMA_AT    : return "COMMA_AT";
     case TokenType::DOT         : return "DOT";
     case TokenType::EOF         : return "EOF";
-    case TokenType::INVALID     : return "INVALID";
     }
-    return "UNKNOWN";
 }
 
 export class Token {
 private:
     TokenType _type;
-    TaggedUnion<Keyword, std::string, std::int64_t, char, bool> _value;
-    std::string _lexeme;
     LocRef _location;
+    std::string _lexeme;
+    TaggedUnion<Keyword, std::string, std::int64_t, char, bool> _value;
 
     Token(const Token&) = default;
 
@@ -107,22 +104,21 @@ public:
     explicit Token(
         TokenType type, T value, std::string&& lexeme, LocRef location)
         : _type(type)
-        , _value(std::forward<T>(value))
+        , _location(location)
         , _lexeme(std::move(lexeme))
-        , _location(location) {};
+        , _value(std::forward<T>(value)) {};
 
     explicit Token(TokenType type, std::string&& value, std::string&& lexeme,
         LocRef location)
         : _type(type)
-        , _value(std::move(value))
+        , _location(location)
         , _lexeme(std::move(lexeme))
-        , _location(location) { };
+        , _value(std::move(value)) { };
 
-    explicit constexpr Token(
-        TokenType type, std::string&& lexeme, LocRef location) noexcept
-        : _type(type)
-        , _lexeme(std::move(lexeme))
-        , _location(location) { };
+    explicit constexpr Token(LocRef location) noexcept
+        : _type(TokenType::EOF)
+        , _location(location)
+        , _lexeme("<EOF>") { };
 
     Token(Token&&) = default;
     Token& operator=(Token&&) = default;
