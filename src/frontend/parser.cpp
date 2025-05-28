@@ -28,8 +28,7 @@ constexpr auto List = [] () noexcept {
     return make_node<NodeType::List>(
         chain(
             !LPAREN
-          , R() 
-          , Many(R())
+          , Some<R>()
           , OneToken<TokenType::DOT>()
           , R()
           , !RPAREN
@@ -73,8 +72,7 @@ any(
   , chain(
         !LPAREN
       , !OneKeyword<Keyword::BEGIN>()
-      , ~Def<ExprOrDef>()
-      , Many(~Def<ExprOrDef>())
+      , Some<Flatten<Def<ExprOrDef>>>()
       , !RPAREN
     )
 )
@@ -123,7 +121,7 @@ DEF_RULE_BEGIN(ProcedureCall)
 chain(
     !LPAREN
   , Def<Expression>()
-  , Many(Def<Expression>())
+  , Some<Def<Expression>>()
   , !RPAREN
 )
 DEF_RULE_END(ProcedureCall)
@@ -160,8 +158,7 @@ DEF_RULE_END(Body)
 
 DEF_RULE_BEGIN(Sequence)
 chain(
-    Def<Expression>()
-  , Many(Def<Expression>()) 
+    Some<Def<Expression>>()
 )
 DEF_RULE_END(Sequence)
 
@@ -343,14 +340,13 @@ any(
   , List<Flatten<Def<Pattern>>>()
   , chain(
         !LPAREN
-      , ~Def<Pattern>()
-      , Many(~Def<Pattern>())
+      , Some<Flatten<Def<Pattern>>>()
       , Ellipsis()
       , !RPAREN
     )
   , Vector<Many<Flatten<Def<Pattern>>>>()
   , Vector<decltype(
-        chain(
+        Then(
           Many(~Def<Pattern>())
           , Ellipsis()
         )
@@ -380,8 +376,7 @@ any(
   , make_node<NodeType::List>(
         chain(
             !LPAREN
-          , TemplateElement()
-          , Many(TemplateElement())
+          , Some<decltype(TemplateElement())>()
           , OneToken<TokenType::DOT>()
           , ~Def<Template>()
           , !RPAREN

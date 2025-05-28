@@ -345,6 +345,9 @@ namespace combinators {
     };
 
     template <ParserRule R>
+    using Some = Then<R, Many<R>>;
+
+    template <ParserRule R>
     struct Require {
         using manages_rollback = std::true_type;
         using produces_nodes = R::produces_nodes;
