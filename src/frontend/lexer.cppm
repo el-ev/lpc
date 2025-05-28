@@ -26,15 +26,14 @@ public:
         , _loc_arena(std::string(file))
         , _loc(loc()) {
         while (!is_eof() && !_failed) {
-            if (auto token = advance()) {
+            if (auto token = advance())
                 _tokens.push_back(std::move(*token));
-            } else if (!is_eof()) {
+            else if (!is_eof())
                 _failed = true;
-                break;
-            }
         }
-        if (is_eof())
-            _tokens.emplace_back(loc());
+        if (_failed)
+            return;
+        _tokens.emplace_back(Token::eof(loc()));
     }
 
     [[nodiscard]] inline LocationArena&& loc_arena() noexcept {
@@ -71,8 +70,7 @@ private:
 
     [[nodiscard]] std::optional<Token> read_ident() noexcept;
     [[nodiscard]] std::optional<Token> read_sharp() noexcept;
-    [[nodiscard]] std::optional<Token> read_number(
-        std::optional<int> radix = std::nullopt) noexcept;
+    [[nodiscard]] std::optional<Token> read_number(int radix = 0) noexcept;
     [[nodiscard]] std::optional<Token> read_boolean() noexcept;
     [[nodiscard]] std::optional<Token> read_character() noexcept;
     [[nodiscard]] std::optional<Token> read_string() noexcept;

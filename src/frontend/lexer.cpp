@@ -177,22 +177,22 @@ std::optional<Token> Lexer::read_sharp() noexcept {
 }
 
 // TODO: only signed integers are supported for now
-std::optional<Token> Lexer::read_number(std::optional<int> radix) noexcept {
+std::optional<Token> Lexer::read_number(int radix) noexcept {
     int radix_value = 10;
     bool number_pattern = false;
     auto value_start = _cursor;
     auto size = count_till_delimeter(_cursor);
 
-    if (radix.has_value()) {
+    if (radix != 0) {
         // radix is explicitly provided
         value_start.remove_prefix(2);
-        if (*radix != 2 && *radix != 8 && *radix != 10 && *radix != 16) {
-            Error("Invalid radix: ", *radix, " at", loc_string(_loc));
+        if (radix != 2 && radix != 8 && radix != 10 && radix != 16) {
+            Error("Invalid radix: ", radix, " at", loc_string(_loc));
             _failed = true;
             return std::nullopt;
         }
         number_pattern = true;
-        radix_value = *radix;
+        radix_value = radix;
     }
 
     auto pos = value_start;

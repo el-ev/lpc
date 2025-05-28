@@ -108,43 +108,27 @@ public:
         , _lexeme(std::move(lexeme))
         , _value(std::forward<T>(value)) {};
 
-    explicit Token(TokenType type, std::string&& value, std::string&& lexeme,
-        LocRef location)
-        : _type(type)
-        , _location(location)
-        , _lexeme(std::move(lexeme))
-        , _value(std::move(value)) { };
-
-    explicit constexpr Token(LocRef location) noexcept
-        : _type(TokenType::EOF)
-        , _location(location)
-        , _lexeme("<EOF>") { };
-
     Token(Token&&) = default;
     Token& operator=(Token&&) = default;
 
-    [[nodiscard]] constexpr auto copied() const noexcept -> Token {
-        return { *this };
+    [[nodiscard]] inline static constexpr Token eof(LocRef location) noexcept {
+        return Token(TokenType::EOF, std::string("<EOF>"), "<EOF>", location);
     }
 
-    [[nodiscard]] constexpr auto type() const noexcept -> TokenType {
+    [[nodiscard]] inline constexpr TokenType type() const noexcept {
         return _type;
     }
 
-    [[nodiscard]] constexpr const auto& value() const noexcept {
+    [[nodiscard]] inline constexpr const auto& value() const& noexcept {
         return _value;
     }
 
-    [[nodiscard]] constexpr auto lexeme() const noexcept -> std::string_view {
+    [[nodiscard]] inline constexpr std::string_view lexeme() const noexcept {
         return _lexeme;
     }
 
-    [[nodiscard]] constexpr auto location() const noexcept -> LocRef {
+    [[nodiscard]] inline constexpr LocRef location() const noexcept {
         return _location;
-    }
-
-    [[nodiscard]] constexpr auto len() const noexcept -> std::size_t {
-        return _lexeme.length();
     }
 };
 
