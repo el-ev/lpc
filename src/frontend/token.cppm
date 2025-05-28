@@ -107,10 +107,6 @@ public:
     template <typename T>
     explicit Token(
         TokenType type, T value, std::string&& lexeme, LocRef location)
-        requires(std::same_as<std::remove_cvref_t<T>, Keyword>
-                    || std::same_as<std::remove_cvref_t<T>, std::int64_t>
-                    || std::same_as<std::remove_cvref_t<T>, char>
-                    || std::same_as<std::remove_cvref_t<T>, bool>)
         : _type(type)
         , _value(std::forward<T>(value))
         , _lexeme(std::move(lexeme))

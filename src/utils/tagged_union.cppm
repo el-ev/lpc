@@ -35,13 +35,12 @@ private:
     template <typename T>
     static constexpr index_t type_index() {
         constexpr std::array<bool, sizeof...(Types)> matches
-            = { std::is_same_v<std::decay_t<T>, Types>... };
+            = { std::is_same_v<T, Types>... };
         for (std::size_t i = 0; i < sizeof...(Types); ++i) {
             if (matches[i])
                 return static_cast<index_t>(i);
         }
-        static_assert(
-            std::disjunction_v<std::is_same<std::decay_t<T>, Types>...>,
+        static_assert(std::disjunction_v<std::is_same<T, Types>...>,
             "This TaggedUnion does not hold the specified type.");
         return static_cast<index_t>(-1);
     }
@@ -108,7 +107,7 @@ public:
     }
 
     template <typename T>
-        requires(std::is_same_v<T, Types> || ...)
+        requires(!std::is_same_v<std::decay_t<T>, TaggedUnion>)
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init, hicpp-member-init)
     explicit constexpr TaggedUnion(T&& value) {
         constexpr auto idx = type_index<std::decay_t<T>>();
@@ -147,7 +146,7 @@ public:
     }
 
     template <typename T>
-        requires(std::is_same_v<T, Types> || ...)
+        requires(!std::is_same_v<std::decay_t<T>, TaggedUnion>)
     TaggedUnion& operator=(T&& value) {
         destroy();
         constexpr auto idx = type_index<std::decay_t<T>>();
@@ -350,84 +349,89 @@ private:
     }
 };
 
-template <typename T, typename... Types>
-constexpr bool holds_alternative(const TaggedUnion<Types...>& v) noexcept {
-    return v.template holds_alternative<T>();
-}
+export namespace tagged_union {
 
-template <typename... Types, TaggedUnion<Types...>::index_t I>
-constexpr auto& get(TaggedUnion<Types...>& v) {
-    return v.template get<I>();
-}
+    template <typename T, typename... Types>
+    constexpr bool holds_alternative(const TaggedUnion<Types...>& v) noexcept {
+        return v.template holds_alternative<T>();
+    }
 
-template <typename... Types, TaggedUnion<Types...>::index_t I>
-constexpr const auto& get(const TaggedUnion<Types...>& v) {
-    return v.template get<I>();
-}
+    template <typename... Types, TaggedUnion<Types...>::index_t I>
+    constexpr auto& get(TaggedUnion<Types...>& v) {
+        return v.template get<I>();
+    }
 
-template <typename... Types, TaggedUnion<Types...>::index_t I>
-constexpr auto&& get(TaggedUnion<Types...>&& v) {
-    return std::move(v).template get<I>();
-}
+    template <typename... Types, TaggedUnion<Types...>::index_t I>
+    constexpr const auto& get(const TaggedUnion<Types...>& v) {
+        return v.template get<I>();
+    }
 
-template <typename T, typename... Types>
-constexpr T& get(TaggedUnion<Types...>& v) {
-    return v.template get<T>();
-}
+    template <typename... Types, TaggedUnion<Types...>::index_t I>
+    constexpr auto&& get(TaggedUnion<Types...>&& v) {
+        return std::move(v).template get<I>();
+    }
 
-template <typename T, typename... Types>
-constexpr const T& get(const TaggedUnion<Types...>& v) {
-    return v.template get<T>();
-}
+    template <typename T, typename... Types>
+    constexpr T& get(TaggedUnion<Types...>& v) {
+        return v.template get<T>();
+    }
 
-template <typename T, typename... Types>
-constexpr T&& get(TaggedUnion<Types...>&& v) {
-    return std::move(v).template get<T>();
-}
+    template <typename T, typename... Types>
+    constexpr const T& get(const TaggedUnion<Types...>& v) {
+        return v.template get<T>();
+    }
 
-template <typename... Types, TaggedUnion<Types...>::index_t I>
-constexpr auto& get_unchecked(TaggedUnion<Types...>& v) noexcept {
-    return v.template get_unchecked<I>();
-}
+    template <typename T, typename... Types>
+    constexpr T&& get(TaggedUnion<Types...>&& v) {
+        return std::move(v).template get<T>();
+    }
 
-template <typename... Types, TaggedUnion<Types...>::index_t I>
-constexpr const auto& get_unchecked(const TaggedUnion<Types...>& v) noexcept {
-    return v.template get_unchecked<I>();
-}
+    template <typename... Types, TaggedUnion<Types...>::index_t I>
+    constexpr auto& get_unchecked(TaggedUnion<Types...>& v) noexcept {
+        return v.template get_unchecked<I>();
+    }
 
-template <typename... Types, TaggedUnion<Types...>::index_t I>
-constexpr auto&& get_unchecked(TaggedUnion<Types...>&& v) noexcept {
-    return std::move(v).template get_unchecked<I>();
-}
+    template <typename... Types, TaggedUnion<Types...>::index_t I>
+    constexpr const auto& get_unchecked(
+        const TaggedUnion<Types...>& v) noexcept {
+        return v.template get_unchecked<I>();
+    }
 
-template <typename T, typename... Types>
-constexpr T& get_unchecked(TaggedUnion<Types...>& v) noexcept {
-    return v.template get_unchecked<T>();
-}
+    template <typename... Types, TaggedUnion<Types...>::index_t I>
+    constexpr auto&& get_unchecked(TaggedUnion<Types...>&& v) noexcept {
+        return std::move(v).template get_unchecked<I>();
+    }
 
-template <typename T, typename... Types>
-constexpr const T& get_unchecked(const TaggedUnion<Types...>& v) noexcept {
-    return v.template get_unchecked<T>();
-}
+    template <typename T, typename... Types>
+    constexpr T& get_unchecked(TaggedUnion<Types...>& v) noexcept {
+        return v.template get_unchecked<T>();
+    }
 
-template <typename T, typename... Types>
-constexpr T&& get_unchecked(TaggedUnion<Types...>&& v) noexcept {
-    return std::move(v).template get_unchecked<T>();
-}
+    template <typename T, typename... Types>
+    constexpr const T& get_unchecked(const TaggedUnion<Types...>& v) noexcept {
+        return v.template get_unchecked<T>();
+    }
 
-template <typename Visitor, typename... Types>
-constexpr auto visit(Visitor&& vis, TaggedUnion<Types...>& variant) {
-    return variant.visit(std::forward<Visitor>(vis));
-}
+    template <typename T, typename... Types>
+    constexpr T&& get_unchecked(TaggedUnion<Types...>&& v) noexcept {
+        return std::move(v).template get_unchecked<T>();
+    }
 
-template <typename Visitor, typename... Types>
-constexpr auto visit(Visitor&& vis, const TaggedUnion<Types...>& variant) {
-    return variant.visit(std::forward<Visitor>(vis));
-}
+    template <typename Visitor, typename... Types>
+    constexpr auto visit(Visitor&& vis, TaggedUnion<Types...>& variant) {
+        return variant.visit(std::forward<Visitor>(vis));
+    }
 
-template <typename Visitor, typename... Types>
-constexpr auto visit(Visitor&& vis, TaggedUnion<Types...>&& variant) {
-    return std::move(variant).visit(std::forward<Visitor>(vis));
-}
+    template <typename Visitor, typename... Types>
+    constexpr auto visit(Visitor&& vis, const TaggedUnion<Types...>& variant) {
+        return variant.visit(std::forward<Visitor>(vis));
+    }
+
+    template <typename Visitor, typename... Types>
+    constexpr auto visit(Visitor&& vis, TaggedUnion<Types...>&& variant) {
+        return std::move(variant).visit(std::forward<Visitor>(vis));
+    }
+
+} // namespace tagges_union
 
 } // namespace lpc::utils

@@ -111,21 +111,9 @@ public:
     explicit ASTNode()
         : _type(NodeType::Invalid)
         , _location(LocRef::invalid()) { };
-
-    template <typename T>
-    explicit ASTNode(NodeType type, LocRef location, T value)
-        requires(std::same_as<std::remove_cvref_t<T>, Keyword>
-                    || std::same_as<std::remove_cvref_t<T>, std::int64_t>
-                    || std::same_as<std::remove_cvref_t<T>, char>
-                    || std::same_as<std::remove_cvref_t<T>, bool>)
-        : _type(type)
-        , _location(location)
-        , _value(std::forward<T>(value)) {
-    }
-
+        
     template <typename T>
     explicit ASTNode(NodeType type, LocRef location, T&& value)
-        requires(std::same_as<T, NodeList> || std::same_as<T, std::string>)
         : _type(type)
         , _location(location)
         , _value(std::forward<T>(value)) {
