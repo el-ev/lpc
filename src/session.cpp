@@ -1,8 +1,6 @@
 module lpc.session;
 
-import std;
 import lpc.logging;
-import lpc.frontend.location;
 import lpc.frontend.lexer;
 import lpc.frontend.parser;
 

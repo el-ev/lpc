@@ -2,7 +2,6 @@ export module lpc.frontend.ast;
 
 import std;
 import lpc.frontend.token;
-import lpc.frontend.location;
 import lpc.utils.arena;
 import lpc.utils.tagged_union;
 

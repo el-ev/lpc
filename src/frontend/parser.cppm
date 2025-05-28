@@ -1,9 +1,8 @@
 export module lpc.frontend.parser;
 
 import std;
-import lpc.frontend.location;
-import lpc.frontend.token;
 import lpc.frontend.ast;
+import lpc.frontend.token;
 
 namespace lpc::frontend {
 

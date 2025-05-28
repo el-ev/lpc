@@ -1,7 +1,6 @@
 export module lpc.frontend.lexer;
 
 import std;
-import lpc.frontend.location;
 import lpc.frontend.token;
 
 namespace lpc::frontend {

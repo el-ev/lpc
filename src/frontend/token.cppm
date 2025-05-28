@@ -1,7 +1,8 @@
 export module lpc.frontend.token;
 
+export import lpc.frontend.location;
+
 import std;
-import lpc.frontend.location;
 import lpc.utils.arena;
 import lpc.utils.tagged_union;
 
@@ -99,8 +100,6 @@ private:
     std::string _lexeme;
     LocRef _location;
 
-    friend std::ostream& operator<<(std::ostream& os, const Token& token);
-
     Token(const Token&) = default;
 
 public:
@@ -152,36 +151,5 @@ public:
         return _lexeme.length();
     }
 };
-
-inline auto operator<<(std::ostream& os, const Token& token) -> std::ostream& {
-    std::string value_str;
-    switch (token.type()) {
-    case TokenType::IDENT:
-        value_str = token.value().get_unchecked<std::string>();
-        break;
-    case TokenType::BOOLEAN:
-        value_str = token.value().get_unchecked<bool>() ? "#t" : "#f";
-        break;
-    case TokenType::NUMBER:
-        value_str = std::to_string(token.value().get_unchecked<std::int64_t>());
-        break;
-    case TokenType::CHARACTER:
-        switch (char c = token.value().get_unchecked<char>()) {
-        case ' ' : value_str = "#\\space"; break;
-        case '\n': value_str = "#\\newline"; break;
-        default  : value_str = "#\\" + std::string(1, c); break;
-        }
-        break;
-    case TokenType::STRING : value_str = token._lexeme; break;
-    case TokenType::KEYWORD: {
-        auto keyword = token.value().get_unchecked<Keyword>();
-        value_str = lex_defs::KEYWORDS[static_cast<std::size_t>(keyword)];
-    }
-    default: // operators
-        value_str = token.value().get_unchecked<std::string>();
-        break;
-    }
-    return os << value_str;
-}
 
 } // namespace lpc::frontend
