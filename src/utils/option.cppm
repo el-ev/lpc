@@ -9,9 +9,9 @@ class AppBuilder;
 
 export struct Option {
     char short_name;
+    bool accepts_value;
     std::string long_name;
     std::string description;
-    bool accepts_value;
     std::string default_value;
     std::function<void(std::string_view)> callback;
 
@@ -21,9 +21,9 @@ export struct Option {
 
         std::function<void(std::string_view)> callback = nullptr)
         : short_name(short_name)
+        , accepts_value(accepts_value)
         , long_name(std::move(long_name))
         , description(std::move(description))
-        , accepts_value(accepts_value)
         , default_value(std::move(default_value))
         , callback(std::move(callback)) {
     }
