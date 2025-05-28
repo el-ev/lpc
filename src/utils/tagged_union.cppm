@@ -13,17 +13,36 @@ private:
     using storage_t = std::byte[max_size];
     using index_t = std::uint8_t;
 
+    static_assert(sizeof...(Types) < std::numeric_limits<index_t>::max() - 1,
+        "This TaggedUnion cannot hold this many types. ");
+
+    template <typename T, typename... Rest>
+    static consteval bool are_types_distinct() {
+        if constexpr (sizeof...(Rest) == 0) {
+            return true;
+        } else {
+            return (!std::is_same_v<T, Rest> && ...)
+                && are_types_distinct<Rest...>();
+        }
+    }
+
+    static_assert(are_types_distinct<Types...>(),
+        "All types in TaggedUnion must be distinct.");
+
     alignas(max_align) storage_t storage_;
     index_t index_;
 
     template <typename T>
     static constexpr index_t type_index() {
         constexpr std::array<bool, sizeof...(Types)> matches
-            = { std::is_same_v<T, Types>... };
+            = { std::is_same_v<std::decay_t<T>, Types>... };
         for (std::size_t i = 0; i < sizeof...(Types); ++i) {
             if (matches[i])
                 return static_cast<index_t>(i);
         }
+        static_assert(
+            std::disjunction_v<std::is_same<std::decay_t<T>, Types>...>,
+            "This TaggedUnion does not hold the specified type.");
         return static_cast<index_t>(-1);
     }
 
@@ -32,18 +51,20 @@ private:
 
     template <typename T>
     T* storage_as() noexcept {
+        verify_type<T>();
         return reinterpret_cast<T*>(&storage_);
     }
 
     template <typename T>
     const T* storage_as() const noexcept {
+        verify_type<T>();
         return reinterpret_cast<const T*>(&storage_);
     }
 
     void destroy() {
-        if (index_ != static_cast<index_t>(-1)) {
+        if (index_ != -1) {
             destroy_impl(std::make_index_sequence<sizeof...(Types)> {});
-            index_ = static_cast<index_t>(-1);
+            index_ = -1;
         }
     }
 
@@ -79,11 +100,11 @@ private:
     }
 
 public:
-    static constexpr std::size_t npos = static_cast<std::size_t>(-1);
+    static constexpr index_t npos_ = std::numeric_limits<index_t>::max();
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init, hicpp-member-init)
     constexpr TaggedUnion()
-        : index_(static_cast<index_t>(-1)) {
+        : index_(npos_) {
     }
 
     template <typename T>
@@ -140,22 +161,34 @@ public:
         destroy();
     }
 
-    [[nodiscard]] constexpr std::size_t index() const noexcept {
-        return index_ == static_cast<index_t>(-1)
-            ? npos
-            : static_cast<std::size_t>(index_);
+    template <index_t I>
+    static consteval void verify_index() {
+        static_assert(I < sizeof...(Types),
+            "Specified index is out of bounds for this TaggedUnion.");
     }
 
-    [[nodiscard]] constexpr bool valueless_by_exception() const noexcept {
-        return index_ == static_cast<index_t>(-1);
+    template <typename T>
+    static consteval void verify_type() {
+        static_assert((std::is_same_v<T, Types> || ...),
+            "This TaggedUnion does not hold the specified type.");
+    }
+
+    [[nodiscard]] constexpr std::size_t index() const noexcept {
+        return index_ == npos_ ? static_cast<std::size_t>(-1)
+                               : static_cast<index_t>(index_);
+    }
+
+    [[nodiscard]] constexpr bool valueless() const noexcept {
+        return index_ == npos_;
     }
 
     template <typename T>
     [[nodiscard]] constexpr bool holds_alternative() const noexcept {
+        verify_type<T>();
         return index_ == type_index<T>();
     }
 
-    template <std::size_t I>
+    template <index_t I>
     constexpr std::optional<std::reference_wrapper<type_at<I>>>
     get() & noexcept {
         if (index_ != I)
@@ -163,7 +196,7 @@ public:
         return get_unchecked<I>();
     }
 
-    template <std::size_t I>
+    template <index_t I>
     constexpr std::optional<std::reference_wrapper<const type_at<I>>>
     get() const& noexcept {
         if (index_ != I)
@@ -196,38 +229,45 @@ public:
         return std::move(get_unchecked<T>());
     }
 
-    template <std::size_t I>
+    template <index_t I>
     constexpr auto& get_unchecked() & noexcept {
+        verify_index<I>();
         return *storage_as<type_at<I>>();
     }
 
-    template <std::size_t I>
+    template <index_t I>
     constexpr const auto& get_unchecked() const& noexcept {
+        verify_index<I>();
         return *storage_as<type_at<I>>();
     }
 
-    template <std::size_t I>
+    template <index_t I>
     constexpr auto&& get_unchecked() && noexcept {
+        verify_index<I>();
         return std::move(*storage_as<type_at<I>>());
     }
 
     template <typename T>
     constexpr T& get_unchecked() & noexcept {
+        verify_type<T>();
         return *storage_as<T>();
     }
 
     template <typename T>
     constexpr const T& get_unchecked() const& noexcept {
+        verify_type<T>();
         return *storage_as<T>();
     }
 
     template <typename T>
     constexpr T&& get_unchecked() && noexcept {
+        verify_type<T>();
         return std::move(*storage_as<T>());
     }
 
     template <typename T, typename... Args>
     T& emplace(Args&&... args) {
+        verify_type<T>();
         destroy();
         constexpr auto idx = type_index<T>();
         // NOLINTNEXTLINE(cppcoreguidelines-owning-memory)
@@ -315,17 +355,17 @@ constexpr bool holds_alternative(const TaggedUnion<Types...>& v) noexcept {
     return v.template holds_alternative<T>();
 }
 
-template <std::size_t I, typename... Types>
+template <typename... Types, TaggedUnion<Types...>::index_t I>
 constexpr auto& get(TaggedUnion<Types...>& v) {
     return v.template get<I>();
 }
 
-template <std::size_t I, typename... Types>
+template <typename... Types, TaggedUnion<Types...>::index_t I>
 constexpr const auto& get(const TaggedUnion<Types...>& v) {
     return v.template get<I>();
 }
 
-template <std::size_t I, typename... Types>
+template <typename... Types, TaggedUnion<Types...>::index_t I>
 constexpr auto&& get(TaggedUnion<Types...>&& v) {
     return std::move(v).template get<I>();
 }
@@ -345,17 +385,17 @@ constexpr T&& get(TaggedUnion<Types...>&& v) {
     return std::move(v).template get<T>();
 }
 
-template <std::size_t I, typename... Types>
+template <typename... Types, TaggedUnion<Types...>::index_t I>
 constexpr auto& get_unchecked(TaggedUnion<Types...>& v) noexcept {
     return v.template get_unchecked<I>();
 }
 
-template <std::size_t I, typename... Types>
+template <typename... Types, TaggedUnion<Types...>::index_t I>
 constexpr const auto& get_unchecked(const TaggedUnion<Types...>& v) noexcept {
     return v.template get_unchecked<I>();
 }
 
-template <std::size_t I, typename... Types>
+template <typename... Types, TaggedUnion<Types...>::index_t I>
 constexpr auto&& get_unchecked(TaggedUnion<Types...>&& v) noexcept {
     return std::move(v).template get_unchecked<I>();
 }
