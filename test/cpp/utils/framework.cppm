@@ -60,23 +60,3 @@ export namespace lpc::test {
         return runner;
     }
 }
-
-#define TEST(name) \
-    void test_##name(); \
-    struct TestRegistrar_##name { \
-        TestRegistrar_##name() { \
-            test_utils::get_runner().start_test(#name); \
-            test_##name(); \
-        } \
-    }; \
-    static TestRegistrar_##name registrar_##name; \
-    void test_##name()
-
-#define ASSERT_TRUE(condition) \
-    test_utils::get_runner().assert_true(condition, #condition)
-
-#define ASSERT_EQ(expected, actual) \
-    test_utils::get_runner().assert_eq(expected, actual, #expected " == " #actual)
-
-#define RUN_TESTS() \
-    test_utils::get_runner().run_summary()
