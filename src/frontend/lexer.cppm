@@ -25,12 +25,9 @@ public:
         , _line_start(source.begin())
         , _loc_arena(std::string(file))
         , _loc(loc()) {
-        while (!is_eof() && !_failed) {
-            if (auto token = advance())
-                _tokens.push_back(std::move(*token));
-            else if (!is_eof())
+        while (!is_eof() && !_failed)
+            if (!advance() && !is_eof())
                 _failed = true;
-        }
         if (_failed)
             return;
         _tokens.emplace_back(Token::eof(loc()));
@@ -66,14 +63,14 @@ private:
     bool skip_comment() noexcept;
     bool skip_whitespaces() noexcept;
 
-    [[nodiscard]] std::optional<Token> advance() noexcept;
+    [[nodiscard]] bool advance() noexcept;
 
-    [[nodiscard]] std::optional<Token> read_ident() noexcept;
-    [[nodiscard]] std::optional<Token> read_sharp() noexcept;
-    [[nodiscard]] std::optional<Token> read_number(int radix = 0) noexcept;
-    [[nodiscard]] std::optional<Token> read_boolean() noexcept;
-    [[nodiscard]] std::optional<Token> read_character() noexcept;
-    [[nodiscard]] std::optional<Token> read_string() noexcept;
-    [[nodiscard]] std::optional<Token> read_operator() noexcept;
+    [[nodiscard]] bool read_ident() noexcept;
+    [[nodiscard]] bool read_sharp() noexcept;
+    [[nodiscard]] bool read_number(int radix = 0) noexcept;
+    [[nodiscard]] bool read_boolean() noexcept;
+    [[nodiscard]] bool read_character() noexcept;
+    [[nodiscard]] bool read_string() noexcept;
+    [[nodiscard]] bool read_operator() noexcept;
 };
 } // namespace lpc::frontend

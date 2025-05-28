@@ -102,17 +102,22 @@ private:
 public:
     template <typename T>
     explicit Token(
-        TokenType type, T value, std::string&& lexeme, LocRef location)
+        TokenType type, LocRef location, std::string&& lexeme, T value)
         : _type(type)
         , _location(location)
         , _lexeme(std::move(lexeme))
         , _value(std::forward<T>(value)) {};
 
+    explicit Token(TokenType type, LocRef location, std::string&& lexeme)
+        : _type(type)
+        , _location(location)
+        , _lexeme(std::move(lexeme)) { };
+
     Token(Token&&) = default;
     Token& operator=(Token&&) = default;
 
     [[nodiscard]] inline static constexpr Token eof(LocRef location) noexcept {
-        return Token(TokenType::EOF, std::string("<EOF>"), "<EOF>", location);
+        return Token(TokenType::EOF, location, "<EOF>");
     }
 
     [[nodiscard]] inline constexpr TokenType type() const noexcept {

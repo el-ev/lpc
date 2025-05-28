@@ -54,27 +54,18 @@ bool Lexer::skip_whitespaces() noexcept {
     return true;
 }
 
-std::optional<Token> Lexer::advance() noexcept {
+bool Lexer::advance() noexcept {
     while (skip_atmosphere())
         ;
     if (is_eof())
-        return std::nullopt;
+        return false;
     _loc = loc();
     if (_cursor[0] == '#')
         return read_sharp();
-    if (auto t = read_operator())
-        return t;
-    if (auto t = read_ident())
-        return t;
-    if (auto t = read_string())
-        return t;
-    // implicitly read a decimal number
-    if (auto t = read_number())
-        return t;
-    return std::nullopt;
+    return read_operator() || read_ident() || read_string() || read_number(0);
 }
 
-std::optional<Token> Lexer::read_ident() noexcept {
+bool Lexer::read_ident() noexcept {
     // <identifier> -> <initial> <subsequent>* | <peculiar identifier>
     // <initial> -> <letter> | <special initial>
     // <subsequent> -> <letter> | <digit> | <special subsequent>
@@ -103,19 +94,20 @@ std::optional<Token> Lexer::read_ident() noexcept {
         if (pos != size) {
             Error("Invalid identifier: \"", ident, "\" at", loc_string(_loc));
             _failed = true;
-            return std::nullopt;
+            return false;
         }
 
         const auto* it = std::ranges::lower_bound(lex_defs::KEYWORDS, value);
         if (it != std::end(lex_defs::KEYWORDS) && *it == value) {
             auto keyword = static_cast<Keyword>(
                 std::distance(std::begin(lex_defs::KEYWORDS), it));
-            return Token(
-                TokenType::KEYWORD, keyword, std::move(value), _loc);
+            _tokens.emplace_back(
+                TokenType::KEYWORD, _loc, std::move(value), keyword);
+            return true;
         }
-        
-        return Token(
-            TokenType::IDENT, std::move(value), std::string(ident), _loc);
+        _tokens.emplace_back(
+            TokenType::IDENT, _loc, std::string(ident), std::move(value));
+        return true;
     }
     // check for peculiar identifiers
     if (size == 1) {
@@ -123,47 +115,50 @@ std::optional<Token> Lexer::read_ident() noexcept {
         auto ident = _cursor.substr(0, 1);
         if (ident == "+" || ident == "-") {
             _cursor.remove_prefix(1);
-            return Token(
-                TokenType::IDENT, std::string(ident), std::string(ident), _loc);
+            _tokens.emplace_back(
+                TokenType::IDENT, _loc, std::string(ident), std::string(ident));
+            return true;
         }
     } else if (size == 3) {
         // "..."
         auto ident = _cursor.substr(0, 3);
         if (ident == "...") {
             _cursor.remove_prefix(3);
-            return Token(TokenType::IDENT, std::string(ident), "...", _loc);
+            _tokens.emplace_back(
+                TokenType::IDENT, _loc, std::string(ident), std::string(ident));
+            return true;
         }
     }
-    return std::nullopt;
+    return false;
 }
 
-std::optional<Token> Lexer::read_sharp() noexcept {
+bool Lexer::read_sharp() noexcept {
     // <boolean> -> #t | #f
     if (_cursor.length() < 2) {
         Error("Incomplete token \"#\" at", loc_string(_loc));
-        return std::nullopt;
+        return false;
     }
     char c = _cursor[1];
     if (c == 't' || c == 'f') {
         bool value = (c == 't');
         _cursor.remove_prefix(2);
-        return Token(TokenType::BOOLEAN, value, value ? "#t" : "#f", _loc);
+        _tokens.emplace_back(
+            TokenType::BOOLEAN, _loc, value ? "#t" : "#f", value);
+        return true;
     }
 
-    std::optional<Token> token;
     switch (c) {
-    case 'b' : token = read_number(2); break;
-    case 'o' : token = read_number(8); break;
-    case 'd' : token = read_number(10); break;
-    case 'x' : token = read_number(16); break;
-    case '\\': token = read_character(); break;
+    case 'b' : return read_number(2);
+    case 'o' : return read_number(8);
+    case 'd' : return read_number(10);
+    case 'x' : return read_number(16);
+    case '\\': return read_character();
     default  : {
         Error("Invalid token: \"#", c, "\" at", loc_string(_loc));
         _failed = true;
-        return std::nullopt;
+        return false;
     }
     }
-    return token;
 }
 
 [[nodiscard]] constexpr bool is_digit_radixn(char c, int radix) {
@@ -177,7 +172,7 @@ std::optional<Token> Lexer::read_sharp() noexcept {
 }
 
 // TODO: only signed integers are supported for now
-std::optional<Token> Lexer::read_number(int radix) noexcept {
+bool Lexer::read_number(int radix) noexcept {
     int radix_value = 10;
     bool number_pattern = false;
     auto value_start = _cursor;
@@ -189,7 +184,7 @@ std::optional<Token> Lexer::read_number(int radix) noexcept {
         if (radix != 2 && radix != 8 && radix != 10 && radix != 16) {
             Error("Invalid radix: ", radix, " at", loc_string(_loc));
             _failed = true;
-            return std::nullopt;
+            return false;
         }
         number_pattern = true;
         radix_value = radix;
@@ -207,7 +202,7 @@ std::optional<Token> Lexer::read_number(int radix) noexcept {
         digit_count++;
     if (digit_count == 0) {
         if (!number_pattern)
-            return std::nullopt;
+            return false;
         if (pos.empty())
             Error("Incomplete number literal at ", loc_string(_loc));
         else
@@ -215,7 +210,7 @@ std::optional<Token> Lexer::read_number(int radix) noexcept {
                 ". Expected radix-", radix_value, " digit, found '", pos[0],
                 "'");
         _failed = true;
-        return std::nullopt;
+        return false;
     }
     // number_pattern = true;
 
@@ -232,17 +227,18 @@ std::optional<Token> Lexer::read_number(int radix) noexcept {
             loc_string(_loc));
         _cursor = pos;
         _failed = true;
-        return std::nullopt;
+        return false;
     }
 
     std::string value_string(value_start.substr(0, size - sharp_count));
     std::int64_t value = std::stoll(value_string, nullptr, radix_value);
     std::string lexeme = std::string(_cursor.substr(0, size));
     _cursor.remove_prefix(size);
-    return Token(TokenType::NUMBER, value, std::move(lexeme), _loc);
+    _tokens.emplace_back(TokenType::NUMBER, _loc, std::move(lexeme), value);
+    return true;
 }
 
-std::optional<Token> Lexer::read_character() noexcept {
+bool Lexer::read_character() noexcept {
     // <character> -> #\<char> | #\<char name>
     // <char> -> (any character)
     // <char name> -> newline | space
@@ -252,7 +248,7 @@ std::optional<Token> Lexer::read_character() noexcept {
     if (_cursor.length() < 3) {
         Error("Incomplete character literal at ", loc_string(_loc));
         _failed = true;
-        return std::nullopt;
+        return false;
     }
     if (std::isalpha(_cursor[2]) != 0) {
         // find till the next delimiter
@@ -266,34 +262,37 @@ std::optional<Token> Lexer::read_character() noexcept {
             };
             if (cmp_ci(name, "#\\newline")) {
                 _cursor.remove_prefix(end);
-                return Token(
-                    TokenType::CHARACTER, '\n', std::string(name), _loc);
+                _tokens.emplace_back(
+                    TokenType::CHARACTER, _loc, std::string(name), '\n');
+                return true;
             }
             if (cmp_ci(name, "#\\space")) {
                 _cursor.remove_prefix(end);
-                return Token(
-                    TokenType::CHARACTER, ' ', std::string(name), _loc);
+                _tokens.emplace_back(
+                    TokenType::CHARACTER, _loc, std::string(name), ' ');
+                return true;
             }
             Error(
                 "Invalid character name: \"", name, "\" at", loc_string(_loc));
             _failed = true;
-            return std::nullopt;
+            return false;
         }
         // if size is 3, it is a single character, fall through
     }
     // it is a single character
     auto character = _cursor.substr(0, 3);
     _cursor.remove_prefix(3);
-    return Token(
-        TokenType::CHARACTER, character[2], std::string(character), _loc);
+    _tokens.emplace_back(
+        TokenType::CHARACTER, _loc, std::string(character), character[2]);
+    return true;
 }
 
-std::optional<Token> Lexer::read_string() noexcept {
+bool Lexer::read_string() noexcept {
     // <string> -> "<string element>*"
     // <string element> -> <string char> | \\ | \"
     // <string char> -> [^"\\]
     if (_cursor[0] != '"')
-        return std::nullopt;
+        return false;
 
     std::string_view content_view = _cursor.substr(1);
     std::size_t end = std::string_view::npos;
@@ -304,7 +303,7 @@ std::optional<Token> Lexer::read_string() noexcept {
         if (current_find == std::string_view::npos) {
             Error("Unterminated string literal at", loc_string(_loc));
             _failed = true;
-            return std::nullopt;
+            return false;
         }
         std::size_t backslashes = 0;
         for (std::size_t j = current_find;
@@ -321,7 +320,7 @@ std::optional<Token> Lexer::read_string() noexcept {
     if (end == std::string_view::npos) {
         Error("Unterminated string literal at", loc_string(_loc));
         _failed = true;
-        return std::nullopt;
+        return false;
     }
 
     std::string_view unescaped_value = content_view.substr(0, end);
@@ -343,56 +342,54 @@ std::optional<Token> Lexer::read_string() noexcept {
         return result;
     };
 
-    return Token(
-        TokenType::STRING, unescape(unescaped_value), std::move(lexeme), _loc);
+    _tokens.emplace_back(
+        TokenType::STRING, _loc, std::move(lexeme), unescape(unescaped_value));
+    return true;
 }
 
-std::optional<Token> Lexer::read_operator() noexcept {
-    // ()'`,. #( ,@
+bool Lexer::read_operator() noexcept {
     switch (_cursor[0]) {
     case '(':
         _cursor.remove_prefix(1);
-        return Token(
-            TokenType::LPAREN, std::string("("), std::string("("), _loc);
+        _tokens.emplace_back(TokenType::LPAREN, _loc, "(");
+        return true;
     case ')':
         _cursor.remove_prefix(1);
-        return Token(
-            TokenType::RPAREN, std::string(")"), std::string(")"), _loc);
+        _tokens.emplace_back(TokenType::RPAREN, _loc, ")");
+        return true;
     case '\'':
         _cursor.remove_prefix(1);
-        return Token(
-            TokenType::APOSTROPHE, std::string("'"), std::string("'"), _loc);
+        _tokens.emplace_back(TokenType::APOSTROPHE, _loc, "'");
+        return true;
     case '`':
         _cursor.remove_prefix(1);
-        return Token(
-            TokenType::BACKTICK, std::string("`"), std::string("`"), _loc);
+        _tokens.emplace_back(TokenType::BACKTICK, _loc, "`");
+        return true;
     case ',':
         _cursor.remove_prefix(1);
         if (_cursor.size() > 1 && _cursor[0] == '@') {
             _cursor.remove_prefix(1);
-            return Token(TokenType::COMMA_AT, std::string(",@"),
-                std::string(",@"), _loc);
+            _tokens.emplace_back(TokenType::COMMA_AT, _loc, ",@");
+            return true;
         }
-        return Token(
-            TokenType::COMMA, std::string(","), std::string(","), _loc);
-    case '.': {
+        _tokens.emplace_back(TokenType::COMMA, _loc, ",");
+        return true;
+    case '.':
         // . requires a delimiter
-        auto size = count_till_delimeter(_cursor);
-        if (size > 1)
-            return std::nullopt;
+        if (count_till_delimeter(_cursor) > 1)
+            return false;
         _cursor.remove_prefix(1);
-        return Token(TokenType::DOT, std::string("."), std::string("."), _loc);
-    }
+        _tokens.emplace_back(TokenType::DOT, _loc, ".");
+        return true;
     case '#':
         if (_cursor.size() > 1 && _cursor[1] == '(') {
             _cursor.remove_prefix(2);
-            return Token(TokenType::SHELL_LPAREN, std::string("#("),
-                std::string("#("), _loc);
+            _tokens.emplace_back(TokenType::SHELL_LPAREN, _loc, "#(");
+            return true;
         }
-        break;
-    default: break;
+        [[fallthrough]];
+    default: return false;
     };
-    return std::nullopt;
 }
 
 } // namespace lpc::frontend
