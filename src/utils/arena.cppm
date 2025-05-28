@@ -78,10 +78,10 @@ public:
         _next_index = 0;
     }
 
-    elem_ref insert(const T& value);
+    [[nodiscard]] elem_ref insert(const T& value);
     template <typename... Args>
-    elem_ref emplace(Args&&... args);
-    elem_ref emplace(T&& value);
+    [[nodiscard]] elem_ref emplace(Args&&... args);
+    [[nodiscard]] elem_ref emplace(T&& value);
 
     inline void pop_back() noexcept {
         if (!_data.empty()) {

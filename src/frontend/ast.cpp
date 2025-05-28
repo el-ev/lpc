@@ -69,19 +69,19 @@ std::string ASTNode::dump_json(const ASTNodeArena& arena,
     return result;
 }
 
-[[nodiscard]] ASTNodeArena::NodeRef ASTNodeArena::emplace(ASTNode&& node) {
+ASTNodeArena::NodeRef ASTNodeArena::emplace(ASTNode&& node) {
     return Arena::emplace(std::move(node));
 }
 
-[[nodiscard]] ASTNodeArena::NodeRef ASTNodeArena::back_ref() const noexcept {
+ASTNodeArena::NodeRef ASTNodeArena::back_ref() const noexcept {
     return Arena::back_ref();
 }
 
-[[nodiscard]] const ASTNode& ASTNodeArena::at(NodeRef ref) const& {
+const ASTNode& ASTNodeArena::at(NodeRef ref) const& {
     return Arena::at(ref);
 }
 
-[[nodiscard]] const ASTNode* ASTNodeArena::get(NodeRef ref) const noexcept {
+const ASTNode* ASTNodeArena::get(NodeRef ref) const noexcept {
     return Arena::get(ref);
 }
 } // namespace lpc::frontend
