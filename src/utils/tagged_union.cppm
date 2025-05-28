@@ -17,7 +17,7 @@ private:
         "This TaggedUnion cannot hold this many types. ");
 
     template <typename T, typename... Rest>
-    static consteval bool are_types_distinct() {
+    [[nodiscard]] static consteval bool are_types_distinct() {
         if constexpr (sizeof...(Rest) == 0) {
             return true;
         } else {
@@ -33,7 +33,7 @@ private:
     index_t index_;
 
     template <typename T>
-    static constexpr index_t type_index() {
+    [[nodiscard]] static constexpr index_t type_index() {
         constexpr std::array<bool, sizeof...(Types)> matches
             = { std::is_same_v<T, Types>... };
         for (std::size_t i = 0; i < sizeof...(Types); ++i) {
@@ -49,13 +49,13 @@ private:
     using type_at = std::tuple_element_t<I, std::tuple<Types...>>;
 
     template <typename T>
-    T* storage_as() noexcept {
+    [[nodiscard]] T* storage_as() noexcept {
         verify_type<T>();
         return reinterpret_cast<T*>(&storage_);
     }
 
     template <typename T>
-    const T* storage_as() const noexcept {
+    [[nodiscard]] const T* storage_as() const noexcept {
         verify_type<T>();
         return reinterpret_cast<const T*>(&storage_);
     }
@@ -109,7 +109,7 @@ public:
     template <typename T>
         requires(!std::is_same_v<std::decay_t<T>, TaggedUnion>)
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init, hicpp-member-init)
-    explicit constexpr TaggedUnion(T&& value) {
+    [[nodiscard]] explicit constexpr TaggedUnion(T&& value) {
         constexpr auto idx = type_index<std::decay_t<T>>();
         new (storage_as<std::decay_t<T>>())
             std::decay_t<T>(std::forward<T>(value));
@@ -117,12 +117,12 @@ public:
     }
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init, hicpp-member-init)
-    TaggedUnion(const TaggedUnion& other) {
+    [[nodiscard]] TaggedUnion(const TaggedUnion& other) {
         copy_construct(other, std::make_index_sequence<sizeof...(Types)> {});
     }
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init, hicpp-member-init)
-    TaggedUnion(TaggedUnion&& other) noexcept {
+    [[nodiscard]] TaggedUnion(TaggedUnion&& other) noexcept {
         move_construct(
             std::move(other), std::make_index_sequence<sizeof...(Types)> {});
     }
@@ -188,7 +188,7 @@ public:
     }
 
     template <index_t I>
-    constexpr std::optional<std::reference_wrapper<type_at<I>>>
+    [[nodiscard]] constexpr std::optional<std::reference_wrapper<type_at<I>>>
     get() & noexcept {
         if (index_ != I)
             return std::nullopt;
@@ -196,7 +196,8 @@ public:
     }
 
     template <index_t I>
-    constexpr std::optional<std::reference_wrapper<const type_at<I>>>
+    [[nodiscard]] constexpr std::optional<
+        std::reference_wrapper<const type_at<I>>>
     get() const& noexcept {
         if (index_ != I)
             return std::nullopt;
@@ -204,7 +205,8 @@ public:
     }
 
     template <typename T>
-    constexpr std::optional<std::reference_wrapper<T>> get() & noexcept {
+    [[nodiscard]] constexpr std::optional<std::reference_wrapper<T>>
+    get() & noexcept {
         constexpr auto idx = type_index<T>();
         if (index_ != idx)
             return std::nullopt;
@@ -212,7 +214,7 @@ public:
     }
 
     template <typename T>
-    constexpr std::optional<std::reference_wrapper<const T>>
+    [[nodiscard]] constexpr std::optional<std::reference_wrapper<const T>>
     get() const& noexcept {
         constexpr auto idx = type_index<T>();
         if (index_ != idx)
@@ -221,7 +223,7 @@ public:
     }
 
     template <typename T>
-    constexpr std::optional<T> get() && noexcept {
+    [[nodiscard]] constexpr std::optional<T> get() && noexcept {
         constexpr auto idx = type_index<T>();
         if (index_ != idx)
             return std::nullopt;
@@ -229,37 +231,37 @@ public:
     }
 
     template <index_t I>
-    constexpr auto& get_unchecked() & noexcept {
+    [[nodiscard]] constexpr auto& get_unchecked() & noexcept {
         verify_index<I>();
         return *storage_as<type_at<I>>();
     }
 
     template <index_t I>
-    constexpr const auto& get_unchecked() const& noexcept {
+    [[nodiscard]] constexpr const auto& get_unchecked() const& noexcept {
         verify_index<I>();
         return *storage_as<type_at<I>>();
     }
 
     template <index_t I>
-    constexpr auto&& get_unchecked() && noexcept {
+    [[nodiscard]] constexpr auto&& get_unchecked() && noexcept {
         verify_index<I>();
         return std::move(*storage_as<type_at<I>>());
     }
 
     template <typename T>
-    constexpr T& get_unchecked() & noexcept {
+    [[nodiscard]] constexpr T& get_unchecked() & noexcept {
         verify_type<T>();
         return *storage_as<T>();
     }
 
     template <typename T>
-    constexpr const T& get_unchecked() const& noexcept {
+    [[nodiscard]] constexpr const T& get_unchecked() const& noexcept {
         verify_type<T>();
         return *storage_as<T>();
     }
 
     template <typename T>
-    constexpr T&& get_unchecked() && noexcept {
+    [[nodiscard]] constexpr T&& get_unchecked() && noexcept {
         verify_type<T>();
         return std::move(*storage_as<T>());
     }
@@ -276,19 +278,19 @@ public:
     }
 
     template <typename Visitor>
-    constexpr auto visit(Visitor&& vis) & {
+    [[nodiscard]] constexpr auto visit(Visitor&& vis) & {
         return visit_impl(std::forward<Visitor>(vis),
             std::make_index_sequence<sizeof...(Types)> {});
     }
 
     template <typename Visitor>
-    constexpr auto visit(Visitor&& vis) const& {
+    [[nodiscard]] constexpr auto visit(Visitor&& vis) const& {
         return visit_impl(std::forward<Visitor>(vis),
             std::make_index_sequence<sizeof...(Types)> {});
     }
 
     template <typename Visitor>
-    constexpr auto visit(Visitor&& vis) && {
+    [[nodiscard]] constexpr auto visit(Visitor&& vis) && {
         return visit_impl(std::forward<Visitor>(vis),
             std::make_index_sequence<sizeof...(Types)> {});
     }
@@ -352,83 +354,92 @@ private:
 export namespace tagged_union {
 
     template <typename T, typename... Types>
-    constexpr bool holds_alternative(const TaggedUnion<Types...>& v) noexcept {
+    [[nodiscard]] constexpr bool holds_alternative(
+        const TaggedUnion<Types...>& v) noexcept {
         return v.template holds_alternative<T>();
     }
 
     template <typename... Types, TaggedUnion<Types...>::index_t I>
-    constexpr auto& get(TaggedUnion<Types...>& v) {
+    [[nodiscard]] constexpr auto& get(TaggedUnion<Types...>& v) {
         return v.template get<I>();
     }
 
     template <typename... Types, TaggedUnion<Types...>::index_t I>
-    constexpr const auto& get(const TaggedUnion<Types...>& v) {
+    [[nodiscard]] constexpr const auto& get(const TaggedUnion<Types...>& v) {
         return v.template get<I>();
     }
 
     template <typename... Types, TaggedUnion<Types...>::index_t I>
-    constexpr auto&& get(TaggedUnion<Types...>&& v) {
+    [[nodiscard]] constexpr auto&& get(TaggedUnion<Types...>&& v) {
         return std::move(v).template get<I>();
     }
 
     template <typename T, typename... Types>
-    constexpr T& get(TaggedUnion<Types...>& v) {
+    [[nodiscard]] constexpr T& get(TaggedUnion<Types...>& v) {
         return v.template get<T>();
     }
 
     template <typename T, typename... Types>
-    constexpr const T& get(const TaggedUnion<Types...>& v) {
+    [[nodiscard]] constexpr const T& get(const TaggedUnion<Types...>& v) {
         return v.template get<T>();
     }
 
     template <typename T, typename... Types>
-    constexpr T&& get(TaggedUnion<Types...>&& v) {
+    [[nodiscard]] constexpr T&& get(TaggedUnion<Types...>&& v) {
         return std::move(v).template get<T>();
     }
 
     template <typename... Types, TaggedUnion<Types...>::index_t I>
-    constexpr auto& get_unchecked(TaggedUnion<Types...>& v) noexcept {
+    [[nodiscard]] constexpr auto& get_unchecked(
+        TaggedUnion<Types...>& v) noexcept {
         return v.template get_unchecked<I>();
     }
 
     template <typename... Types, TaggedUnion<Types...>::index_t I>
-    constexpr const auto& get_unchecked(
+    [[nodiscard]] constexpr const auto& get_unchecked(
         const TaggedUnion<Types...>& v) noexcept {
         return v.template get_unchecked<I>();
     }
 
     template <typename... Types, TaggedUnion<Types...>::index_t I>
-    constexpr auto&& get_unchecked(TaggedUnion<Types...>&& v) noexcept {
+    [[nodiscard]] constexpr auto&& get_unchecked(
+        TaggedUnion<Types...>&& v) noexcept {
         return std::move(v).template get_unchecked<I>();
     }
 
     template <typename T, typename... Types>
-    constexpr T& get_unchecked(TaggedUnion<Types...>& v) noexcept {
+    [[nodiscard]] constexpr T& get_unchecked(
+        TaggedUnion<Types...>& v) noexcept {
         return v.template get_unchecked<T>();
     }
 
     template <typename T, typename... Types>
-    constexpr const T& get_unchecked(const TaggedUnion<Types...>& v) noexcept {
+    [[nodiscard]] constexpr const T& get_unchecked(
+        const TaggedUnion<Types...>& v) noexcept {
         return v.template get_unchecked<T>();
     }
 
     template <typename T, typename... Types>
-    constexpr T&& get_unchecked(TaggedUnion<Types...>&& v) noexcept {
+    [[nodiscard]] constexpr T&& get_unchecked(
+        TaggedUnion<Types...>&& v) noexcept {
         return std::move(v).template get_unchecked<T>();
     }
 
     template <typename Visitor, typename... Types>
-    constexpr auto visit(Visitor&& vis, TaggedUnion<Types...>& variant) {
+    [[nodiscard]] constexpr auto visit(
+        Visitor&& vis, TaggedUnion<Types...>& variant) {
         return variant.visit(std::forward<Visitor>(vis));
     }
 
     template <typename Visitor, typename... Types>
-    constexpr auto visit(Visitor&& vis, const TaggedUnion<Types...>& variant) {
+    [[nodiscard]] constexpr auto visit(
+        Visitor&& vis, const TaggedUnion<Types...>& variant) {
         return variant.visit(std::forward<Visitor>(vis));
     }
 
     template <typename Visitor, typename... Types>
-    constexpr auto visit(Visitor&& vis, TaggedUnion<Types...>&& variant) {
+    [[nodiscard]] constexpr auto visit(
+        Visitor&& vis, TaggedUnion<Types...>&& variant) {
         return std::move(variant).visit(std::forward<Visitor>(vis));
     }
 
