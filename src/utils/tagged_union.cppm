@@ -34,10 +34,9 @@ private:
     [[nodiscard]] static constexpr index_t type_index() {
         constexpr std::array<bool, sizeof...(Types)> matches
             = { std::is_same_v<T, Types>... };
-        for (std::size_t i = 0; i < sizeof...(Types); ++i) {
+        for (std::size_t i = 0; i < sizeof...(Types); ++i)
             if (matches[i])
                 return static_cast<index_t>(i);
-        }
         return static_cast<index_t>(-1);
     }
 
@@ -57,7 +56,7 @@ private:
     }
 
     void destroy() {
-        if (index_ != -1) {
+        if (index_ != npos_) {
             destroy_impl(std::make_index_sequence<sizeof...(Types)> {});
             index_ = -1;
         }
@@ -158,7 +157,7 @@ public:
 
     [[nodiscard]] constexpr std::size_t index() const noexcept {
         return index_ == npos_ ? static_cast<std::size_t>(-1)
-                               : static_cast<index_t>(index_);
+                               : static_cast<std::size_t>(index_);
     }
 
     [[nodiscard]] constexpr bool valueless() const noexcept {
