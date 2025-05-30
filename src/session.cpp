@@ -1,8 +1,10 @@
 module lpc.session;
 
 import lpc.utils.logging;
+import lpc.frontend.expand;
 import lpc.frontend.lexer;
 import lpc.frontend.syntax;
+import lpc.frontend.passes;
 
 namespace lpc {
 
@@ -58,6 +60,11 @@ int Session::run() noexcept {
 
     if (std::ranges::find(_print_passes, "sexpr") != _print_passes.end())
         std::println("{}\n", ast_arena[root].dump_json(ast_arena, loc_arena));
+
+    frontend::PassManager pass_manager;
+    pass_manager.add_pass<frontend::ExpandPass>();
+    if (!pass_manager.run_all(root, ast_arena, loc_arena, _print_passes))
+        return 1;
 
     return 0;
 }
