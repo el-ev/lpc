@@ -40,7 +40,7 @@ int Session::run() noexcept {
     auto tokens = lexer.tokens();
     auto loc_arena = lexer.loc_arena();
 
-    if (_print_passes & PrintPasses::Token) {
+    if (std::ranges::find(_print_passes, "token") != _print_passes.end()) {
         for (const auto& token : tokens)
             std::print("{} ", token.lexeme());
         std::println("\n");
@@ -56,8 +56,8 @@ int Session::run() noexcept {
     auto root = parser.root();
     auto ast_arena = std::move(parser.arena());
 
-    if (_print_passes & PrintPasses::SExpr)
-        std::println("{}\n", ast_arena[root].dump_json(ast_arena, loc_arena));    
+    if (std::ranges::find(_print_passes, "sexpr") != _print_passes.end())
+        std::println("{}\n", ast_arena[root].dump_json(ast_arena, loc_arena));
 
     return 0;
 }
