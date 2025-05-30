@@ -1,6 +1,6 @@
 module lpc.session;
 
-import lpc.logging;
+import lpc.utils.logging;
 import lpc.frontend.lexer;
 import lpc.frontend.parser;
 

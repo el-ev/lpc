@@ -1,4 +1,4 @@
-module lpc.option;
+module lpc.utils.option;
 
 namespace lpc::utils {
 

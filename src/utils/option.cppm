@@ -1,7 +1,7 @@
-export module lpc.option;
+export module lpc.utils.option;
 
 import std;
-import lpc.logging;
+import lpc.utils.logging;
 
 namespace lpc::utils {
 

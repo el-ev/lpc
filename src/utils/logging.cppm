@@ -1,4 +1,4 @@
-export module lpc.logging;
+export module lpc.utils.logging;
 
 import std;
 

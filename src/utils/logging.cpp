@@ -1,4 +1,4 @@
-module lpc.logging;
+module lpc.utils.logging;
 
 namespace lpc::utils {
 

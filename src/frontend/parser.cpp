@@ -1,6 +1,6 @@
 module lpc.frontend.parser;
 
-import lpc.logging;
+import lpc.utils.logging;
 
 namespace lpc::frontend {
 
