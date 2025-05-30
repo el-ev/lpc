@@ -14,9 +14,7 @@ using lpc::utils::TaggedUnion;
 // 7.1 Formal Syntax
 #define NODE_TYPE_LIST(X)                                                      \
     X(Program)                                                                 \
-    X(ExprOrDef)                                                               \
     X(ExpressionLike)                                                          \
-    X(Expression)                                                              \
     X(Variable)                                                                \
     X(Literal)                                                                 \
     X(Quotation)                                                               \
@@ -24,7 +22,6 @@ using lpc::utils::TaggedUnion;
     X(Number)                                                                  \
     X(Character)                                                               \
     X(String)                                                                  \
-    X(CallLike)                                                                \
     X(ProcedureCall)                                                           \
     X(Lambda)                                                                  \
     X(Formals)                                                                 \
@@ -32,20 +29,10 @@ using lpc::utils::TaggedUnion;
     X(Sequence)                                                                \
     X(If)                                                                      \
     X(Assignment)                                                              \
-    X(MacroUse)                                                                \
-    X(MacroBlock)                                                              \
-    X(SyntaxSpec)                                                              \
-    X(Definitions)                                                             \
     X(Definition)                                                              \
-    X(SyntaxDefinition)                                                        \
-    X(TransformerSpec)                                                         \
-    X(SyntaxRule)                                                              \
-    X(Pattern)                                                                 \
-    X(Template)                                                                \
-    X(Keyword)                                                                 \
-    X(Datum)                                                                   \
     X(List)                                                                    \
     X(Vector)                                                                  \
+    X(Keyword)                                                                 \
     X(Invalid)
 
 #define ENUM_VALUE(name) name,
