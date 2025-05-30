@@ -45,7 +45,7 @@ int Session::run() noexcept {
     if (std::ranges::find(_print_passes, "token") != _print_passes.end()) {
         for (const auto& token : tokens)
             std::print("{} ", token.lexeme());
-        std::println("\n");
+        std::println("");
     }
 
     frontend::Parser parser(std::move(tokens));
@@ -59,7 +59,7 @@ int Session::run() noexcept {
     auto ast_arena = std::move(parser.arena());
 
     if (std::ranges::find(_print_passes, "sexpr") != _print_passes.end())
-        std::println("{}\n", ast_arena[root].dump_json(ast_arena, loc_arena));
+        std::println("{}", ast_arena[root].dump_json(ast_arena, loc_arena));
 
     frontend::PassManager pass_manager;
     pass_manager.add_pass<frontend::ExpandPass>();

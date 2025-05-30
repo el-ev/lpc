@@ -22,7 +22,7 @@ bool PassManager::run_all(NodeRef root, ASTNodeArena& arena,
 
         if (std::ranges::find(print_passes, pass->name())
             != print_passes.end()) {
-            std::println("{}\n", arena[root].dump_json(arena, loc_arena));
+            std::println("{}", arena[root].dump_json(arena, loc_arena));
         }
     }
 
