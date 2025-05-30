@@ -1,7 +1,7 @@
 export module lpc.frontend.ast;
 
 import std;
-import lpc.frontend.token;
+export import lpc.frontend.token;
 import lpc.utils.arena;
 import lpc.utils.tagged_union;
 
@@ -15,6 +15,7 @@ using lpc::utils::TaggedUnion;
 #define NODE_TYPE_LIST(X)                                                      \
     X(Program)                                                                 \
     X(ExprOrDef)                                                               \
+    X(ExpressionLike)                                                          \
     X(Expression)                                                              \
     X(Variable)                                                                \
     X(Literal)                                                                 \
@@ -23,6 +24,7 @@ using lpc::utils::TaggedUnion;
     X(Number)                                                                  \
     X(Character)                                                               \
     X(String)                                                                  \
+    X(CallLike)                                                                \
     X(ProcedureCall)                                                           \
     X(Lambda)                                                                  \
     X(Formals)                                                                 \
@@ -30,15 +32,8 @@ using lpc::utils::TaggedUnion;
     X(Sequence)                                                                \
     X(If)                                                                      \
     X(Assignment)                                                              \
-    /* Derived */                                                              \
-    X(Quasiquote)                                                              \
-    /* TODO */                                                                 \
-    X(Unquote)                                                                 \
-    X(UnquoteSplicing)                                                         \
     X(MacroUse)                                                                \
     X(MacroBlock)                                                              \
-    X(LetSyntax)                                                               \
-    X(LetRecSyntax)                                                            \
     X(SyntaxSpec)                                                              \
     X(Definitions)                                                             \
     X(Definition)                                                              \
@@ -84,7 +79,7 @@ public:
     [[nodiscard]] NodeRef emplace(Args&&... args) {
         return Arena::emplace(std::forward<Args>(args)...);
     }
-    
+
     inline void pop_back() noexcept {
         Arena::pop_back();
     }
@@ -98,6 +93,8 @@ public:
     [[nodiscard]] const ASTNode* get(NodeRef ref) const noexcept;
 };
 
+export using NodeRef = ASTNodeArena::NodeRef;
+
 class ASTNode {
 private:
     using NodeList = std::vector<ASTNodeArena::NodeRef>;
@@ -110,7 +107,7 @@ public:
     explicit ASTNode()
         : _type(NodeType::Invalid)
         , _location(LocRef::invalid()) { };
-        
+
     template <typename T>
     explicit ASTNode(NodeType type, LocRef location, T&& value)
         : _type(type)
@@ -134,18 +131,121 @@ public:
         return _location;
     }
 
-    [[nodiscard]] NodeList&& children() noexcept {
-        // TODO: Fix behavior
-        return std::move(_value.get_unchecked<NodeList>());
-    }
-
-    [[nodiscard]] const NodeList& children() const& noexcept {
-        // TODO: Fix behavior
-        return _value.get_unchecked<NodeList>();
-    }
-
     [[nodiscard]] std::string dump_json(const ASTNodeArena& arena,
         const LocationArena& loc_arena, std::size_t indent = 0) const;
+};
+
+export class Cursor {
+private:
+    const std::vector<Token>& _tokens;
+    bool _failed = false;
+    std::vector<Token>::const_iterator _token;
+    ASTNodeArena& _arena;
+
+    struct SavePoint {
+    private:
+        std::vector<Token>::const_iterator _token;
+        NodeRef _node;
+
+        explicit constexpr SavePoint(
+            std::vector<Token>::const_iterator token, NodeRef node) noexcept
+            : _token(token)
+            , _node(node) { };
+
+        friend class Cursor;
+    };
+
+public:
+    explicit constexpr Cursor(
+        const std::vector<Token>& tokens, ASTNodeArena& arena) noexcept
+        : _tokens(tokens)
+        , _token(_tokens.begin())
+        , _arena(arena) { };
+
+    constexpr Cursor(const Cursor&) = delete;
+    constexpr Cursor& operator=(const Cursor&) = delete;
+
+    constexpr Cursor(Cursor&&) noexcept = default;
+
+    [[nodiscard]] inline constexpr const Token& operator*() const noexcept {
+        return *_token;
+    }
+
+    void advance() noexcept {
+        if (_token->type() != TokenType::EOF)
+            ++_token;
+    }
+
+    void fail() noexcept {
+        _failed = true;
+    }
+
+    [[nodiscard]] inline constexpr bool is_failed() const noexcept {
+        return _failed;
+    }
+
+    [[nodiscard]] inline constexpr bool is_eof() const noexcept {
+        return _token->type() == TokenType::EOF;
+    }
+
+    [[nodiscard]] inline constexpr SavePoint save() const noexcept {
+        return SavePoint(_token, _arena.back_ref());
+    }
+
+    inline void set(SavePoint sp) noexcept {
+        _token = sp._token;
+        _arena.reset_to(sp._node);
+    }
+
+    [[nodiscard]] inline constexpr TokenType type() const noexcept {
+        return _token->type();
+    }
+
+    [[nodiscard]] inline constexpr LocRef loc() const noexcept {
+        return _token->location();
+    }
+
+    [[nodiscard]] inline constexpr auto value() const& noexcept {
+        return _token->value();
+    }
+
+    [[nodiscard]] inline constexpr ASTNodeArena& arena() & noexcept {
+        return _arena;
+    }
+
+    [[nodiscard]] inline constexpr ASTNodeArena& arena() const& noexcept {
+        return _arena;
+    }
+
+    template <TokenType T>
+    [[nodiscard]] constexpr bool is() const noexcept {
+        return type() == T;
+    }
+
+    template <Keyword K>
+    [[nodiscard]] constexpr bool is() const noexcept {
+        return type() == TokenType::KEYWORD
+            && value().get_unchecked<Keyword>() == K;
+    }
+
+    template <std::size_t Hash>
+    [[nodiscard]] constexpr bool is() const noexcept {
+        if (type() != TokenType::IDENT)
+            return false;
+        auto string_hash = [](const std::string& str) noexcept {
+            std::size_t h = 14695981039346656037ULL;
+            for (const char& it : str) {
+                h ^= static_cast<std::size_t>(it);
+                h *= 1099511628211ULL;
+            }
+            return h;
+        };
+        return string_hash(value().get_unchecked<std::string>()) == Hash;
+    }
+
+    [[nodiscard]] NodeRef get_keyword() const noexcept;
+    [[nodiscard]] NodeRef get_ident() const noexcept;
+    [[nodiscard]] NodeRef get_constant() const noexcept;
 };
 
 } // namespace lpc::frontend

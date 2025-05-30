@@ -2,7 +2,7 @@ module lpc.session;
 
 import lpc.utils.logging;
 import lpc.frontend.lexer;
-import lpc.frontend.parser;
+import lpc.frontend.syntax;
 
 namespace lpc {
 

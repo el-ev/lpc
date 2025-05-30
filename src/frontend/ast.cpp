@@ -84,4 +84,46 @@ const ASTNode& ASTNodeArena::at(NodeRef ref) const& {
 const ASTNode* ASTNodeArena::get(NodeRef ref) const noexcept {
     return Arena::get(ref);
 }
+
+NodeRef Cursor::get_keyword() const noexcept {
+    if (type() != TokenType::KEYWORD)
+        return NodeRef::invalid();
+    Keyword keyword = value().get_unchecked<Keyword>();
+    return arena().emplace(NodeType::Keyword, loc(), keyword);
+}
+
+NodeRef Cursor::get_ident() const noexcept {
+    if (type() != TokenType::IDENT)
+        return NodeRef::invalid();
+    auto ident = value().get_unchecked<std::string>();
+    return arena().emplace(NodeType::Variable, loc(), std::move(ident));
+}
+
+NodeRef Cursor::get_constant() const noexcept {
+    NodeRef ref = NodeRef::invalid();
+    switch (type()) {
+    case TokenType::NUMBER: {
+        std::int64_t v = value().get_unchecked<std::int64_t>();
+        ref = arena().emplace(NodeType::Number, loc(), v);
+        break;
+    }
+    case TokenType::BOOLEAN: {
+        bool v = value().get_unchecked<bool>();
+        ref = arena().emplace(NodeType::Boolean, loc(), v);
+        break;
+    }
+    case TokenType::CHARACTER: {
+        char v = value().get_unchecked<char>();
+        ref = arena().emplace(NodeType::Character, loc(), v);
+        break;
+    }
+    case TokenType::STRING: {
+        auto v = value().get_unchecked<std::string>();
+        ref = arena().emplace(NodeType::String, loc(), std::move(v));
+        break;
+    }
+    default: break;
+    }
+    return ref;
+}
 } // namespace lpc::frontend
