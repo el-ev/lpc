@@ -19,10 +19,10 @@ auto main(int argc, char* argv[]) noexcept -> int {
         })
         .add_option("output", 'o', "Output file path", "out.c",
             [&](auto path) { session.set_output_file(path); })
-        .add_option("print-tokens", NO_SHORT_NAME, "Print tokens to stdout",
-            [&](auto) { session.enable_print_tokens(); })
-        .add_option("print-ast", NO_SHORT_NAME, "Print AST to stdout",
-            [&](auto) { session.enable_print_ast(); })
+        .add_option("print", NO_SHORT_NAME,
+            "Print intermediate representations, separated by commas. (token, "
+            "sexpr, ...)",
+            "", [&](auto passes_str) { session.set_print_passes(passes_str); })
         .build()
         .parse({ argv + 1, argv + argc });
 
