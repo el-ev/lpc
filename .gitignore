@@ -8,3 +8,7 @@ compile_commands.json
 options.txt
 
 out.c
+
+perf*
+*.svg
+
