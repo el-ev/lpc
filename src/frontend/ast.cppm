@@ -121,6 +121,10 @@ public:
     explicit NodeArena(LocationArena&& loc_arena)
         : _loc_arena(std::move(loc_arena)) { };
 
+    inline void reserve(std::size_t size) {
+        Arena::reserve(size);
+    }
+
     [[nodiscard]] const ASTNode& operator[](NodeLocRef ref) const& {
         return at(ref);
     }
@@ -144,19 +148,18 @@ public:
     [[nodiscard]] NodeLocRef get_boolean(LocRef loc, bool value) noexcept;
     [[nodiscard]] NodeLocRef get_keyword(LocRef loc, Keyword keyword) noexcept;
     [[nodiscard]] NodeLocRef get_variable(
-        LocRef loc, const std::string& name) noexcept;
+        LocRef loc, std::string&& name) noexcept;
 
     [[nodiscard]] NodeLocRef insert_keyword(Keyword keyword, LocRef loc);
-    [[nodiscard]] NodeLocRef insert_variable(const std::string& name, LocRef loc);
+    [[nodiscard]] NodeLocRef insert_variable(
+        const std::string& name, LocRef loc);
 
     [[nodiscard]] std::string dump_json(
         NodeLocRef ref, std::size_t indent = 0) const;
 
-    [[nodiscard]] std::string dump(
-        NodeLocRef ref) const;
+    [[nodiscard]] std::string dump(NodeLocRef ref) const;
 
 private:
-    // std::unordered_map<Keyword, NodeLocRef> _keywords;
     std::array<ASTNodeRef, static_cast<std::size_t>(Keyword::COUNT)> _keywords;
     std::unordered_map<std::string, ASTNodeRef> _variables;
     std::pair<ASTNodeRef, ASTNodeRef> _boolean_nodes;

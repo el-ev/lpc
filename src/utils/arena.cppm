@@ -15,7 +15,9 @@ private:
         static const IndexType invalid_ref
             = std::numeric_limits<IndexType>::max();
 
-        ElementReference() noexcept : _index(invalid_ref) {}
+        ElementReference() noexcept
+            : _index(invalid_ref) {
+        }
         ElementReference(const ElementReference&) = default;
         ElementReference& operator=(const ElementReference&) = default;
 

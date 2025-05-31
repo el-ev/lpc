@@ -15,12 +15,13 @@ private:
     void parse() noexcept;
 
 public:
-    explicit constexpr Parser(std::vector<Token>&& tokens, LocationArena&& location_arena) noexcept
+    explicit constexpr Parser(
+        std::vector<Token>&& tokens, LocationArena&& location_arena) noexcept
         : _tokens(std::move(tokens))
         , _cursor(_tokens, _arena)
         , _arena(std::move(location_arena))
         , _root(NodeLocRef::invalid()) {
-
+        _arena.reserve(_tokens.size() >> 2u);
         parse();
     };
 

@@ -328,7 +328,8 @@ OptNodeList GetKeyword::operator()(Cursor& cursor) const noexcept {
 
 template <Keyword K>
 OptNodeList InsertKeyword<K>::operator()(Cursor& cursor) const noexcept {
-    NodeLocRef node = cursor.arena().emplace(cursor.loc(), NodeType::Keyword, K);
+    NodeLocRef node
+        = cursor.arena().emplace(cursor.loc(), NodeType::Keyword, K);
     return NodeList(1, node);
 }
 

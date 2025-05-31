@@ -77,22 +77,20 @@ std::string NodeArena::dump(NodeLocRef ref) const {
     const auto& value = node.value();
 
     switch (node.type()) {
-    case NodeType::Variable:
-        return value.get_unchecked<std::string>();
+    case NodeType::Variable: return value.get_unchecked<std::string>();
     case NodeType::String:
         return "\"" + value.get_unchecked<std::string>() + "\"";
     case NodeType::Character: {
         char c = value.get_unchecked<char>();
         switch (c) {
         case '\n': return "#\\newline";
-        case ' ': return "#\\space";
-        default: return std::string("#\\") + c;
+        case ' ' : return "#\\space";
+        default  : return std::string("#\\") + c;
         }
     }
     case NodeType::Number:
         return std::to_string(value.get_unchecked<std::int64_t>());
-    case NodeType::Boolean:
-        return value.get_unchecked<bool>() ? "#t" : "#f";
+    case NodeType::Boolean: return value.get_unchecked<bool>() ? "#t" : "#f";
     case NodeType::Keyword:
         return std::string(lex_defs::KEYWORDS[static_cast<std::size_t>(
             value.get_unchecked<Keyword>())]);
@@ -101,10 +99,11 @@ std::string NodeArena::dump(NodeLocRef ref) const {
         if (children.empty()) {
             return "()";
         }
-        
+
         std::string result = "(";
         for (std::size_t i = 0; i < children.size(); ++i) {
-            if (i > 0) result += " ";
+            if (i > 0)
+                result += " ";
             result += dump(children[i]);
         }
         result += ")";
@@ -115,10 +114,11 @@ std::string NodeArena::dump(NodeLocRef ref) const {
         if (children.empty()) {
             return "#()";
         }
-        
+
         std::string result = "#(";
         for (std::size_t i = 0; i < children.size(); ++i) {
-            if (i > 0) result += " ";
+            if (i > 0)
+                result += " ";
             result += dump(children[i]);
         }
         result += ")";
@@ -129,16 +129,16 @@ std::string NodeArena::dump(NodeLocRef ref) const {
         if (children.empty()) {
             return "";
         }
-        
+
         std::string result;
         for (std::size_t i = 0; i < children.size(); ++i) {
-            if (i > 0) result += "\n";
+            if (i > 0)
+                result += "\n";
             result += dump(children[i]);
         }
         return result;
     }
-    default:
-        return "";
+    default: return "";
     }
 }
 
@@ -150,28 +150,25 @@ const ASTNode* NodeArena::get(NodeLocRef ref) const noexcept {
     return Arena::get(ref.node_ref());
 }
 
-NodeLocRef NodeArena::get_keyword(
-    LocRef loc, Keyword keyword) noexcept {
-    if (!_keywords[static_cast<std::size_t>(keyword)].is_valid()) {
-        _keywords[static_cast<std::size_t>(keyword)] = Arena::emplace(NodeType::Keyword, keyword);
-    }
+NodeLocRef NodeArena::get_keyword(LocRef loc, Keyword keyword) noexcept {
+    if (!_keywords[static_cast<std::size_t>(keyword)].is_valid())
+        _keywords[static_cast<std::size_t>(keyword)]
+            = Arena::emplace(NodeType::Keyword, keyword);
     return NodeLocRef(_keywords[static_cast<std::size_t>(keyword)], loc);
 }
 
-NodeLocRef NodeArena::get_variable(
-    LocRef loc, const std::string& name) noexcept {
-    if (!_variables.contains(name)) {
-        _variables[name] = Arena::emplace(NodeType::Variable, name);
-    }
-    return NodeLocRef(_variables[name], loc);
+NodeLocRef NodeArena::get_variable(LocRef loc, std::string&& name) noexcept {
+    auto [it, inserted]
+        = _variables.try_emplace(name, NodeArena::ASTNodeRef::invalid());
+    if (inserted)
+        it->second = Arena::emplace(NodeType::Variable, std::move(name));
+    return NodeLocRef(it->second, loc);
 }
 
-NodeLocRef NodeArena::get_boolean(
-    LocRef loc, bool value) noexcept {
+NodeLocRef NodeArena::get_boolean(LocRef loc, bool value) noexcept {
     if (value) {
-        if (!_boolean_nodes.first.is_valid()) {
+        if (!_boolean_nodes.first.is_valid())
             _boolean_nodes.first = Arena::emplace(NodeType::Boolean, true);
-        }
         return NodeLocRef(_boolean_nodes.first, loc);
     }
     if (!_boolean_nodes.second.is_valid()) {
@@ -190,9 +187,8 @@ NodeLocRef Cursor::get_keyword() const noexcept {
 NodeLocRef Cursor::get_ident() const noexcept {
     if (type() != TokenType::IDENT)
         return NodeLocRef::invalid();
-    auto name = value().get_unchecked<std::string>();
-
-    return arena().get_variable(loc(), name);
+    std::string name = value().get_unchecked<std::string>();
+    return arena().get_variable(loc(), std::move(name));
 }
 
 NodeLocRef Cursor::get_constant() const noexcept {

@@ -148,7 +148,7 @@ bool Lexer::read_sharp() noexcept {
     }
 
     switch (c) {
-    case '(' : {
+    case '(': {
         _cursor.remove_prefix(2);
         _tokens.emplace_back(TokenType::SHELL_LPAREN, _loc, "#(");
         return true;
