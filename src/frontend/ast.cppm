@@ -19,7 +19,6 @@ using lpc::utils::TaggedUnion;
     X(Keyword)                                                                 \
     X(Quotation)                                                               \
     X(Variable)                                                                \
-    X(Literal)                                                                 \
     X(Boolean)                                                                 \
     X(Number)                                                                  \
     X(Character)                                                               \
@@ -28,7 +27,6 @@ using lpc::utils::TaggedUnion;
     X(Lambda)                                                                  \
     X(Formals)                                                                 \
     X(Body)                                                                    \
-    X(Sequence)                                                                \
     X(If)                                                                      \
     X(Assignment)                                                              \
     X(Definition)                                                              \
