@@ -21,7 +21,7 @@ bool PassManager::run_all(NodeLocRef root, NodeArena& arena,
 
         if (std::ranges::find(print_passes, pass->name())
             != print_passes.end()) {
-            std::println("{}", arena.dump_json(root));
+            std::println("{}", arena.dump(root));
         }
     }
 

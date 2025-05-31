@@ -72,6 +72,76 @@ std::string NodeArena::dump_json(NodeLocRef ref, std::size_t indent) const {
     return result;
 }
 
+std::string NodeArena::dump(NodeLocRef ref) const {
+    const ASTNode& node = at(ref);
+    const auto& value = node.value();
+
+    switch (node.type()) {
+    case NodeType::Variable:
+        return value.get_unchecked<std::string>();
+    case NodeType::String:
+        return "\"" + value.get_unchecked<std::string>() + "\"";
+    case NodeType::Character: {
+        char c = value.get_unchecked<char>();
+        switch (c) {
+        case '\n': return "#\\newline";
+        case ' ': return "#\\space";
+        default: return std::string("#\\") + c;
+        }
+    }
+    case NodeType::Number:
+        return std::to_string(value.get_unchecked<std::int64_t>());
+    case NodeType::Boolean:
+        return value.get_unchecked<bool>() ? "#t" : "#f";
+    case NodeType::Keyword:
+        return std::string(lex_defs::KEYWORDS[static_cast<std::size_t>(
+            value.get_unchecked<Keyword>())]);
+    case NodeType::List: {
+        const auto& children = value.get_unchecked<NodeList>();
+        if (children.empty()) {
+            return "()";
+        }
+        
+        std::string result = "(";
+        for (std::size_t i = 0; i < children.size(); ++i) {
+            if (i > 0) result += " ";
+            result += dump(children[i]);
+        }
+        result += ")";
+        return result;
+    }
+    case NodeType::Vector: {
+        const auto& children = value.get_unchecked<NodeList>();
+        if (children.empty()) {
+            return "#()";
+        }
+        
+        std::string result = "#(";
+        for (std::size_t i = 0; i < children.size(); ++i) {
+            if (i > 0) result += " ";
+            result += dump(children[i]);
+        }
+        result += ")";
+        return result;
+    }
+    case NodeType::Program: {
+        const auto& children = value.get_unchecked<NodeList>();
+        if (children.empty()) {
+            return "";
+        }
+        
+        std::string result;
+        for (std::size_t i = 0; i < children.size(); ++i) {
+            if (i > 0) result += "\n";
+            result += dump(children[i]);
+        }
+        return result;
+    }
+    default:
+        return "";
+    }
+}
+
 const ASTNode& NodeArena::at(NodeLocRef ref) const& {
     return Arena::at(ref.node_ref());
 }

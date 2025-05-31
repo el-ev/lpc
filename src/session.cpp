@@ -57,7 +57,7 @@ int Session::run() noexcept {
     auto ast_arena = std::move(parser.arena());
 
     if (std::ranges::find(_print_passes, "sexpr") != _print_passes.end())
-        std::println("{}", ast_arena.dump_json(root));
+        std::println("{}", ast_arena.dump(root));
 
     frontend::PassManager pass_manager;
     pass_manager.add_pass<frontend::ExpandPass>();

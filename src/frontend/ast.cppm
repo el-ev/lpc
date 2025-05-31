@@ -154,6 +154,9 @@ public:
     [[nodiscard]] std::string dump_json(
         NodeLocRef ref, std::size_t indent = 0) const;
 
+    [[nodiscard]] std::string dump(
+        NodeLocRef ref) const;
+
 private:
     // std::unordered_map<Keyword, NodeLocRef> _keywords;
     std::array<ASTNodeRef, static_cast<std::size_t>(Keyword::COUNT)> _keywords;
