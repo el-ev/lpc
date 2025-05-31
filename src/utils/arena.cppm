@@ -15,6 +15,10 @@ private:
         static const IndexType invalid_ref
             = std::numeric_limits<IndexType>::max();
 
+        ElementReference() noexcept : _index(invalid_ref) {}
+        ElementReference(const ElementReference&) = default;
+        ElementReference& operator=(const ElementReference&) = default;
+
         [[nodiscard]] inline static ElementReference invalid() noexcept {
             return ElementReference(invalid_ref);
         }
@@ -88,13 +92,6 @@ public:
             _data.pop_back();
             --_next_index;
         }
-    }
-
-    inline void reset_to(elem_ref ref) noexcept {
-        if (ref._index >= _data.size())
-            return;
-        _data.resize(ref._index + 1);
-        _next_index = ref._index + 1;
     }
 
     [[nodiscard]] constexpr T& at(elem_ref ref);

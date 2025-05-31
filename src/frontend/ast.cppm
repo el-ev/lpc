@@ -49,58 +49,24 @@ export [[nodiscard]] constexpr auto node_type_to_string(NodeType type)
 #undef CASE_STATEMENT
 
 export class ASTNode;
-export class ASTNodeArena;
-
-class ASTNodeArena : Arena<ASTNode, std::uint32_t> {
-public:
-    using NodeRef = Arena<ASTNode, std::uint32_t>::elem_ref;
-
-    explicit ASTNodeArena() noexcept = default;
-
-    [[nodiscard]] const ASTNode& operator[](NodeRef ref) const& {
-        return at(ref);
-    }
-
-    [[nodiscard]] NodeRef emplace(ASTNode&& node);
-    template <typename... Args>
-    [[nodiscard]] NodeRef emplace(Args&&... args) {
-        return Arena::emplace(std::forward<Args>(args)...);
-    }
-
-    inline void pop_back() noexcept {
-        Arena::pop_back();
-    }
-
-    inline void reset_to(NodeRef ref) noexcept {
-        Arena::reset_to(ref);
-    }
-
-    [[nodiscard]] NodeRef back_ref() const noexcept;
-    [[nodiscard]] const ASTNode& at(NodeRef ref) const&;
-    [[nodiscard]] const ASTNode* get(NodeRef ref) const noexcept;
-};
-
-export using NodeRef = ASTNodeArena::NodeRef;
+export class NodeArena;
+export class NodeLocRef;
 
 class ASTNode {
 private:
-    using NodeList = std::vector<ASTNodeArena::NodeRef>;
+    using NodeList = std::vector<NodeLocRef>;
     NodeType _type;
-    LocRef _location;
     TaggedUnion<NodeList, Keyword, std::string, std::int64_t, char, bool>
         _value;
 
 public:
     explicit ASTNode()
-        : _type(NodeType::Invalid)
-        , _location(LocRef::invalid()) { };
+        : _type(NodeType::Invalid) { };
 
     template <typename T>
-    explicit ASTNode(NodeType type, LocRef location, T&& value)
+    explicit ASTNode(NodeType type, T&& value)
         : _type(type)
-        , _location(location)
-        , _value(std::forward<T>(value)) {
-    }
+        , _value(std::forward<T>(value)) {};
 
     explicit ASTNode(const ASTNode&) = delete;
     ASTNode& operator=(const ASTNode&) = delete;
@@ -112,12 +78,86 @@ public:
         return _type;
     }
 
-    [[nodiscard]] const LocRef& location() const noexcept {
-        return _location;
+    [[nodiscard]] const auto& value() const& noexcept {
+        return _value;
+    }
+};
+
+class NodeLocRef {
+private:
+    using ASTNodeRef = Arena<ASTNode, std::uint32_t>::elem_ref;
+    ASTNodeRef _node_ref;
+    LocRef _loc_ref;
+
+public:
+    explicit NodeLocRef() noexcept = default;
+    explicit NodeLocRef(ASTNodeRef node_ref, LocRef loc_ref) noexcept
+        : _node_ref(node_ref)
+        , _loc_ref(loc_ref) { };
+
+    static constexpr NodeLocRef invalid() noexcept {
+        return NodeLocRef(ASTNodeRef::invalid(), LocRef::invalid());
     }
 
-    [[nodiscard]] std::string dump_json(const ASTNodeArena& arena,
-        const LocationArena& loc_arena, std::size_t indent = 0) const;
+    [[nodiscard]] inline constexpr bool is_valid() const noexcept {
+        return _node_ref.is_valid();
+    }
+
+    [[nodiscard]] inline constexpr ASTNodeRef node_ref() const noexcept {
+        return _node_ref;
+    }
+
+    [[nodiscard]] inline constexpr LocRef loc_ref() const noexcept {
+        return _loc_ref;
+    }
+};
+
+class NodeArena : Arena<ASTNode, std::uint32_t> {
+private:
+    LocationArena _loc_arena;
+
+public:
+    using ASTNodeRef = Arena<ASTNode, std::uint32_t>::elem_ref;
+
+    explicit NodeArena(LocationArena&& loc_arena)
+        : _loc_arena(std::move(loc_arena)) { };
+
+    [[nodiscard]] const ASTNode& operator[](NodeLocRef ref) const& {
+        return at(ref);
+    }
+
+    template <typename... Args>
+    [[nodiscard]] NodeLocRef emplace(LocRef loc, Args&&... args) {
+        return NodeLocRef(Arena::emplace(std::forward<Args>(args)...), loc);
+    }
+
+    inline void pop_back() noexcept {
+        Arena::pop_back();
+    }
+
+    [[nodiscard]] inline Location location(NodeLocRef ref) const noexcept {
+        return _loc_arena.at(ref.loc_ref());
+    }
+
+    [[nodiscard]] const ASTNode& at(NodeLocRef ref) const&;
+    [[nodiscard]] const ASTNode* get(NodeLocRef ref) const noexcept;
+
+    [[nodiscard]] NodeLocRef get_boolean(LocRef loc, bool value) noexcept;
+    [[nodiscard]] NodeLocRef get_keyword(LocRef loc, Keyword keyword) noexcept;
+    [[nodiscard]] NodeLocRef get_variable(
+        LocRef loc, const std::string& name) noexcept;
+
+    [[nodiscard]] NodeLocRef insert_keyword(Keyword keyword, LocRef loc);
+    [[nodiscard]] NodeLocRef insert_variable(const std::string& name, LocRef loc);
+
+    [[nodiscard]] std::string dump_json(
+        NodeLocRef ref, std::size_t indent = 0) const;
+
+private:
+    // std::unordered_map<Keyword, NodeLocRef> _keywords;
+    std::array<ASTNodeRef, static_cast<std::size_t>(Keyword::COUNT)> _keywords;
+    std::unordered_map<std::string, ASTNodeRef> _variables;
+    std::pair<ASTNodeRef, ASTNodeRef> _boolean_nodes;
 };
 
 export class Cursor {
@@ -125,24 +165,22 @@ private:
     const std::vector<Token>& _tokens;
     bool _failed = false;
     std::vector<Token>::const_iterator _token;
-    ASTNodeArena& _arena;
+    NodeArena& _arena;
 
     struct SavePoint {
     private:
         std::vector<Token>::const_iterator _token;
-        NodeRef _node;
 
         explicit constexpr SavePoint(
-            std::vector<Token>::const_iterator token, NodeRef node) noexcept
-            : _token(token)
-            , _node(node) { };
+            std::vector<Token>::const_iterator token) noexcept
+            : _token(token) { };
 
         friend class Cursor;
     };
 
 public:
     explicit constexpr Cursor(
-        const std::vector<Token>& tokens, ASTNodeArena& arena) noexcept
+        const std::vector<Token>& tokens, NodeArena& arena) noexcept
         : _tokens(tokens)
         , _token(_tokens.begin())
         , _arena(arena) { };
@@ -174,12 +212,11 @@ public:
     }
 
     [[nodiscard]] inline constexpr SavePoint save() const noexcept {
-        return SavePoint(_token, _arena.back_ref());
+        return SavePoint(_token);
     }
 
     inline void set(SavePoint sp) noexcept {
         _token = sp._token;
-        _arena.reset_to(sp._node);
     }
 
     [[nodiscard]] inline constexpr TokenType type() const noexcept {
@@ -194,11 +231,11 @@ public:
         return _token->value();
     }
 
-    [[nodiscard]] inline constexpr ASTNodeArena& arena() & noexcept {
+    [[nodiscard]] inline constexpr NodeArena& arena() & noexcept {
         return _arena;
     }
 
-    [[nodiscard]] inline constexpr ASTNodeArena& arena() const& noexcept {
+    [[nodiscard]] inline constexpr NodeArena& arena() const& noexcept {
         return _arena;
     }
 
@@ -228,9 +265,9 @@ public:
         return string_hash(value().get_unchecked<std::string>()) == Hash;
     }
 
-    [[nodiscard]] NodeRef get_keyword() const noexcept;
-    [[nodiscard]] NodeRef get_ident() const noexcept;
-    [[nodiscard]] NodeRef get_constant() const noexcept;
+    [[nodiscard]] NodeLocRef get_keyword() const noexcept;
+    [[nodiscard]] NodeLocRef get_ident() const noexcept;
+    [[nodiscard]] NodeLocRef get_constant() const noexcept;
 };
 
 } // namespace lpc::frontend

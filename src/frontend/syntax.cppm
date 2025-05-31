@@ -5,25 +5,24 @@ import lpc.frontend.ast;
 
 namespace lpc::frontend {
 
-using Node = ASTNode;
-using NodeRef = ASTNodeArena::NodeRef;
-using NodeList = std::vector<NodeRef>;
+using NodeList = std::vector<NodeLocRef>;
 using OptNodeList = std::optional<NodeList>;
 
 export class Parser {
 private:
     std::vector<Token> _tokens;
     Cursor _cursor;
-    ASTNodeArena _arena;
-    NodeRef _root;
+    NodeArena _arena;
+    NodeLocRef _root;
 
     void parse() noexcept;
 
 public:
-    explicit constexpr Parser(std::vector<Token>&& tokens) noexcept
+    explicit constexpr Parser(std::vector<Token>&& tokens, LocationArena&& location_arena) noexcept
         : _tokens(std::move(tokens))
         , _cursor(_tokens, _arena)
-        , _root(NodeRef::invalid()) {
+        , _arena(std::move(location_arena))
+        , _root(NodeLocRef::invalid()) {
 
         parse();
     };
@@ -41,11 +40,11 @@ public:
         return _cursor.is_eof();
     }
 
-    [[nodiscard]] inline NodeRef root() noexcept {
-        return _arena.back_ref();
+    [[nodiscard]] inline NodeLocRef root() noexcept {
+        return _root;
     }
 
-    [[nodiscard]] inline ASTNodeArena&& arena() noexcept {
+    [[nodiscard]] inline NodeArena&& arena() noexcept {
         return std::move(_arena);
     }
 };

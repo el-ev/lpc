@@ -10,8 +10,7 @@ public:
     virtual ~Pass() = default;
 
     [[nodiscard]] virtual std::string name() const noexcept = 0;
-    [[nodiscard]] virtual bool run(NodeRef root, ASTNodeArena& arena,
-        const LocationArena& loc_arena) noexcept
+    [[nodiscard]] virtual bool run(NodeLocRef root, NodeArena& arena) noexcept
         = 0;
 
     Pass(const Pass&) = delete;
@@ -42,8 +41,7 @@ public:
         _passes.emplace_back(std::make_unique<T>(std::forward<Args>(args)...));
     }
 
-    [[nodiscard]] bool run_all(NodeRef root, ASTNodeArena& arena,
-        const LocationArena& loc_arena,
+    [[nodiscard]] bool run_all(NodeLocRef root, NodeArena& arena,
         std::vector<std::string>& print_passes) noexcept;
 
     void clear() noexcept {

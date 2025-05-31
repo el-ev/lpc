@@ -11,9 +11,7 @@ import lpc.frontend.ast;
 
 export namespace lpc::frontend::combinators {
 
-using Node = ASTNode;
-using NodeRef = ASTNodeArena::NodeRef;
-using NodeList = std::vector<NodeRef>;
+using NodeList = std::vector<NodeLocRef>;
 using OptNodeList = std::optional<NodeList>;
 
 template <typename T>
@@ -321,7 +319,7 @@ OptNodeList OneKeyword<K>::operator()(Cursor& cursor) const noexcept {
 }
 
 OptNodeList GetKeyword::operator()(Cursor& cursor) const noexcept {
-    NodeRef node = cursor.get_keyword();
+    NodeLocRef node = cursor.get_keyword();
     if (!node.is_valid())
         return std::nullopt;
     cursor.advance();
@@ -330,12 +328,12 @@ OptNodeList GetKeyword::operator()(Cursor& cursor) const noexcept {
 
 template <Keyword K>
 OptNodeList InsertKeyword<K>::operator()(Cursor& cursor) const noexcept {
-    NodeRef node = cursor.arena().emplace(NodeType::Keyword, cursor.loc(), K);
+    NodeLocRef node = cursor.arena().emplace(cursor.loc(), NodeType::Keyword, K);
     return NodeList(1, node);
 }
 
 OptNodeList GetVariable::operator()(Cursor& cursor) const noexcept {
-    NodeRef node = cursor.get_ident();
+    NodeLocRef node = cursor.get_ident();
     if (!node.is_valid())
         return std::nullopt;
     cursor.advance();
@@ -343,7 +341,7 @@ OptNodeList GetVariable::operator()(Cursor& cursor) const noexcept {
 }
 
 OptNodeList GetConstant::operator()(Cursor& cursor) const noexcept {
-    NodeRef node = cursor.get_constant();
+    NodeLocRef node = cursor.get_constant();
     if (!node.is_valid())
         return std::nullopt;
     cursor.advance();
@@ -370,7 +368,7 @@ OptNodeList OneNode<T, R>::operator()(Cursor& cursor) const noexcept {
             return std::nullopt;
         }
     }
-    NodeRef node = cursor.arena().emplace(t, loc, std::move(res.value()));
+    NodeLocRef node = cursor.arena().emplace(loc, t, std::move(res.value()));
     return NodeList(1, node);
 }
 

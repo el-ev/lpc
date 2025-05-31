@@ -2,21 +2,25 @@ module lpc.frontend.ast;
 
 namespace lpc::frontend {
 
-std::string ASTNode::dump_json(const ASTNodeArena& arena,
-    const LocationArena& loc_arena, std::size_t indent) const {
+using NodeList = std::vector<NodeLocRef>;
+
+std::string NodeArena::dump_json(NodeLocRef ref, std::size_t indent) const {
     std::string result;
     std::string prefix(indent, ' ');
 
-    result += prefix + "{\n";
-    result += prefix + R"(  "type": ")" + node_type_to_string(_type) + "\",\n";
-    result += prefix + R"(  "location": ")" + loc_arena[_location].to_string()
-        + "\"";
+    const ASTNode& node = at(ref);
+    const auto& value = node.value();
 
-    switch (_type) {
+    result += prefix + "{\n";
+    result += prefix + R"(  "type": ")" + node_type_to_string(node.type())
+        + "\",\n";
+    result += prefix + R"(  "location": ")" + location(ref).to_string() + "\"";
+
+    switch (node.type()) {
     case NodeType::Variable:
     case NodeType::String:
         result += ",\n" + prefix + R"(  "value": ")";
-        for (char c : _value.get_unchecked<std::string>()) {
+        for (char c : value.get_unchecked<std::string>()) {
             switch (c) {
             case '"' : result += "\\\""; break;
             case '\\': result += "\\\\"; break;
@@ -26,7 +30,7 @@ std::string ASTNode::dump_json(const ASTNodeArena& arena,
         result += "\"";
         break;
     case NodeType::Character: {
-        char c = _value.get_unchecked<char>();
+        char c = value.get_unchecked<char>();
         result += ",\n" + prefix + R"(  "value": "#\\)";
         switch (c) {
         case '\n': result += "newline"; break;
@@ -38,24 +42,23 @@ std::string ASTNode::dump_json(const ASTNodeArena& arena,
     }
     case NodeType::Number:
         result += ",\n" + prefix + "  \"value\": "
-            + std::to_string(_value.get_unchecked<std::int64_t>());
+            + std::to_string(value.get_unchecked<std::int64_t>());
         break;
     case NodeType::Boolean:
         result += ",\n" + prefix + "  \"value\": "
-            + (_value.get_unchecked<bool>() ? "\"#t\"" : "\"#f\"");
+            + (value.get_unchecked<bool>() ? "\"#t\"" : "\"#f\"");
         break;
     case NodeType::Keyword:
         result += ",\n" + prefix + R"(  "value": ")"
             + std::string(lex_defs::KEYWORDS[static_cast<std::size_t>(
-                _value.get_unchecked<Keyword>())])
+                value.get_unchecked<Keyword>())])
             + "\"";
         break;
     default:
         result += ",\n" + prefix + "  \"children\": [\n";
-        const auto& children = _value.get_unchecked<NodeList>();
+        const auto& children = value.get_unchecked<NodeList>();
         for (std::size_t i = 0; i < children.size(); ++i) {
-            result
-                += arena[children[i]].dump_json(arena, loc_arena, indent + 4);
+            result += dump_json(children[i], indent + 4);
             if (i < children.size() - 1) {
                 result += ",";
             }
@@ -69,57 +72,80 @@ std::string ASTNode::dump_json(const ASTNodeArena& arena,
     return result;
 }
 
-ASTNodeArena::NodeRef ASTNodeArena::emplace(ASTNode&& node) {
-    return Arena::emplace(std::move(node));
+const ASTNode& NodeArena::at(NodeLocRef ref) const& {
+    return Arena::at(ref.node_ref());
 }
 
-ASTNodeArena::NodeRef ASTNodeArena::back_ref() const noexcept {
-    return Arena::back_ref();
+const ASTNode* NodeArena::get(NodeLocRef ref) const noexcept {
+    return Arena::get(ref.node_ref());
 }
 
-const ASTNode& ASTNodeArena::at(NodeRef ref) const& {
-    return Arena::at(ref);
+NodeLocRef NodeArena::get_keyword(
+    LocRef loc, Keyword keyword) noexcept {
+    if (!_keywords[static_cast<std::size_t>(keyword)].is_valid()) {
+        _keywords[static_cast<std::size_t>(keyword)] = Arena::emplace(NodeType::Keyword, keyword);
+    }
+    return NodeLocRef(_keywords[static_cast<std::size_t>(keyword)], loc);
 }
 
-const ASTNode* ASTNodeArena::get(NodeRef ref) const noexcept {
-    return Arena::get(ref);
+NodeLocRef NodeArena::get_variable(
+    LocRef loc, const std::string& name) noexcept {
+    if (!_variables.contains(name)) {
+        _variables[name] = Arena::emplace(NodeType::Variable, name);
+    }
+    return NodeLocRef(_variables[name], loc);
 }
 
-NodeRef Cursor::get_keyword() const noexcept {
+NodeLocRef NodeArena::get_boolean(
+    LocRef loc, bool value) noexcept {
+    if (value) {
+        if (!_boolean_nodes.first.is_valid()) {
+            _boolean_nodes.first = Arena::emplace(NodeType::Boolean, true);
+        }
+        return NodeLocRef(_boolean_nodes.first, loc);
+    }
+    if (!_boolean_nodes.second.is_valid()) {
+        _boolean_nodes.second = Arena::emplace(NodeType::Boolean, false);
+    }
+    return NodeLocRef(_boolean_nodes.second, loc);
+}
+
+NodeLocRef Cursor::get_keyword() const noexcept {
     if (type() != TokenType::KEYWORD)
-        return NodeRef::invalid();
+        return NodeLocRef::invalid();
     Keyword keyword = value().get_unchecked<Keyword>();
-    return arena().emplace(NodeType::Keyword, loc(), keyword);
+    return arena().get_keyword(loc(), keyword);
 }
 
-NodeRef Cursor::get_ident() const noexcept {
+NodeLocRef Cursor::get_ident() const noexcept {
     if (type() != TokenType::IDENT)
-        return NodeRef::invalid();
-    auto ident = value().get_unchecked<std::string>();
-    return arena().emplace(NodeType::Variable, loc(), std::move(ident));
+        return NodeLocRef::invalid();
+    auto name = value().get_unchecked<std::string>();
+
+    return arena().get_variable(loc(), name);
 }
 
-NodeRef Cursor::get_constant() const noexcept {
-    NodeRef ref = NodeRef::invalid();
+NodeLocRef Cursor::get_constant() const noexcept {
+    NodeLocRef ref = NodeLocRef::invalid();
     switch (type()) {
     case TokenType::NUMBER: {
         std::int64_t v = value().get_unchecked<std::int64_t>();
-        ref = arena().emplace(NodeType::Number, loc(), v);
+        ref = arena().emplace(loc(), NodeType::Number, v);
         break;
     }
     case TokenType::BOOLEAN: {
         bool v = value().get_unchecked<bool>();
-        ref = arena().emplace(NodeType::Boolean, loc(), v);
+        ref = arena().get_boolean(loc(), v);
         break;
     }
     case TokenType::CHARACTER: {
         char v = value().get_unchecked<char>();
-        ref = arena().emplace(NodeType::Character, loc(), v);
+        ref = arena().emplace(loc(), NodeType::Character, v);
         break;
     }
     case TokenType::STRING: {
         auto v = value().get_unchecked<std::string>();
-        ref = arena().emplace(NodeType::String, loc(), std::move(v));
+        ref = arena().emplace(loc(), NodeType::String, std::move(v));
         break;
     }
     default: break;

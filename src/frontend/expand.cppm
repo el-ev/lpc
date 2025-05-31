@@ -6,20 +6,16 @@ import lpc.frontend.passes;
 
 namespace lpc::frontend {
 
-export class ExpandPass : public Pass {
+export class ExpandPass final : public Pass {
 public:
-    [[nodiscard]] std::string name() const noexcept override {
+    [[nodiscard]] std::string name() const noexcept final {
         return "expand";
     }
 
-    [[nodiscard]] bool run(NodeRef root, ASTNodeArena& arena,
-        const LocationArena& loc_arena) noexcept override {
-
-        return true;
-    }
+    [[nodiscard]] bool run(NodeLocRef root, NodeArena& arena) noexcept final;
 
     ExpandPass() = default;
-    ~ExpandPass() override = default;
+    ~ExpandPass() final = default;
 };
 
 } // namespace lpc::frontend
