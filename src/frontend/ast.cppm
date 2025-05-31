@@ -108,8 +108,6 @@ public:
     ASTNode(ASTNode&&) noexcept = default;
     ASTNode& operator=(ASTNode&&) noexcept = default;
 
-    virtual ~ASTNode() = default;
-
     [[nodiscard]] NodeType type() const noexcept {
         return _type;
     }
