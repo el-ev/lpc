@@ -14,10 +14,12 @@ using lpc::utils::TaggedUnion;
 // 7.1 Formal Syntax
 #define NODE_TYPE_LIST(X)                                                      \
     X(Program)                                                                 \
-    X(ExpressionLike)                                                          \
+    X(List)                                                                    \
+    X(Vector)                                                                  \
+    X(Keyword)                                                                 \
+    X(Quotation)                                                               \
     X(Variable)                                                                \
     X(Literal)                                                                 \
-    X(Quotation)                                                               \
     X(Boolean)                                                                 \
     X(Number)                                                                  \
     X(Character)                                                               \
@@ -30,9 +32,6 @@ using lpc::utils::TaggedUnion;
     X(If)                                                                      \
     X(Assignment)                                                              \
     X(Definition)                                                              \
-    X(List)                                                                    \
-    X(Vector)                                                                  \
-    X(Keyword)                                                                 \
     X(Invalid)
 
 #define ENUM_VALUE(name) name,
@@ -51,6 +50,8 @@ export [[nodiscard]] constexpr auto node_type_to_string(NodeType type)
 export class ASTNode;
 export class NodeArena;
 export class NodeLocRef;
+export using NodeList = std::vector<NodeLocRef>;
+export using OptNodeList = std::optional<NodeList>;
 
 class ASTNode {
 private:
