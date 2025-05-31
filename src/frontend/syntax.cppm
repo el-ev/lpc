@@ -5,9 +5,6 @@ import lpc.frontend.ast;
 
 namespace lpc::frontend {
 
-using NodeList = std::vector<NodeLocRef>;
-using OptNodeList = std::optional<NodeList>;
-
 export class Parser {
 private:
     std::vector<Token> _tokens;

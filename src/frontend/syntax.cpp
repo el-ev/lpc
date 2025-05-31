@@ -46,7 +46,7 @@ any(
     )
   , chain(
         !OneToken<TokenType::APOSTROPHE>()
-      , make_node<NodeType::List>(
+      , make_node<NodeType::Quotation>(
             Def<Datum>()
         )
     )
