@@ -92,7 +92,7 @@ bool Lexer::read_ident() noexcept {
         std::ranges::transform(value.begin(), value.end(), value.begin(),
             [](unsigned char c) { return std::tolower(c); });
         if (pos != size) {
-            Error("Invalid identifier: \"", ident, "\" at", loc_string(_loc));
+            Error("Invalid identifier: \"", ident, "\" at ", loc_string(_loc));
             _failed = true;
             return false;
         }
@@ -135,7 +135,7 @@ bool Lexer::read_ident() noexcept {
 bool Lexer::read_sharp() noexcept {
     // <boolean> -> #t | #f
     if (_cursor.length() < 2) {
-        Error("Incomplete token \"#\" at", loc_string(_loc));
+        Error("Incomplete token \"#\" at ", loc_string(_loc));
         return false;
     }
     char c = _cursor[1];
@@ -148,13 +148,18 @@ bool Lexer::read_sharp() noexcept {
     }
 
     switch (c) {
+    case '(' : {
+        _cursor.remove_prefix(2);
+        _tokens.emplace_back(TokenType::SHELL_LPAREN, _loc, "#(");
+        return true;
+    }
     case 'b' : return read_number(2);
     case 'o' : return read_number(8);
     case 'd' : return read_number(10);
     case 'x' : return read_number(16);
     case '\\': return read_character();
     default  : {
-        Error("Invalid token: \"#", c, "\" at", loc_string(_loc));
+        Error("Invalid token: \"#", c, "\" at ", loc_string(_loc));
         _failed = true;
         return false;
     }
@@ -182,7 +187,7 @@ bool Lexer::read_number(int radix) noexcept {
         // radix is explicitly provided
         value_start.remove_prefix(2);
         if (radix != 2 && radix != 8 && radix != 10 && radix != 16) {
-            Error("Invalid radix: ", radix, " at", loc_string(_loc));
+            Error("Invalid radix: ", radix, " at ", loc_string(_loc));
             _failed = true;
             return false;
         }
@@ -273,7 +278,7 @@ bool Lexer::read_character() noexcept {
                 return true;
             }
             Error(
-                "Invalid character name: \"", name, "\" at", loc_string(_loc));
+                "Invalid character name: \"", name, "\" at ", loc_string(_loc));
             _failed = true;
             return false;
         }
@@ -381,13 +386,6 @@ bool Lexer::read_operator() noexcept {
         _cursor.remove_prefix(1);
         _tokens.emplace_back(TokenType::DOT, _loc, ".");
         return true;
-    case '#':
-        if (_cursor.size() > 1 && _cursor[1] == '(') {
-            _cursor.remove_prefix(2);
-            _tokens.emplace_back(TokenType::SHELL_LPAREN, _loc, "#(");
-            return true;
-        }
-        [[fallthrough]];
     default: return false;
     };
 }
