@@ -95,7 +95,6 @@ export class Token {
 private:
     TokenType _type;
     LocRef _location;
-    std::string _lexeme;
     TaggedUnion<Keyword, std::string, std::int64_t, char, bool> _value;
 
     Token(const Token&) = default;
@@ -103,22 +102,20 @@ private:
 public:
     template <typename T>
     explicit Token(
-        TokenType type, LocRef location, std::string&& lexeme, T value)
+        TokenType type, LocRef location, T value)
         : _type(type)
         , _location(location)
-        , _lexeme(std::move(lexeme))
         , _value(std::forward<T>(value)) {};
 
-    explicit Token(TokenType type, LocRef location, std::string&& lexeme)
+    explicit Token(TokenType type, LocRef location)
         : _type(type)
-        , _location(location)
-        , _lexeme(std::move(lexeme)) { };
+        , _location(location) { };
 
     Token(Token&&) = default;
     Token& operator=(Token&&) = default;
 
     [[nodiscard]] inline static constexpr Token eof(LocRef location) noexcept {
-        return Token(TokenType::EOF, location, "<EOF>");
+        return Token(TokenType::EOF, location);
     }
 
     [[nodiscard]] inline constexpr TokenType type() const noexcept {
@@ -129,11 +126,7 @@ public:
         return _value;
     }
 
-    [[nodiscard]] inline constexpr std::string_view lexeme() const noexcept {
-        return _lexeme;
-    }
-
-    [[nodiscard]] inline constexpr LocRef location() const noexcept {
+    [[nodiscard]] inline constexpr LocRef loc() const noexcept {
         return _location;
     }
 };

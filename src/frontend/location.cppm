@@ -15,13 +15,15 @@ private:
     std::string_view _file;
     std::uint32_t _line;
     std::uint32_t _column;
+    std::string_view _lexeme;
 
 public:
     explicit constexpr Location(std::string_view file, std::uint32_t line,
-        std::uint32_t column) noexcept
+        std::uint32_t column, std::string_view lexeme) noexcept
         : _file(file)
         , _line(line)
-        , _column(column) {
+        , _column(column)
+        , _lexeme(lexeme) {
     }
 
     [[nodiscard]] inline constexpr Location operator-(
@@ -42,38 +44,42 @@ public:
         return _column;
     }
 
-    [[nodiscard]] auto to_string() const noexcept -> std::string {
+    [[nodiscard]] constexpr auto lexeme() const noexcept -> std::string_view {
+        return _lexeme;
+    }
+
+    [[nodiscard]] auto source_location() const noexcept -> std::string {
         return std::format("{}:{}:{}", _file, _line, _column);
     }
 };
 
 class LocationArena
-    : Arena<std::pair<std::uint32_t, std::uint32_t>, std::uint32_t> {
+    : Arena<std::tuple<std::uint32_t, std::uint32_t, std::string>,
+          std::uint32_t> {
 private:
     std::string _file;
 
 public:
-    using LocRef = Arena<std::pair<std::uint32_t, std::uint32_t>,
-        std::uint32_t>::elem_ref;
+    using LocRef = Arena::elem_ref;
     explicit LocationArena(std::string&& file) noexcept
         : _file(std::move(file)) { };
 
-    [[nodiscard]] inline LocRef insert(
-        std::uint32_t line, std::uint32_t column) {
-        LocRef back = Arena::back_ref();
-        if (back.is_valid() && Arena::at(back) == std::make_pair(line, column))
-            return back;
-        return Arena::emplace(line, column);
+    [[nodiscard]] inline LocRef emplace(
+        std::uint32_t line, std::uint32_t column, std::string&& lexeme) {
+        return Arena::emplace(line, column, std::move(lexeme));
     }
 
-    [[nodiscard]] inline Location operator[](LocRef ref) const {
-        auto [line, column] = Arena::at(ref);
-        return Location(_file, line, column);
+    [[nodiscard]] inline std::string_view file() const noexcept {
+        return _file;
     }
 
-    [[nodiscard]] inline Location at(LocRef ref) const {
-        auto [line, column] = Arena::at(ref);
-        return Location(_file, line, column);
+    [[nodiscard]] inline Location operator[](LocRef ref) const& {
+        return at(ref);
+    }
+
+    [[nodiscard]] inline Location at(LocRef ref) const& {
+        auto [line, column, lexeme] = Arena::at(ref);
+        return Location(_file, line, column, lexeme);
     }
 };
 

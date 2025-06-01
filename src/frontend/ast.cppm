@@ -37,7 +37,8 @@ export enum class NodeType : std::uint8_t { NODE_TYPE_LIST(ENUM_VALUE) };
 #undef ENUM_VALUE
 
 #define CASE_STATEMENT(name)                                                   \
-    case NodeType::name: return #name;
+    case NodeType::name:                                                       \
+        return #name;
 export [[nodiscard]] constexpr auto node_type_to_string(NodeType type)
     -> std::string_view {
     switch (type) { NODE_TYPE_LIST(CASE_STATEMENT) }
@@ -48,6 +49,7 @@ export [[nodiscard]] constexpr auto node_type_to_string(NodeType type)
 export class ASTNode;
 export class NodeArena;
 export class NodeLocRef;
+export using ASTNodeRef = Arena<ASTNode, std::uint32_t>::elem_ref;
 export using NodeList = std::vector<NodeLocRef>;
 export using OptNodeList = std::optional<NodeList>;
 
@@ -72,6 +74,11 @@ public:
 
     ASTNode(ASTNode&&) noexcept = default;
     ASTNode& operator=(ASTNode&&) noexcept = default;
+
+    template <NodeType T>
+    [[nodiscard]] bool is() const noexcept {
+        return _type == T;
+    }
 
     [[nodiscard]] NodeType type() const noexcept {
         return _type;
@@ -234,7 +241,7 @@ public:
     }
 
     [[nodiscard]] inline constexpr LocRef loc() const noexcept {
-        return _token->location();
+        return _token->loc();
     }
 
     [[nodiscard]] inline constexpr auto value() const& noexcept {

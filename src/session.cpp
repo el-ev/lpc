@@ -40,7 +40,7 @@ int Session::run() noexcept {
 
     if (std::ranges::find(_print_passes, "token") != _print_passes.end()) {
         for (const auto& token : tokens)
-            std::print("{} ", token.lexeme());
+            std::print("{} ", loc_arena[token.loc()].source_location());
         std::println("");
     }
 

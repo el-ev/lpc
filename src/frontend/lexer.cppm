@@ -14,8 +14,6 @@ private:
     std::vector<Token> _tokens;
     LocationArena _loc_arena;
 
-    LocRef _loc;
-
     bool _failed = false;
 
 public:
@@ -23,14 +21,13 @@ public:
         : _source(source)
         , _cursor(source)
         , _line_start(source.begin())
-        , _loc_arena(std::string(file))
-        , _loc(loc()) {
+        , _loc_arena(std::string(file)) {
         while (!is_eof() && !_failed)
             if (!advance() && !is_eof())
                 _failed = true;
         if (_failed)
             return;
-        _tokens.emplace_back(Token::eof(loc()));
+        _tokens.emplace_back(Token::eof(loc("<EOF>")));
     }
 
     [[nodiscard]] inline LocationArena&& loc_arena() noexcept {
@@ -50,13 +47,19 @@ public:
     }
 
 private:
-    [[nodiscard]] inline constexpr LocRef loc() noexcept {
-        return _loc_arena.insert(_line,
+    [[nodiscard]] inline constexpr LocRef loc(std::string&& lexeme) noexcept {
+        return _loc_arena.emplace(_line,
+            (_line == 1 ? 1 : 0) + std::distance(_line_start, _cursor.begin()),
+            std::move(lexeme));
+    }
+
+    [[nodiscard]] inline constexpr std::string loc_string() noexcept {
+        return std::format("{}:{}:{}", _loc_arena.file(), _line,
             (_line == 1 ? 1 : 0) + std::distance(_line_start, _cursor.begin()));
     }
 
     [[nodiscard]] inline constexpr std::string loc_string(LocRef ref) noexcept {
-        return _loc_arena.at(ref).to_string();
+        return _loc_arena.at(ref).source_location();
     }
 
     bool skip_atmosphere() noexcept;

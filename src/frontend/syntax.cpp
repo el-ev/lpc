@@ -98,7 +98,8 @@ void Parser::parse() noexcept {
     if (!_cursor.is_eof()) {
         Error("Unexpected tokens after parsing the root node. Next token: "
               "\"{}\" at {}",
-            (*_cursor).lexeme(), _arena.location(_cursor.loc()).to_string());
+            _arena.location(_cursor.loc()).lexeme(),
+            _arena.location(_cursor.loc()).source_location());
         _cursor.fail();
         return;
     }

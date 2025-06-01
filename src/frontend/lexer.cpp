@@ -59,7 +59,6 @@ bool Lexer::advance() noexcept {
         ;
     if (is_eof())
         return false;
-    _loc = loc();
     if (_cursor[0] == '#')
         return read_sharp();
     return read_operator() || read_ident() || read_string() || read_number(0);
@@ -86,13 +85,12 @@ bool Lexer::read_ident() noexcept {
         while (pos < _cursor.size() && is_valid_subsequent(_cursor[pos]))
             pos++;
 
-        auto ident = _cursor.substr(0, pos);
-        _cursor.remove_prefix(pos);
+        std::string_view ident = _cursor.substr(0, pos);
         std::string value = std::string(ident);
         std::ranges::transform(value.begin(), value.end(), value.begin(),
             [](unsigned char c) { return std::tolower(c); });
         if (pos != size) {
-            Error("Invalid identifier: \"{}\" at {}", ident, loc_string(_loc));
+            Error("Invalid identifier: \"{}\" at {}", ident, loc_string());
             _failed = true;
             return false;
         }
@@ -102,11 +100,13 @@ bool Lexer::read_ident() noexcept {
             auto keyword = static_cast<Keyword>(
                 std::distance(std::begin(lex_defs::KEYWORDS), it));
             _tokens.emplace_back(
-                TokenType::KEYWORD, _loc, std::move(value), keyword);
+                TokenType::KEYWORD, loc(std::move(value)), keyword);
+            _cursor.remove_prefix(pos);
             return true;
         }
         _tokens.emplace_back(
-            TokenType::IDENT, _loc, std::string(ident), std::move(value));
+            TokenType::IDENT, loc(std::string(ident)), std::move(value));
+        _cursor.remove_prefix(pos);
         return true;
     }
     // check for peculiar identifiers
@@ -114,18 +114,18 @@ bool Lexer::read_ident() noexcept {
         // '+' and '-'
         auto ident = _cursor.substr(0, 1);
         if (ident == "+" || ident == "-") {
-            _cursor.remove_prefix(1);
             _tokens.emplace_back(
-                TokenType::IDENT, _loc, std::string(ident), std::string(ident));
+                TokenType::IDENT, loc(std::string(ident)), std::string(ident));
+            _cursor.remove_prefix(1);
             return true;
         }
     } else if (size == 3) {
         // "..."
         auto ident = _cursor.substr(0, 3);
         if (ident == "...") {
-            _cursor.remove_prefix(3);
             _tokens.emplace_back(
-                TokenType::IDENT, _loc, std::string(ident), std::string(ident));
+                TokenType::IDENT, loc("..."), std::string(ident));
+            _cursor.remove_prefix(3);
             return true;
         }
     }
@@ -135,31 +135,36 @@ bool Lexer::read_ident() noexcept {
 bool Lexer::read_sharp() noexcept {
     // <boolean> -> #t | #f
     if (_cursor.length() < 2) {
-        Error("Incomplete token \"#\" at {}", loc_string(_loc));
+        Error("Incomplete token \"#\" at {}", loc_string());
         return false;
     }
     char c = _cursor[1];
     if (c == 't' || c == 'f') {
         bool value = (c == 't');
-        _cursor.remove_prefix(2);
         _tokens.emplace_back(
-            TokenType::BOOLEAN, _loc, value ? "#t" : "#f", value);
+            TokenType::BOOLEAN, loc(value ? "#t" : "#f"), value);
+        _cursor.remove_prefix(2);
         return true;
     }
 
     switch (c) {
     case '(': {
+        _tokens.emplace_back(TokenType::SHELL_LPAREN, loc("#("));
         _cursor.remove_prefix(2);
-        _tokens.emplace_back(TokenType::SHELL_LPAREN, _loc, "#(");
         return true;
     }
-    case 'b' : return read_number(2);
-    case 'o' : return read_number(8);
-    case 'd' : return read_number(10);
-    case 'x' : return read_number(16);
-    case '\\': return read_character();
-    default  : {
-        Error("Invalid token: \"#{}\" at {}", c, loc_string(_loc));
+    case 'b':
+        return read_number(2);
+    case 'o':
+        return read_number(8);
+    case 'd':
+        return read_number(10);
+    case 'x':
+        return read_number(16);
+    case '\\':
+        return read_character();
+    default: {
+        Error("Invalid token: \"#{}\" at {}", c, loc_string());
         _failed = true;
         return false;
     }
@@ -168,11 +173,16 @@ bool Lexer::read_sharp() noexcept {
 
 [[nodiscard]] constexpr bool is_digit_radixn(char c, int radix) {
     switch (radix) {
-    case 2 : return c == '0' || c == '1';
-    case 8 : return c >= '0' && c <= '7';
-    case 10: return c >= '0' && c <= '9';
-    case 16: return (std::isxdigit(c) != 0);
-    default: return false;
+    case 2:
+        return c == '0' || c == '1';
+    case 8:
+        return c >= '0' && c <= '7';
+    case 10:
+        return c >= '0' && c <= '9';
+    case 16:
+        return (std::isxdigit(c) != 0);
+    default:
+        return false;
     }
 }
 
@@ -187,7 +197,7 @@ bool Lexer::read_number(int radix) noexcept {
         // radix is explicitly provided
         value_start.remove_prefix(2);
         if (radix != 2 && radix != 8 && radix != 10 && radix != 16) {
-            Error("Invalid radix: {} at {}", radix, loc_string(_loc));
+            Error("Invalid radix: {} at {}", radix, loc_string());
             _failed = true;
             return false;
         }
@@ -209,11 +219,11 @@ bool Lexer::read_number(int radix) noexcept {
         if (!number_pattern)
             return false;
         if (pos.empty())
-            Error("Incomplete number literal at {}", loc_string(_loc));
+            Error("Incomplete number literal at {}", loc_string());
         else
             Error("Invalid number literal at {}. Expected radix-{} digit, "
                   "found '{}'",
-                loc_string(_loc), radix_value, pos[0]);
+                loc_string(), radix_value, pos[0]);
         _failed = true;
         return false;
     }
@@ -229,7 +239,7 @@ bool Lexer::read_number(int radix) noexcept {
 
     if (std::ranges::distance(_cursor.begin(), pos.begin()) != (long)size) {
         Error("Invalid number literal: \"{}\" at {}", _cursor.substr(0, size),
-            loc_string(_loc));
+            loc_string());
         _cursor = pos;
         _failed = true;
         return false;
@@ -237,9 +247,9 @@ bool Lexer::read_number(int radix) noexcept {
 
     std::string value_string(value_start.substr(0, size - sharp_count));
     std::int64_t value = std::stoll(value_string, nullptr, radix_value);
-    std::string lexeme = std::string(_cursor.substr(0, size));
+    _tokens.emplace_back(
+        TokenType::NUMBER, loc(std::string(_cursor.substr(0, size))), value);
     _cursor.remove_prefix(size);
-    _tokens.emplace_back(TokenType::NUMBER, _loc, std::move(lexeme), value);
     return true;
 }
 
@@ -251,7 +261,7 @@ bool Lexer::read_character() noexcept {
 
     // #\ handled in read_sharp
     if (_cursor.length() < 3) {
-        Error("Incomplete character literal at {}", loc_string(_loc));
+        Error("Incomplete character literal at {}", loc_string());
         _failed = true;
         return false;
     }
@@ -260,25 +270,24 @@ bool Lexer::read_character() noexcept {
         auto end = count_till_delimeter(_cursor);
         // if size is not 3, check against <char name>s, case insensitive
         if (end != 3) {
-            auto name = _cursor.substr(0, end);
+            std::string name(_cursor.substr(0, end));
             auto cmp_ci = [](std::string_view a, std::string_view b) {
                 return std::ranges::equal(a, b,
                     [](char c1, char c2) { return std::tolower(c1) == c2; });
             };
             if (cmp_ci(name, "#\\newline")) {
-                _cursor.remove_prefix(end);
                 _tokens.emplace_back(
-                    TokenType::CHARACTER, _loc, std::string(name), '\n');
+                    TokenType::CHARACTER, loc(std::move(name)), '\n');
+                _cursor.remove_prefix(end);
                 return true;
             }
             if (cmp_ci(name, "#\\space")) {
-                _cursor.remove_prefix(end);
                 _tokens.emplace_back(
-                    TokenType::CHARACTER, _loc, std::string(name), ' ');
+                    TokenType::CHARACTER, loc(std::move(name)), ' ');
+                _cursor.remove_prefix(end);
                 return true;
             }
-            Error(
-                "Invalid character name: \"{}\" at {}", name, loc_string(_loc));
+            Error("Invalid character name: \"{}\" at {}", name, loc_string());
             _failed = true;
             return false;
         }
@@ -286,9 +295,9 @@ bool Lexer::read_character() noexcept {
     }
     // it is a single character
     auto character = _cursor.substr(0, 3);
-    _cursor.remove_prefix(3);
     _tokens.emplace_back(
-        TokenType::CHARACTER, _loc, std::string(character), character[2]);
+        TokenType::CHARACTER, loc(std::string(character)), character[2]);
+    _cursor.remove_prefix(3);
     return true;
 }
 
@@ -306,7 +315,7 @@ bool Lexer::read_string() noexcept {
     while (search_start < content_view.length()) {
         std::size_t current_find = content_view.find('"', search_start);
         if (current_find == std::string_view::npos) {
-            Error("Unterminated string literal at {}", loc_string(_loc));
+            Error("Unterminated string literal at {}", loc_string());
             _failed = true;
             return false;
         }
@@ -323,14 +332,12 @@ bool Lexer::read_string() noexcept {
     }
 
     if (end == std::string_view::npos) {
-        Error("Unterminated string literal at {}", loc_string(_loc));
+        Error("Unterminated string literal at {}", loc_string());
         _failed = true;
         return false;
     }
 
     std::string_view unescaped_value = content_view.substr(0, end);
-    std::string lexeme(_cursor.substr(0, end + 2));
-    _cursor.remove_prefix(end + 2);
 
     auto unescape = [](std::string_view str) {
         std::string result;
@@ -347,46 +354,49 @@ bool Lexer::read_string() noexcept {
         return result;
     };
 
-    _tokens.emplace_back(
-        TokenType::STRING, _loc, std::move(lexeme), unescape(unescaped_value));
+    _tokens.emplace_back(TokenType::STRING,
+        loc(std::string(_cursor.substr(0, end + 2))),
+        unescape(unescaped_value));
+    _cursor.remove_prefix(end + 2);
     return true;
 }
 
 bool Lexer::read_operator() noexcept {
     switch (_cursor[0]) {
     case '(':
+        _tokens.emplace_back(TokenType::LPAREN, loc("("));
         _cursor.remove_prefix(1);
-        _tokens.emplace_back(TokenType::LPAREN, _loc, "(");
         return true;
     case ')':
+        _tokens.emplace_back(TokenType::RPAREN, loc(")"));
         _cursor.remove_prefix(1);
-        _tokens.emplace_back(TokenType::RPAREN, _loc, ")");
         return true;
     case '\'':
+        _tokens.emplace_back(TokenType::APOSTROPHE, loc("'"));
         _cursor.remove_prefix(1);
-        _tokens.emplace_back(TokenType::APOSTROPHE, _loc, "'");
         return true;
     case '`':
+        _tokens.emplace_back(TokenType::BACKTICK, loc("`"));
         _cursor.remove_prefix(1);
-        _tokens.emplace_back(TokenType::BACKTICK, _loc, "`");
         return true;
     case ',':
-        _cursor.remove_prefix(1);
         if (_cursor.size() > 1 && _cursor[0] == '@') {
-            _cursor.remove_prefix(1);
-            _tokens.emplace_back(TokenType::COMMA_AT, _loc, ",@");
+            _tokens.emplace_back(TokenType::COMMA_AT, loc(",@"));
+            _cursor.remove_prefix(2);
             return true;
         }
-        _tokens.emplace_back(TokenType::COMMA, _loc, ",");
+        _tokens.emplace_back(TokenType::COMMA, loc(","));
+        _cursor.remove_prefix(1);
         return true;
     case '.':
         // . requires a delimiter
         if (count_till_delimeter(_cursor) > 1)
             return false;
+        _tokens.emplace_back(TokenType::DOT, loc("."));
         _cursor.remove_prefix(1);
-        _tokens.emplace_back(TokenType::DOT, _loc, ".");
         return true;
-    default: return false;
+    default:
+        return false;
     };
 }
 

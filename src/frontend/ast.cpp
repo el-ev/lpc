@@ -14,7 +14,7 @@ std::string NodeArena::dump_json(NodeLocRef ref, std::size_t indent) const {
     result += prefix + "{\n";
     result += prefix + R"(  "type": ")" + node_type_to_string(node.type())
         + "\",\n";
-    result += prefix + R"(  "location": ")" + location(ref).to_string() + "\"";
+    result += prefix + R"(  "location": ")" + location(ref).source_location() + "\"";
 
     switch (node.type()) {
     case NodeType::Variable:
