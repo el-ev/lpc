@@ -92,7 +92,7 @@ bool Lexer::read_ident() noexcept {
         std::ranges::transform(value.begin(), value.end(), value.begin(),
             [](unsigned char c) { return std::tolower(c); });
         if (pos != size) {
-            Error("Invalid identifier: \"", ident, "\" at ", loc_string(_loc));
+            Error("Invalid identifier: \"{}\" at {}", ident, loc_string(_loc));
             _failed = true;
             return false;
         }
@@ -135,7 +135,7 @@ bool Lexer::read_ident() noexcept {
 bool Lexer::read_sharp() noexcept {
     // <boolean> -> #t | #f
     if (_cursor.length() < 2) {
-        Error("Incomplete token \"#\" at ", loc_string(_loc));
+        Error("Incomplete token \"#\" at {}", loc_string(_loc));
         return false;
     }
     char c = _cursor[1];
@@ -159,7 +159,7 @@ bool Lexer::read_sharp() noexcept {
     case 'x' : return read_number(16);
     case '\\': return read_character();
     default  : {
-        Error("Invalid token: \"#", c, "\" at ", loc_string(_loc));
+        Error("Invalid token: \"#{}\" at {}", c, loc_string(_loc));
         _failed = true;
         return false;
     }
@@ -187,7 +187,7 @@ bool Lexer::read_number(int radix) noexcept {
         // radix is explicitly provided
         value_start.remove_prefix(2);
         if (radix != 2 && radix != 8 && radix != 10 && radix != 16) {
-            Error("Invalid radix: ", radix, " at ", loc_string(_loc));
+            Error("Invalid radix: {} at {}", radix, loc_string(_loc));
             _failed = true;
             return false;
         }
@@ -209,11 +209,11 @@ bool Lexer::read_number(int radix) noexcept {
         if (!number_pattern)
             return false;
         if (pos.empty())
-            Error("Incomplete number literal at ", loc_string(_loc));
+            Error("Incomplete number literal at {}", loc_string(_loc));
         else
-            Error("Invalid number literal at ", loc_string(_loc),
-                ". Expected radix-", radix_value, " digit, found '", pos[0],
-                "'");
+            Error("Invalid number literal at {}. Expected radix-{} digit, "
+                  "found '{}'",
+                loc_string(_loc), radix_value, pos[0]);
         _failed = true;
         return false;
     }
@@ -228,7 +228,7 @@ bool Lexer::read_number(int radix) noexcept {
     pos.remove_prefix(sharp_count);
 
     if (std::ranges::distance(_cursor.begin(), pos.begin()) != (long)size) {
-        Error("Invalid number literal: \"", _cursor.substr(0, size), "\" at ",
+        Error("Invalid number literal: \"{}\" at {}", _cursor.substr(0, size),
             loc_string(_loc));
         _cursor = pos;
         _failed = true;
@@ -251,7 +251,7 @@ bool Lexer::read_character() noexcept {
 
     // #\ handled in read_sharp
     if (_cursor.length() < 3) {
-        Error("Incomplete character literal at ", loc_string(_loc));
+        Error("Incomplete character literal at {}", loc_string(_loc));
         _failed = true;
         return false;
     }
@@ -278,7 +278,7 @@ bool Lexer::read_character() noexcept {
                 return true;
             }
             Error(
-                "Invalid character name: \"", name, "\" at ", loc_string(_loc));
+                "Invalid character name: \"{}\" at {}", name, loc_string(_loc));
             _failed = true;
             return false;
         }
@@ -306,7 +306,7 @@ bool Lexer::read_string() noexcept {
     while (search_start < content_view.length()) {
         std::size_t current_find = content_view.find('"', search_start);
         if (current_find == std::string_view::npos) {
-            Error("Unterminated string literal at", loc_string(_loc));
+            Error("Unterminated string literal at {}", loc_string(_loc));
             _failed = true;
             return false;
         }
@@ -323,7 +323,7 @@ bool Lexer::read_string() noexcept {
     }
 
     if (end == std::string_view::npos) {
-        Error("Unterminated string literal at", loc_string(_loc));
+        Error("Unterminated string literal at {}", loc_string(_loc));
         _failed = true;
         return false;
     }

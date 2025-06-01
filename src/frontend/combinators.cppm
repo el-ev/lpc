@@ -28,8 +28,7 @@ struct Def {
 
     explicit constexpr Def() noexcept = default;
 
-    [[nodiscard]] OptNodeList operator()(
-        Cursor& cursor) const noexcept {
+    [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept {
         return Wrapper::rule()(cursor);
     }
 };
@@ -375,5 +374,4 @@ OptNodeList Many<R>::operator()(Cursor& cursor) const noexcept {
     }
     return result;
 }
-
 }

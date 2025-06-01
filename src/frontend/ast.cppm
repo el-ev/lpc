@@ -143,6 +143,10 @@ public:
         return _loc_arena.at(ref.loc_ref());
     }
 
+    [[nodiscard]] inline Location location(LocRef ref) const noexcept {
+        return _loc_arena.at(ref);
+    }
+
     [[nodiscard]] const ASTNode& at(NodeLocRef ref) const&;
     [[nodiscard]] const ASTNode* get(NodeLocRef ref) const noexcept;
 

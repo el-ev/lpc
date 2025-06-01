@@ -24,7 +24,7 @@ int Session::run() noexcept {
 
     std::ifstream input_file(path.data());
     if (!input_file.is_open()) {
-        Error("Failed to open input file: ", path);
+        Error("Failed to open input file: {}", path);
         return 1;
     }
     std::string source((std::istreambuf_iterator<char>(input_file)),
@@ -32,10 +32,8 @@ int Session::run() noexcept {
     input_file.close();
 
     frontend::Lexer lexer(path, source);
-    if (lexer.is_failed()) {
-        Error("Failed to lex input file: ", path);
+    if (lexer.is_failed())
         return 1;
-    }
 
     auto tokens = lexer.tokens();
     auto loc_arena = lexer.loc_arena();
@@ -48,10 +46,8 @@ int Session::run() noexcept {
 
     frontend::Parser parser(std::move(tokens), std::move(loc_arena));
 
-    if (parser.is_failed()) {
-        Error("Failed to parse input file: ", _input_file_paths[0]);
+    if (parser.is_failed())
         return 1;
-    }
 
     auto root = parser.root();
     auto node_arena = std::move(parser.arena());

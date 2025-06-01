@@ -11,14 +11,13 @@ enum class LogLevel : std::uint8_t {
     ERROR,
 };
 
-inline std::ostream& operator<<(std::ostream& os, LogLevel level) {
+inline std::string to_string(const LogLevel& level) {
     switch (level) {
-    case LogLevel::DEBUG: os << "[DEBUG]"; break;
-    case LogLevel::INFO : os << "[INFO ]"; break;
-    case LogLevel::WARN : os << "[WARN ]"; break;
-    case LogLevel::ERROR: os << "[ERROR]"; break;
+    case LogLevel::DEBUG: return "[DEBUG]";
+    case LogLevel::INFO : return "[INFO ]";
+    case LogLevel::WARN : return "[WARN ]";
+    case LogLevel::ERROR: return "[ERROR]";
     }
-    return os;
 }
 
 template <typename T>
@@ -105,8 +104,8 @@ public:
     }
 
     template <Streamable... Args>
-    static void vlog(
-        LogLevel level, const std::source_location& loc, Args&&... args);
+    static void vlog(LogLevel level, const std::source_location& loc,
+        std::format_string<Args...> fmt, Args&&... args);
 
     [[nodiscard]] static constexpr LoggerBuilder builder() noexcept {
         return LoggerBuilder();
@@ -114,27 +113,28 @@ public:
 
 private:
     template <typename... Args>
-    void vlog_impl(Args&&... args);
+    void vlog_impl(LogLevel level, const std::source_location& loc,
+        std::format_string<Args...> fmt, Args&&... args);
 };
 
 extern std::optional<Logger> logger;
 
 template <typename... Args>
-void Logger::vlog_impl(Args&&... args) {
-    (_out << ... << std::forward<Args>(args)) << '\n';
+void Logger::vlog_impl(LogLevel level, const std::source_location& loc,
+    std::format_string<Args...> fmt, Args&&... args) {
+    std::print(
+        _out, "{}[{}:{}] ", to_string(level), loc.file_name(), loc.line());
+    std::println(_out, fmt, std::forward<Args>(args)...);
     if (_config._always_flush)
         _out.flush();
 }
 
 template <Streamable... Args>
-void Logger::vlog(
-    LogLevel level, const std::source_location& loc, Args&&... args) {
+void Logger::vlog(LogLevel level, const std::source_location& loc,
+    std::format_string<Args...> fmt, Args&&... args) {
     if (!logger || level < logger->_config._filter)
         return;
-
-    auto loc_string = std::format("[{}:{}] ", loc.file_name(), loc.line());
-    logger->vlog_impl(
-        level, std::move(loc_string), std::forward<Args>(args)...);
+    logger->vlog_impl(level, loc, fmt, std::forward<Args>(args)...);
 }
 
 inline constexpr Logger LoggerBuilder::build() noexcept {
@@ -144,59 +144,59 @@ inline constexpr Logger LoggerBuilder::build() noexcept {
 namespace log_wrapper {
     template <typename... Args>
     struct LogWrapper {
-        explicit LogWrapper(
-            Args&&... args, LogLevel level, const std::source_location& loc) {
-            Logger::vlog(level, loc, std::forward<Args>(args)...);
+        explicit LogWrapper(LogLevel level, const std::source_location& loc,
+            std::format_string<Args...> fmt, Args&&... args) {
+            Logger::vlog(level, loc, fmt, std::forward<Args>(args)...);
         }
     };
 
     template <typename... Args>
     struct Debug : LogWrapper<Args...> {
-        explicit Debug(Args&&... args,
+        explicit Debug(std::format_string<Args...> fmt, Args&&... args,
             const std::source_location& loc = std::source_location::current())
             : LogWrapper<Args...>(
-                  std::forward<Args>(args)..., LogLevel::DEBUG, loc) {
+                  LogLevel::DEBUG, loc, fmt, std::forward<Args>(args)...) {
         }
     };
 
     template <typename... Args>
     struct Info : LogWrapper<Args...> {
-        explicit Info(Args&&... args,
+        explicit Info(std::format_string<Args...> fmt, Args&&... args,
             const std::source_location& loc = std::source_location::current())
             : LogWrapper<Args...>(
-                  std::forward<Args>(args)..., LogLevel::INFO, loc) {
+                  LogLevel::INFO, loc, fmt, std::forward<Args>(args)...) {
         }
     };
 
     template <typename... Args>
     struct Warn : LogWrapper<Args...> {
-        explicit Warn(Args&&... args,
+        explicit Warn(std::format_string<Args...> fmt, Args&&... args,
             const std::source_location& loc = std::source_location::current())
             : LogWrapper<Args...>(
-                  std::forward<Args>(args)..., LogLevel::WARN, loc) {
+                  LogLevel::WARN, loc, fmt, std::forward<Args>(args)...) {
         }
     };
 
     template <typename... Args>
     struct Error : LogWrapper<Args...> {
-        explicit Error(Args&&... args,
+        explicit Error(std::format_string<Args...> fmt, Args&&... args,
             const std::source_location& loc = std::source_location::current())
             : LogWrapper<Args...>(
-                  std::forward<Args>(args)..., LogLevel::ERROR, loc) {
+                  LogLevel::ERROR, loc, fmt, std::forward<Args>(args)...) {
         }
     };
 
     template <typename... Args>
-    Debug(Args&&...) -> Debug<Args...>;
+    Debug(std::format_string<Args...> fmt, Args&&...) -> Debug<Args...>;
 
     template <typename... Args>
-    Info(Args&&...) -> Info<Args...>;
+    Info(std::format_string<Args...> fmt, Args&&...) -> Info<Args...>;
 
     template <typename... Args>
-    Warn(Args&&...) -> Warn<Args...>;
+    Warn(std::format_string<Args...> fmt, Args&&...) -> Warn<Args...>;
 
     template <typename... Args>
-    Error(Args&&...) -> Error<Args...>;
+    Error(std::format_string<Args...> fmt, Args&&...) -> Error<Args...>;
 }
 
 export template <typename... Args>

@@ -5,7 +5,6 @@ import lpc.utils.logging;
 
 namespace lpc::frontend {
 
-using lpc::utils::Debug;
 using lpc::utils::Error;
 
 // clang-format off
@@ -97,7 +96,9 @@ void Parser::parse() noexcept {
     if (_cursor.is_failed())
         return;
     if (!_cursor.is_eof()) {
-        Error("Unexpected tokens after parsing the root node");
+        Error("Unexpected tokens after parsing the root node. Next token: "
+              "\"{}\" at {}",
+            (*_cursor).lexeme(), _arena.location(_cursor.loc()).to_string());
         _cursor.fail();
         return;
     }
