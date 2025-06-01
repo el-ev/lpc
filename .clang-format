@@ -6,11 +6,8 @@ AccessModifierOffset: -4
 
 BreakBeforeBraces: Attach
 
-AllowShortCaseLabelsOnASingleLine: true
-AllowShortCaseExpressionOnASingleLine: true
 AlignConsecutiveShortCaseStatements:
     Enabled: true
-    AlignCaseColons: true
 
 AllowShortIfStatementsOnASingleLine: false
 AllowShortBlocksOnASingleLine: false

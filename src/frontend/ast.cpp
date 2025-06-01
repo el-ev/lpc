@@ -22,9 +22,15 @@ std::string NodeArena::dump_json(NodeLocRef ref, std::size_t indent) const {
         result += ",\n" + prefix + R"(  "value": ")";
         for (char c : value.get_unchecked<std::string>()) {
             switch (c) {
-            case '"' : result += "\\\""; break;
-            case '\\': result += "\\\\"; break;
-            default  : result += c; break;
+            case '"':
+                result += "\\\"";
+                break;
+            case '\\':
+                result += "\\\\";
+                break;
+            default:
+                result += c;
+                break;
             }
         }
         result += "\"";
@@ -33,9 +39,15 @@ std::string NodeArena::dump_json(NodeLocRef ref, std::size_t indent) const {
         char c = value.get_unchecked<char>();
         result += ",\n" + prefix + R"(  "value": "#\\)";
         switch (c) {
-        case '\n': result += "newline"; break;
-        case ' ' : result += "space"; break;
-        default  : result += c; break;
+        case '\n':
+            result += "newline";
+            break;
+        case ' ':
+            result += "space";
+            break;
+        default:
+            result += c;
+            break;
         }
         result += "\"";
         break;
@@ -77,20 +89,25 @@ std::string NodeArena::dump(NodeLocRef ref) const {
     const auto& value = node.value();
 
     switch (node.type()) {
-    case NodeType::Variable: return value.get_unchecked<std::string>();
+    case NodeType::Variable:
+        return value.get_unchecked<std::string>();
     case NodeType::String:
         return "\"" + value.get_unchecked<std::string>() + "\"";
     case NodeType::Character: {
         char c = value.get_unchecked<char>();
         switch (c) {
-        case '\n': return "#\\newline";
-        case ' ' : return "#\\space";
-        default  : return std::string("#\\") + c;
+        case '\n':
+            return "#\\newline";
+        case ' ':
+            return "#\\space";
+        default:
+            return std::string("#\\") + c;
         }
     }
     case NodeType::Number:
         return std::to_string(value.get_unchecked<std::int64_t>());
-    case NodeType::Boolean: return value.get_unchecked<bool>() ? "#t" : "#f";
+    case NodeType::Boolean:
+        return value.get_unchecked<bool>() ? "#t" : "#f";
     case NodeType::Keyword:
         return std::string(lex_defs::KEYWORDS[static_cast<std::size_t>(
             value.get_unchecked<Keyword>())]);
@@ -138,7 +155,8 @@ std::string NodeArena::dump(NodeLocRef ref) const {
         }
         return result;
     }
-    default: return "";
+    default:
+        return "";
     }
 }
 
@@ -214,7 +232,8 @@ NodeLocRef Cursor::get_constant() const noexcept {
         ref = arena().emplace(loc(), NodeType::String, std::move(v));
         break;
     }
-    default: break;
+    default:
+        break;
     }
     return ref;
 }
