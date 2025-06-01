@@ -43,38 +43,28 @@ any(
           , OneToken<TokenType::RPAREN>()
         )
     )
-  , chain(
-        OneToken<TokenType::APOSTROPHE>()
-      , make_node<NodeType::Quotation>(
-            Def<Datum>()
-        )
-    )
-  , chain(
-        OneToken<TokenType::BACKTICK>()
-      , make_node<NodeType::List>(
-            chain(
-                InsertKeyword<Keyword::QUASIQUOTE>()
-              , Def<Datum>()
+  , make_node<NodeType::List>(
+        chain(
+            any(
+                chain(
+                    OneToken<TokenType::APOSTROPHE>()
+                  , InsertKeyword<Keyword::QUOTE>()
+                )
+              , chain(
+                    OneToken<TokenType::BACKTICK>()
+                  , InsertKeyword<Keyword::QUASIQUOTE>()
+                )
+              , chain(
+                    OneToken<TokenType::COMMA>()
+                  , InsertKeyword<Keyword::UNQUOTE>()
+                )
+              , chain(
+                    OneToken<TokenType::COMMA_AT>()
+                  , InsertKeyword<Keyword::UNQUOTE_SPLICING>()
+                )
             )
+          , Def<Datum>()
         )
-    )
-  , chain(
-        OneToken<TokenType::COMMA>()
-      , make_node<NodeType::List>(
-            chain(
-                InsertKeyword<Keyword::UNQUOTE>()
-              , Def<Datum>()
-            )
-        )
-    )
-  , chain(
-        OneToken<TokenType::COMMA_AT>()
-      , make_node<NodeType::List>(
-            chain(
-                InsertKeyword<Keyword::UNQUOTE_SPLICING>()
-              , Def<Datum>()
-            )
-        ) 
     )
 );
 }
