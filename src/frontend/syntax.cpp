@@ -22,36 +22,36 @@ any(
   , GetKeyword()
   , make_node<NodeType::List>(
         chain(
-            !OneToken<TokenType::LPAREN>()
+            OneToken<TokenType::LPAREN>()
           , Maybe(
                 chain(
                     Some<Def<Datum>>()
                   , Maybe(
                         chain(
-                            !OneToken<TokenType::DOT>()
+                            OneToken<TokenType::DOT>()
                           , Def<Datum>()
                         )
                     )
                 )
             )
-          , !OneToken<TokenType::RPAREN>()
+          , OneToken<TokenType::RPAREN>()
         )
     )
   , make_node<NodeType::Vector>(
         chain(
-            !OneToken<TokenType::SHELL_LPAREN>()
+            OneToken<TokenType::SHELL_LPAREN>()
           , Many<Def<Datum>>()
-          , !OneToken<TokenType::RPAREN>()
+          , OneToken<TokenType::RPAREN>()
         )
     )
   , chain(
-        !OneToken<TokenType::APOSTROPHE>()
+        OneToken<TokenType::APOSTROPHE>()
       , make_node<NodeType::Quotation>(
             Def<Datum>()
         )
     )
   , chain(
-        !OneToken<TokenType::BACKTICK>()
+        OneToken<TokenType::BACKTICK>()
       , make_node<NodeType::List>(
             chain(
                 InsertKeyword<Keyword::QUASIQUOTE>()
@@ -60,7 +60,7 @@ any(
         )
     )
   , chain(
-        !OneToken<TokenType::COMMA>()
+        OneToken<TokenType::COMMA>()
       , make_node<NodeType::List>(
             chain(
                 InsertKeyword<Keyword::UNQUOTE>()
@@ -69,7 +69,7 @@ any(
         )
     )
   , chain(
-        !OneToken<TokenType::COMMA_AT>()
+        OneToken<TokenType::COMMA_AT>()
       , make_node<NodeType::List>(
             chain(
                 InsertKeyword<Keyword::UNQUOTE_SPLICING>()

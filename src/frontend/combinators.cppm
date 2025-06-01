@@ -3,12 +3,6 @@ export module lpc.frontend.combinators;
 import std;
 import lpc.frontend.ast;
 
-#ifdef NDEBUG
-#define DEBUG_TRANSPARENT
-#else
-#define DEBUG_TRANSPARENT [[__gnu__::__always_inline__]] [[gnu::nodebug]]
-#endif
-
 export namespace lpc::frontend::combinators {
 
 using NodeList = std::vector<NodeLocRef>;
@@ -21,69 +15,27 @@ concept BooleanType
 template <typename T>
 concept ParserRule = requires(T t) {
     { t(std::declval<Cursor&>()) } -> std::same_as<OptNodeList>;
-    typename T::pure;
-    requires BooleanType<typename T::pure>;
-    requires(!T::pure::value)
-        || (std::same_as<typename T::manages_rollback, std::true_type>
-            && std::same_as<typename T::produces_nodes, std::false_type>);
     typename T::manages_rollback;
     requires BooleanType<typename T::manages_rollback>;
     typename T::produces_nodes;
     requires BooleanType<typename T::produces_nodes>;
 };
 
-template <typename Derived, BooleanType Pure>
-struct CombinatorBase {
-    using pure = Pure;
-    using produces_nodes
-        = std::conditional_t<Pure::value, std::false_type, void>;
-    using manages_rollback
-        = std::conditional_t<Pure::value, std::true_type, void>;
-
-private:
-    friend Derived;
-    explicit constexpr CombinatorBase() noexcept = default;
-};
-
-template <typename Derived>
-struct ImpureCombinator
-    : CombinatorBase<ImpureCombinator<Derived>, std::false_type> {
-private:
-    friend Derived;
-    explicit constexpr ImpureCombinator() noexcept = default;
-};
-
-template <typename Derived>
-struct PureCombinator
-    : CombinatorBase<PureCombinator<Derived>, std::true_type> {
-private:
-    friend Derived;
-    explicit constexpr PureCombinator() noexcept = default;
-};
-
-template <typename Derived, ParserRule Underlying>
-struct TransparentUnaryCombinator {
-    using manages_rollback = Underlying::manages_rollback;
-    using produces_nodes = Underlying::produces_nodes;
-    using pure = Underlying::pure;
-};
-
 template <typename Wrapper>
 struct Def {
     using manages_rollback = std::true_type;
     using produces_nodes = std::true_type;
-    using pure = std::false_type;
 
     explicit constexpr Def() noexcept = default;
 
-    DEBUG_TRANSPARENT [[nodiscard]] OptNodeList operator()(
+    [[nodiscard]] OptNodeList operator()(
         Cursor& cursor) const noexcept {
         return Wrapper::rule()(cursor);
     }
 };
 
 template <TokenType T>
-struct OneToken : ImpureCombinator<OneToken<T>> {
+struct OneToken {
     using produces_nodes = std::false_type;
     using manages_rollback = std::true_type;
     explicit constexpr OneToken() noexcept = default;
@@ -92,7 +44,7 @@ struct OneToken : ImpureCombinator<OneToken<T>> {
 };
 
 template <Keyword K>
-struct OneKeyword : ImpureCombinator<OneKeyword<K>> {
+struct OneKeyword {
     using produces_nodes = std::false_type;
     using manages_rollback = std::true_type;
     explicit constexpr OneKeyword() noexcept = default;
@@ -101,7 +53,7 @@ struct OneKeyword : ImpureCombinator<OneKeyword<K>> {
 };
 
 template <Keyword K>
-struct InsertKeyword : ImpureCombinator<InsertKeyword<K>> {
+struct InsertKeyword {
     using produces_nodes = std::true_type;
     using manages_rollback = std::true_type;
     explicit constexpr InsertKeyword() noexcept = default;
@@ -109,7 +61,7 @@ struct InsertKeyword : ImpureCombinator<InsertKeyword<K>> {
     [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
 };
 
-struct GetKeyword : ImpureCombinator<GetKeyword> {
+struct GetKeyword {
     using produces_nodes = std::true_type;
     using manages_rollback = std::true_type;
     explicit constexpr GetKeyword() noexcept = default;
@@ -117,26 +69,7 @@ struct GetKeyword : ImpureCombinator<GetKeyword> {
     [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
 };
 
-template <std::size_t Hash>
-struct OneVariable : ImpureCombinator<OneVariable<Hash>> {
-    using produces_nodes = std::false_type;
-    using manages_rollback = std::true_type;
-    explicit constexpr OneVariable() noexcept = default;
-
-    [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
-};
-
-template <std::size_t N>
-consteval std::size_t hash_string(const char (&str)[N]) noexcept {
-    std::size_t h = 14695981039346656037ULL;
-    for (std::size_t i = 0; i < N - 1; ++i) {
-        h ^= static_cast<std::size_t>(str[i]);
-        h *= 1099511628211ULL;
-    }
-    return h;
-}
-
-struct GetVariable : ImpureCombinator<GetVariable> {
+struct GetVariable {
     using produces_nodes = std::true_type;
     using manages_rollback = std::true_type;
     explicit constexpr GetVariable() noexcept = default;
@@ -144,7 +77,7 @@ struct GetVariable : ImpureCombinator<GetVariable> {
     [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
 };
 
-struct GetConstant : ImpureCombinator<GetConstant> {
+struct GetConstant {
     using produces_nodes = std::true_type;
     using manages_rollback = std::true_type;
     explicit constexpr GetConstant() noexcept = default;
@@ -153,7 +86,7 @@ struct GetConstant : ImpureCombinator<GetConstant> {
 };
 
 template <NodeType T, ParserRule R>
-struct OneNode : ImpureCombinator<OneNode<T, R>> {
+struct OneNode {
     using produces_nodes = std::false_type;
     using manages_rollback = std::true_type;
     explicit constexpr OneNode() noexcept = default;
@@ -172,7 +105,6 @@ struct Any {
     using manages_rollback = std::true_type;
     using produces_nodes = std::bool_constant<Lhs::produces_nodes::value
         || Rhs::produces_nodes::value>;
-    using pure = std::bool_constant<Lhs::pure::value && Rhs::pure::value>;
 
     explicit constexpr Any() noexcept = default;
     explicit constexpr Any(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
@@ -185,7 +117,6 @@ struct Then {
     using manages_rollback = std::false_type;
     using produces_nodes = std::bool_constant<Lhs::produces_nodes::value
         || Rhs::produces_nodes::value>;
-    using pure = std::bool_constant<Lhs::pure::value && Rhs::pure::value>;
 
     explicit constexpr Then() noexcept = default;
     explicit constexpr Then(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
@@ -197,7 +128,6 @@ template <ParserRule R>
 struct Maybe {
     using manages_rollback = std::true_type;
     using produces_nodes = R::produces_nodes;
-    using pure = R::pure;
 
     explicit constexpr Maybe() noexcept = default;
     explicit constexpr Maybe(R /* r */) noexcept { };
@@ -209,7 +139,6 @@ template <ParserRule R>
 struct Many {
     using manages_rollback = std::true_type;
     using produces_nodes = R::produces_nodes;
-    using pure = R::pure;
 
     explicit constexpr Many() noexcept = default;
     explicit constexpr Many(R /* r */) noexcept { };
@@ -220,25 +149,6 @@ struct Many {
 template <ParserRule R>
 using Some = Then<R, Many<R>>;
 
-template <ParserRule R>
-struct Drop : TransparentUnaryCombinator<Drop<R>, R> {
-    using produces_nodes = std::false_type;
-    explicit constexpr Drop() noexcept = default;
-    explicit constexpr Drop(R /* r */) noexcept { };
-
-    DEBUG_TRANSPARENT [[nodiscard]] OptNodeList operator()(
-        Cursor& cursor) const noexcept;
-};
-
-template <ParserRule R>
-struct Flatten : TransparentUnaryCombinator<Flatten<R>, R> {
-    explicit constexpr Flatten() noexcept = default;
-    explicit constexpr Flatten(R /* r */) noexcept { };
-
-    DEBUG_TRANSPARENT [[nodiscard]] OptNodeList operator()(
-        Cursor& cursor) const noexcept;
-};
-
 template <ParserRule Lhs, ParserRule Rhs>
 constexpr Any<Lhs, Rhs> operator|(Lhs lhs, Rhs rhs) {
     return Any<Lhs, Rhs> { lhs, rhs };
@@ -247,12 +157,6 @@ constexpr Any<Lhs, Rhs> operator|(Lhs lhs, Rhs rhs) {
 template <ParserRule Lhs, ParserRule Rhs>
 constexpr Then<Lhs, Rhs> operator>>(Lhs lhs, Rhs rhs) {
     return Then<Lhs, Rhs> { lhs, rhs };
-}
-
-// Drop a syntax-only rule, usually a single token.
-template <ParserRule R>
-DEBUG_TRANSPARENT constexpr Drop<R> operator!(R r) {
-    return Drop<R> { r };
 }
 
 template <template <typename, typename> class Rewrite, ParserRule... Rules>
@@ -472,14 +376,4 @@ OptNodeList Many<R>::operator()(Cursor& cursor) const noexcept {
     return result;
 }
 
-template <ParserRule R>
-OptNodeList Drop<R>::operator()(Cursor& cursor) const noexcept {
-    if constexpr (!R::produces_nodes::value)
-        return R()(cursor);
-    auto result = R()(cursor);
-    if (!result)
-        return std::nullopt;
-    cursor.arena().pop_back();
-    return NodeList {};
-}
 }

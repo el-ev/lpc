@@ -134,10 +134,6 @@ public:
         return NodeLocRef(Arena::emplace(std::forward<Args>(args)...), loc);
     }
 
-    inline void pop_back() noexcept {
-        Arena::pop_back();
-    }
-
     [[nodiscard]] inline Location location(NodeLocRef ref) const noexcept {
         return _loc_arena.at(ref.loc_ref());
     }

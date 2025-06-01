@@ -89,13 +89,6 @@ public:
     [[nodiscard]] elem_ref emplace(Args&&... args);
     [[nodiscard]] elem_ref emplace(T&& value);
 
-    inline void pop_back() noexcept {
-        if (!_data.empty()) {
-            _data.pop_back();
-            --_next_index;
-        }
-    }
-
     [[nodiscard]] constexpr T& at(elem_ref ref);
     [[nodiscard]] constexpr const T& at(elem_ref ref) const;
     [[nodiscard]] constexpr T* get(elem_ref ref) noexcept;
