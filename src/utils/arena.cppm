@@ -30,9 +30,9 @@ private:
             return _index == other._index;
         }
 
-        [[nodiscard]] inline bool operator!=(
+        [[nodiscard]] inline std::strong_ordering operator<=>(
             const ElementReference& other) const noexcept {
-            return !(*this == other);
+            return _index <=> other._index;
         }
 
         [[nodiscard]] inline bool is_valid() const noexcept {
