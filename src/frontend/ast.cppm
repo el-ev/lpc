@@ -111,6 +111,11 @@ public:
     }
 };
 
+export inline constexpr bool operator==(
+    const NodeLocRef& lhs, const NodeLocRef& rhs) noexcept {
+    return lhs.node_ref() == rhs.node_ref() && lhs.loc_ref() == rhs.loc_ref();
+}
+
 class NodeArena : Arena<ASTNode, std::uint32_t> {
 private:
     LocationArena _loc_arena;
@@ -130,7 +135,7 @@ public:
     }
 
     template <typename... Args>
-    [[nodiscard]] NodeLocRef emplace(LocRef loc, Args&&... args) {
+    NodeLocRef emplace(LocRef loc, Args&&... args) {
         return NodeLocRef(Arena::emplace(std::forward<Args>(args)...), loc);
     }
 

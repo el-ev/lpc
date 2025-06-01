@@ -7,25 +7,25 @@ namespace lpc::frontend {
 using lpc::utils::Debug;
 using lpc::utils::Error;
 
-bool PassManager::run_all(NodeLocRef root, NodeArena& arena,
+NodeLocRef PassManager::run_all(NodeLocRef root, NodeArena& arena,
     std::vector<std::string>& print_passes) noexcept {
+    NodeLocRef result = root;
     for (const auto& pass : _passes) {
         Debug("Running pass: ", pass->name());
 
-        if (!pass->run(root, arena)) {
+        result = pass->run(result, arena);
+        if (!result.is_valid()) {
             Error("Pass failed: ", pass->name());
-            return false;
+            return result;
         }
 
         Debug("Pass ", pass->name(), " completed successfully");
 
-        if (std::ranges::find(print_passes, pass->name())
-            != print_passes.end()) {
-            std::println("{}", arena.dump(root));
-        }
+        if (std::ranges::find(print_passes, pass->name()) != print_passes.end())
+            std::println("{}", arena.dump(result));
     }
 
-    return true;
+    return result;
 }
 
 } // namespace lpc::frontend

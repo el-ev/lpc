@@ -12,7 +12,7 @@ public:
         return "expand";
     }
 
-    [[nodiscard]] bool run(NodeLocRef root, NodeArena& arena) noexcept final;
+    [[nodiscard]] NodeLocRef run(NodeLocRef root, NodeArena& arena) noexcept final;
 
     ExpandPass() = default;
     ~ExpandPass() final = default;

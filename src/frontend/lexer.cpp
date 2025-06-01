@@ -98,7 +98,7 @@ bool Lexer::read_ident() noexcept {
         }
 
         const auto* it = std::ranges::lower_bound(lex_defs::KEYWORDS, value);
-        if (it != std::end(lex_defs::KEYWORDS) && *it == value) {
+        if (it != std::ranges::end(lex_defs::KEYWORDS) && *it == value) {
             auto keyword = static_cast<Keyword>(
                 std::distance(std::begin(lex_defs::KEYWORDS), it));
             _tokens.emplace_back(
@@ -262,7 +262,7 @@ bool Lexer::read_character() noexcept {
         if (end != 3) {
             auto name = _cursor.substr(0, end);
             auto cmp_ci = [](std::string_view a, std::string_view b) {
-                return std::equal(a.begin(), a.end(), b.begin(),
+                return std::ranges::equal(a, b,
                     [](char c1, char c2) { return std::tolower(c1) == c2; });
             };
             if (cmp_ci(name, "#\\newline")) {

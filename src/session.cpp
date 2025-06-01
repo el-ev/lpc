@@ -54,16 +54,16 @@ int Session::run() noexcept {
     }
 
     auto root = parser.root();
-    auto ast_arena = std::move(parser.arena());
+    auto node_arena = std::move(parser.arena());
 
     if (std::ranges::find(_print_passes, "sexpr") != _print_passes.end())
-        std::println("{}", ast_arena.dump(root));
+        std::println("{}", node_arena.dump(root));
 
     frontend::PassManager pass_manager;
     pass_manager.add_pass<frontend::ExpandPass>();
-    if (!pass_manager.run_all(root, ast_arena, _print_passes))
+    root = pass_manager.run_all(root, node_arena, _print_passes);
+    if (!root.is_valid())
         return 1;
-
     return 0;
 }
 
