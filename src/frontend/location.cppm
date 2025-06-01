@@ -15,15 +15,15 @@ private:
     std::string_view _file;
     std::uint32_t _line;
     std::uint32_t _column;
-    std::string_view _lexeme;
+    std::string _lexeme;
 
 public:
     explicit constexpr Location(std::string_view file, std::uint32_t line,
-        std::uint32_t column, std::string_view lexeme) noexcept
+        std::uint32_t column, std::string&& lexeme) noexcept
         : _file(file)
         , _line(line)
         , _column(column)
-        , _lexeme(lexeme) {
+        , _lexeme(std::move(lexeme)) {
     }
 
     [[nodiscard]] inline constexpr Location operator-(
@@ -79,7 +79,7 @@ public:
 
     [[nodiscard]] inline Location at(LocRef ref) const& {
         auto [line, column, lexeme] = Arena::at(ref);
-        return Location(_file, line, column, lexeme);
+        return Location(_file, line, column, std::string(lexeme));
     }
 };
 
