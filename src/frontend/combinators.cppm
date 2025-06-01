@@ -5,26 +5,17 @@ import lpc.frontend.ast;
 
 export namespace lpc::frontend::combinators {
 
-using NodeList = std::vector<NodeLocRef>;
-using OptNodeList = std::optional<NodeList>;
-
-template <typename T>
-concept BooleanType
-    = std::same_as<T, std::true_type> || std::same_as<T, std::false_type>;
-
 template <typename T>
 concept ParserRule = requires(T t) {
     { t(std::declval<Cursor&>()) } -> std::same_as<OptNodeList>;
     typename T::manages_rollback;
-    requires BooleanType<typename T::manages_rollback>;
-    typename T::produces_nodes;
-    requires BooleanType<typename T::produces_nodes>;
+    requires std::same_as<typename T::manages_rollback, std::true_type>
+        || std::same_as<typename T::manages_rollback, std::false_type>;
 };
 
 template <typename Wrapper>
 struct Def {
     using manages_rollback = std::true_type;
-    using produces_nodes = std::true_type;
 
     explicit constexpr Def() noexcept = default;
 
@@ -35,7 +26,6 @@ struct Def {
 
 template <TokenType T>
 struct OneToken {
-    using produces_nodes = std::false_type;
     using manages_rollback = std::true_type;
     explicit constexpr OneToken() noexcept = default;
 
@@ -44,7 +34,6 @@ struct OneToken {
 
 template <Keyword K>
 struct OneKeyword {
-    using produces_nodes = std::false_type;
     using manages_rollback = std::true_type;
     explicit constexpr OneKeyword() noexcept = default;
 
@@ -53,7 +42,6 @@ struct OneKeyword {
 
 template <Keyword K>
 struct InsertKeyword {
-    using produces_nodes = std::true_type;
     using manages_rollback = std::true_type;
     explicit constexpr InsertKeyword() noexcept = default;
 
@@ -61,7 +49,6 @@ struct InsertKeyword {
 };
 
 struct GetKeyword {
-    using produces_nodes = std::true_type;
     using manages_rollback = std::true_type;
     explicit constexpr GetKeyword() noexcept = default;
 
@@ -69,7 +56,6 @@ struct GetKeyword {
 };
 
 struct GetVariable {
-    using produces_nodes = std::true_type;
     using manages_rollback = std::true_type;
     explicit constexpr GetVariable() noexcept = default;
 
@@ -77,7 +63,6 @@ struct GetVariable {
 };
 
 struct GetConstant {
-    using produces_nodes = std::true_type;
     using manages_rollback = std::true_type;
     explicit constexpr GetConstant() noexcept = default;
 
@@ -86,7 +71,6 @@ struct GetConstant {
 
 template <NodeType T, ParserRule R>
 struct OneNode {
-    using produces_nodes = std::false_type;
     using manages_rollback = std::true_type;
     explicit constexpr OneNode() noexcept = default;
     explicit constexpr OneNode(NodeType /* t */, R /* r */) noexcept { };
@@ -102,8 +86,6 @@ template <NodeType T, ParserRule R>
 template <ParserRule Lhs, ParserRule Rhs>
 struct Any {
     using manages_rollback = std::true_type;
-    using produces_nodes = std::bool_constant<Lhs::produces_nodes::value
-        || Rhs::produces_nodes::value>;
 
     explicit constexpr Any() noexcept = default;
     explicit constexpr Any(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
@@ -114,8 +96,6 @@ struct Any {
 template <ParserRule Lhs, ParserRule Rhs>
 struct Then {
     using manages_rollback = std::false_type;
-    using produces_nodes = std::bool_constant<Lhs::produces_nodes::value
-        || Rhs::produces_nodes::value>;
 
     explicit constexpr Then() noexcept = default;
     explicit constexpr Then(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
@@ -126,7 +106,6 @@ struct Then {
 template <ParserRule R>
 struct Maybe {
     using manages_rollback = std::true_type;
-    using produces_nodes = R::produces_nodes;
 
     explicit constexpr Maybe() noexcept = default;
     explicit constexpr Maybe(R /* r */) noexcept { };
@@ -137,7 +116,6 @@ struct Maybe {
 template <ParserRule R>
 struct Many {
     using manages_rollback = std::true_type;
-    using produces_nodes = R::produces_nodes;
 
     explicit constexpr Many() noexcept = default;
     explicit constexpr Many(R /* r */) noexcept { };
@@ -147,16 +125,6 @@ struct Many {
 
 template <ParserRule R>
 using Some = Then<R, Many<R>>;
-
-template <ParserRule Lhs, ParserRule Rhs>
-constexpr Any<Lhs, Rhs> operator|(Lhs lhs, Rhs rhs) {
-    return Any<Lhs, Rhs> { lhs, rhs };
-}
-
-template <ParserRule Lhs, ParserRule Rhs>
-constexpr Then<Lhs, Rhs> operator>>(Lhs lhs, Rhs rhs) {
-    return Then<Lhs, Rhs> { lhs, rhs };
-}
 
 template <template <typename, typename> class Rewrite, ParserRule... Rules>
 struct Chain;
@@ -254,8 +222,6 @@ OptNodeList GetConstant::operator()(Cursor& cursor) const noexcept {
 
 template <NodeType T, ParserRule R>
 OptNodeList OneNode<T, R>::operator()(Cursor& cursor) const noexcept {
-    NodeType t = T;
-    (void)t; // Avoid unused variable warning
     if (cursor.is_eof() || cursor.is_failed())
         return std::nullopt;
     LocRef loc = cursor.loc();
@@ -272,7 +238,7 @@ OptNodeList OneNode<T, R>::operator()(Cursor& cursor) const noexcept {
             return std::nullopt;
         }
     }
-    NodeLocRef node = cursor.arena().emplace(loc, t, std::move(res.value()));
+    NodeLocRef node = cursor.arena().emplace(loc, T, std::move(res.value()));
     return NodeList(1, node);
 }
 
@@ -374,4 +340,5 @@ OptNodeList Many<R>::operator()(Cursor& cursor) const noexcept {
     }
     return result;
 }
-}
+
+} // namespace lpc::frontend::combinators

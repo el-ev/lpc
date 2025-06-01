@@ -101,8 +101,7 @@ private:
 
 public:
     template <typename T>
-    explicit Token(
-        TokenType type, LocRef location, T value)
+    explicit Token(TokenType type, LocRef location, T value)
         : _type(type)
         , _location(location)
         , _value(std::forward<T>(value)) {};

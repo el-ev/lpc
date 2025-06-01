@@ -14,15 +14,17 @@ using lpc::utils::TaggedUnion;
 // 7.1 Formal Syntax
 #define NODE_TYPE_LIST(X)                                                      \
     X(Program)                                                                 \
+    /* Datums */                                                               \
     X(List)                                                                    \
     X(Vector)                                                                  \
     X(Keyword)                                                                 \
-    X(Quotation)                                                               \
     X(Variable)                                                                \
     X(Boolean)                                                                 \
     X(Number)                                                                  \
     X(Character)                                                               \
     X(String)                                                                  \
+    /* Expressions */                                                          \
+    X(Quotation)                                                               \
     X(ProcedureCall)                                                           \
     X(Lambda)                                                                  \
     X(Formals)                                                                 \
@@ -75,9 +77,14 @@ public:
     ASTNode(ASTNode&&) noexcept = default;
     ASTNode& operator=(ASTNode&&) noexcept = default;
 
-    template <NodeType T>
+    template <NodeType First, NodeType... Ts>
     [[nodiscard]] bool is() const noexcept {
-        return _type == T;
+        if (_type == First)
+            return true;
+        if constexpr (sizeof...(Ts) > 0) {
+            return is<Ts...>();
+        }
+        return false;
     }
 
     [[nodiscard]] NodeType type() const noexcept {
