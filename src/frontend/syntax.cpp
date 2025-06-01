@@ -12,6 +12,32 @@ namespace rules {
 
 using namespace lpc::frontend::combinators;
 
+struct Datum;
+
+struct List {
+static constexpr auto rule() noexcept {
+  return 
+chain(
+  OneToken<TokenType::LPAREN>()
+, chain(
+      Some<Def<Datum>>()
+    , any(
+          chain(
+              OneToken<TokenType::DOT>()
+            , Def<List>()
+          )
+        , chain(
+              OneToken<TokenType::DOT>()
+            , Def<Datum>()
+          )
+        , make_node<NodeType::Nil>(Succeed())
+      )
+  )
+, OneToken<TokenType::RPAREN>()
+);
+}
+};
+
 struct Datum {
 static constexpr auto rule() noexcept {
 return
@@ -19,22 +45,14 @@ any(
     GetConstant()
   , GetVariable()
   , GetKeyword()
-  , make_node<NodeType::List>(
+  , make_node<NodeType::Nil>(
         chain(
             OneToken<TokenType::LPAREN>()
-          , Maybe(
-                chain(
-                    Some<Def<Datum>>()
-                  , Maybe(
-                        chain(
-                            OneToken<TokenType::DOT>()
-                          , Def<Datum>()
-                        )
-                    )
-                )
-            )
           , OneToken<TokenType::RPAREN>()
         )
+    )
+  , make_node<NodeType::List>(
+        Def<List>()
     )
   , make_node<NodeType::Vector>(
         chain(

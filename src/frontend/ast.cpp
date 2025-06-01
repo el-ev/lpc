@@ -67,6 +67,9 @@ std::string NodeArena::dump_json(NodeLocRef ref, std::size_t indent) const {
                 value.get_unchecked<Keyword>())])
             + "\"";
         break;
+    case NodeType::Nil:
+        result += ",\n" + prefix + "  \"value\": ()";
+        break;
     default:
         result += ",\n" + prefix + "  \"children\": [\n";
         const auto& children = value.get_unchecked<NodeList>();
@@ -119,10 +122,15 @@ std::string NodeArena::dump(NodeLocRef ref) const {
         }
 
         std::string result = "(";
-        for (std::size_t i = 0; i < children.size(); ++i) {
+        for (std::size_t i = 0; i < children.size() - 1; ++i) {
             if (i > 0)
                 result += " ";
             result += dump(children[i]);
+        }
+        const auto& last_child = at(children.back());
+        if (!last_child.is<NodeType::Nil>()) {
+            result += " . ";
+            result += dump(children.back());
         }
         result += ")";
         return result;
@@ -156,6 +164,8 @@ std::string NodeArena::dump(NodeLocRef ref) const {
         }
         return result;
     }
+    case NodeType::Nil:
+        return "()";
     default:
         return "";
     }

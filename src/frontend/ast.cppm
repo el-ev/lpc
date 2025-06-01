@@ -23,6 +23,7 @@ using lpc::utils::TaggedUnion;
     X(Number)                                                                  \
     X(Character)                                                               \
     X(String)                                                                  \
+    X(Nil)                                                                     \
     /* Expressions */                                                          \
     X(Quotation)                                                               \
     X(ProcedureCall)                                                           \

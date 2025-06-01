@@ -13,6 +13,16 @@ concept ParserRule = requires(T t) {
         || std::same_as<typename T::manages_rollback, std::false_type>;
 };
 
+struct Succeed {
+    using manages_rollback = std::true_type;
+
+    explicit constexpr Succeed() noexcept = default;
+
+    [[nodiscard]] OptNodeList operator()(Cursor& /* cursor */) const noexcept {
+        return NodeList {};
+    }
+};
+
 template <typename Wrapper>
 struct Def {
     using manages_rollback = std::true_type;
