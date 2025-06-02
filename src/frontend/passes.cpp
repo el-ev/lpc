@@ -22,7 +22,7 @@ NodeLocRef PassManager::run_all(NodeLocRef root, NodeArena& arena,
         Debug("Pass {} completed successfully", pass->name());
 
         if (std::ranges::find(print_passes, pass->name()) != print_passes.end())
-            std::println("{}", arena.dump(result));
+            std::print("{}", arena.dump(result));
     }
 
     return result;

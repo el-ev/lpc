@@ -53,7 +53,7 @@ int Session::run() noexcept {
     auto node_arena = std::move(parser.arena());
 
     if (std::ranges::find(_print_passes, "sexpr") != _print_passes.end())
-        std::println("{}", node_arena.dump(root));
+        std::print("{}", node_arena.dump(root));
 
     frontend::PassManager pass_manager;
     pass_manager.add_pass<frontend::ExpandPass>();

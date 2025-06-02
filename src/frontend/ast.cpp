@@ -116,30 +116,19 @@ std::string NodeArena::dump(NodeLocRef ref) const {
             value.get_unchecked<Keyword>())]);
     case NodeType::List: {
         const auto& children = value.get_unchecked<NodeList>();
-        if (children.empty()) {
-            return "()";
-        }
-
         std::string result = "(";
         for (std::size_t i = 0; i < children.size() - 1; ++i) {
             if (i > 0)
                 result += " ";
             result += dump(children[i]);
         }
-        const auto& last_child = at(children.back());
-        if (!last_child.is<NodeType::Nil>()) {
-            result += " . ";
-            result += dump(children.back());
-        }
+        if (!at(children.back()).is<NodeType::Nil>())
+            result += " . " + dump(children.back());
         result += ")";
         return result;
     }
     case NodeType::Vector: {
         const auto& children = value.get_unchecked<NodeList>();
-        if (children.empty()) {
-            return "#()";
-        }
-
         std::string result = "#(";
         for (std::size_t i = 0; i < children.size(); ++i) {
             if (i > 0)
@@ -151,16 +140,9 @@ std::string NodeArena::dump(NodeLocRef ref) const {
     }
     case NodeType::Program: {
         const auto& children = value.get_unchecked<NodeList>();
-        if (children.empty()) {
-            return "";
-        }
-
         std::string result;
-        for (std::size_t i = 0; i < children.size(); ++i) {
-            if (i > 0)
-                result += "\n";
-            result += dump(children[i]);
-        }
+        for (auto i : children)
+            result += dump(i) + "\n";
         return result;
     }
     case NodeType::Definition: {
