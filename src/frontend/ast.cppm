@@ -28,8 +28,6 @@ using lpc::utils::TaggedUnion;
     X(Quotation)                                                               \
     X(ProcedureCall)                                                           \
     X(Lambda)                                                                  \
-    X(Formals)                                                                 \
-    X(Body)                                                                    \
     X(If)                                                                      \
     X(Assignment)                                                              \
     X(Definition)                                                              \

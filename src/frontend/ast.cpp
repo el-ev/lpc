@@ -68,7 +68,6 @@ std::string NodeArena::dump_json(NodeLocRef ref, std::size_t indent) const {
             + "\"";
         break;
     case NodeType::Nil:
-        result += ",\n" + prefix + "  \"value\": ()";
         break;
     default:
         result += ",\n" + prefix + "  \"children\": [\n";
@@ -163,6 +162,20 @@ std::string NodeArena::dump(NodeLocRef ref) const {
             result += dump(children[i]);
         }
         return result;
+    }
+    case NodeType::Definition: {
+        const auto& children = value.get_unchecked<NodeList>();
+        std::string def_str
+            = "(define " + dump(children[0]) + " " + dump(children[1]) + ")";
+        return def_str;
+    }
+    case NodeType::Lambda: {
+        const auto& children = value.get_unchecked<NodeList>();
+        std::string lambda_str = "(lambda";
+        for (auto i : children)
+            lambda_str += " " + dump(i);
+        lambda_str += ")";
+        return lambda_str;
     }
     case NodeType::Nil:
         return "()";
