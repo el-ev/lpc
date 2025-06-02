@@ -232,7 +232,7 @@ OptNodeList GetConstant::operator()(Cursor& cursor) const noexcept {
 
 template <NodeType T, ParserRule R>
 OptNodeList OneNode<T, R>::operator()(Cursor& cursor) const noexcept {
-    if (cursor.is_eof() || cursor.is_failed())
+    if (cursor.is_failed())
         return std::nullopt;
     LocRef loc = cursor.loc();
     OptNodeList res;
