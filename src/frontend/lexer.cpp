@@ -26,9 +26,10 @@ bool Lexer::skip_comment() noexcept {
     if (_cursor[0] == lex_defs::COMMENT_START) {
         auto nl_pos = _cursor.find(lex_defs::NEWLINE);
         if (nl_pos != std::string_view::npos) {
-            _cursor.remove_prefix(nl_pos + 1);
+            _cursor.remove_prefix(nl_pos);
             _line++;
             _line_start = _cursor.begin();
+            _cursor.remove_prefix(1);
         } else {
             _cursor.remove_prefix(_cursor.size());
         }
