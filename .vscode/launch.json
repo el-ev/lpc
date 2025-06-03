@@ -12,7 +12,7 @@
             "program": "${workspaceFolder}/build/debug/lpc",
             "args": [
                 "--print",
-                "sexpr",
+                "sexpr,annonate",
                 "lparens.scm"
             ],
             "initCommands": [

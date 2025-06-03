@@ -2,6 +2,7 @@ module lpc.session;
 
 import lpc.utils.logging;
 import lpc.frontend.expand;
+import lpc.frontend.annonate;
 import lpc.frontend.lexer;
 import lpc.frontend.syntax;
 import lpc.frontend.passes;
@@ -40,7 +41,7 @@ int Session::run() noexcept {
 
     if (std::ranges::find(_print_passes, "token") != _print_passes.end()) {
         for (const auto& token : tokens)
-            std::print("{} ", loc_arena[token.loc()].source_location());
+            std::print("{} ", loc_arena[token.loc()].lexeme());
         std::println("");
     }
 
@@ -56,7 +57,8 @@ int Session::run() noexcept {
         std::print("{}", node_arena.dump(root));
 
     frontend::PassManager pass_manager;
-    pass_manager.add_pass<frontend::ExpandPass>();
+    // pass_manager.add_pass<frontend::ExpandPass>();
+    pass_manager.add_pass<frontend::AnnonatePass>();
     root = pass_manager.run_all(root, node_arena, _print_passes);
     if (!root.is_valid())
         return 1;

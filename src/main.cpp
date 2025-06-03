@@ -21,7 +21,7 @@ auto main(int argc, char* argv[]) noexcept -> int {
             [&](auto path) { session.set_output_file(path); })
         .add_option("print", NO_SHORT_NAME,
             "Print intermediate representations, separated by commas. (token, "
-            "sexpr, ...)",
+            "sexpr, annonate, ...)",
             "", [&](auto passes_str) { session.set_print_passes(passes_str); })
         .build()
         .parse({ argv + 1, argv + argc });
