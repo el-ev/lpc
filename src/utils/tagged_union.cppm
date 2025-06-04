@@ -443,6 +443,6 @@ export namespace tagged_union {
         return std::move(variant).visit(std::forward<Visitor>(vis));
     }
 
-} // namespace tagges_union
+} // namespace tagged_union
 
 } // namespace lpc::utils
