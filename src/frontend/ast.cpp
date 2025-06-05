@@ -114,7 +114,14 @@ std::string NodeArena::dump(NodeLocRef ref) const {
     case NodeType::Keyword:
         return std::string(lex_defs::KEYWORDS[static_cast<std::size_t>(
             value.get_unchecked<Keyword>())]);
-    case NodeType::ProcedureCall:
+    case NodeType::ProcedureCall: {
+        const auto& children = value.get_unchecked<NodeList>();
+        std::string result = "(";
+        for (auto i : children)
+            result += " " + dump(i);
+        result += ")";
+        return result;
+    }
     case NodeType::List: {
         const auto& children = value.get_unchecked<NodeList>();
         std::string result = "(";
