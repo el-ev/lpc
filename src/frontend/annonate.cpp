@@ -7,7 +7,7 @@ namespace lpc::frontend {
 using lpc::utils::Error;
 using lpc::utils::Warn;
 
-using ConstRefIter = std::vector<NodeLocRef>::const_iterator;
+using ConstRefIter = NodeList::const_iterator;
 
 [[nodiscard]] NodeLocRef visit_expression(
     NodeLocRef node, NodeArena& arena) noexcept;
@@ -27,19 +27,19 @@ using ConstRefIter = std::vector<NodeLocRef>::const_iterator;
 
 [[nodiscard]] NodeLocRef AnnonatePass::run(
     NodeLocRef root, NodeArena& arena) noexcept {
-    std::vector<NodeLocRef> new_children;
+    NodeList new_children;
     const auto& children = arena[root].value().get_unchecked<NodeList>();
-    new_children.reserve(children.size());
 
-    for (const auto& child : children) {
-        auto node = visit_quote(child, arena);
-        if (!node.is_valid())
-            return NodeLocRef::invalid();
-        node = visit_expression(node, arena);
-        if (!node.is_valid())
-            return NodeLocRef::invalid();
-        new_children.push_back(node);
-    }
+    std::ranges::transform(children, std::back_inserter(new_children),
+        [&](NodeLocRef child) noexcept {
+            NodeLocRef node = visit_quote(child, arena);
+            if (!node.is_valid())
+                return NodeLocRef::invalid();
+            return visit_expression(node, arena);
+        });
+    if (std::ranges::any_of(
+            new_children, [](NodeLocRef child) { return !child.is_valid(); }))
+        return NodeLocRef::invalid();
 
     return arena.emplace(
         root.loc_ref(), NodeType::Program, std::move(new_children));
@@ -106,14 +106,13 @@ NodeLocRef visit_expression(NodeLocRef node, NodeArena& arena) noexcept {
                     return NodeLocRef::invalid();
                 if (children_list.size() == 4)
                     return arena.emplace(node.loc_ref(), NodeType::If,
-                        std::vector<NodeLocRef> { test_node, then_node });
+                        NodeList { test_node, then_node });
                 NodeLocRef else_node
                     = visit_expression(children_list[3], arena);
                 if (!else_node.is_valid())
                     return NodeLocRef::invalid();
                 return arena.emplace(node.loc_ref(), NodeType::If,
-                    std::vector<NodeLocRef> {
-                        test_node, then_node, else_node });
+                    NodeList { test_node, then_node, else_node });
             }
             case Keyword::SET: {
                 if (children_list.size() != 4) {
@@ -134,7 +133,7 @@ NodeLocRef visit_expression(NodeLocRef node, NodeArena& arena) noexcept {
                 if (!exp_node.is_valid())
                     return NodeLocRef::invalid();
                 return arena.emplace(node.loc_ref(), NodeType::Assignment,
-                    std::vector<NodeLocRef> { children_list[1], exp_node });
+                    NodeList { children_list[1], exp_node });
             }
             default:
                 Error("Should be handled earlier: {} at {}", arena.dump(node),
@@ -185,7 +184,7 @@ NodeLocRef visit_definition(NodeLocRef node, NodeArena& arena) noexcept {
         if (!exp_node.is_valid())
             return NodeLocRef::invalid();
         return arena.emplace(node.loc_ref(), NodeType::Definition,
-            std::vector<NodeLocRef> { children_list[1], exp_node });
+            NodeList { children_list[1], exp_node });
     }
     if (second_child.is<NodeType::List>()) {
         const auto& list = second_child.value().get_unchecked<NodeList>();
@@ -210,7 +209,7 @@ NodeLocRef visit_definition(NodeLocRef node, NodeArena& arena) noexcept {
         if (!lambda_node.is_valid())
             return NodeLocRef::invalid();
         return arena.emplace(node.loc_ref(), NodeType::Definition,
-            std::vector<NodeLocRef> { name_node, lambda_node });
+            NodeList { name_node, lambda_node });
     }
     Error("Invalid syntax: Expected variable or list in definition, got {} "
           "{} "
@@ -239,8 +238,7 @@ NodeLocRef visit_proc_call(NodeLocRef node, NodeArena& arena) noexcept {
             arena.location(node).source_location());
         return NodeLocRef::invalid();
     }
-    std::vector<NodeLocRef> new_children;
-    new_children.reserve(children_list.size() - 1);
+    NodeList new_children;
     for (auto it = children_list.begin(); it != children_list.end() - 1; ++it) {
         NodeLocRef exp_node = visit_expression(*it, arena);
         if (!exp_node.is_valid())
@@ -263,12 +261,12 @@ NodeLocRef visit_lambda(LocRef loc, ConstRefIter formals_begin,
             arena.location(*formals_begin).source_location());
         return NodeLocRef::invalid();
     }
-    std::vector<NodeLocRef> formal_children;
+    NodeList formal_children;
     std::ranges::copy(
         formals_begin, formals_end, std::back_inserter(formal_children));
     NodeLocRef formal_node
         = arena.emplace(loc, NodeType::List, std::move(formal_children));
-    std::vector<NodeLocRef> lambda_children = { formal_node };
+    NodeList lambda_children { formal_node };
     for (const auto& body_node :
         std::ranges::subrange(body_begin, body_end - 1)) {
         NodeLocRef exp_node = visit_expression(body_node, arena);
@@ -286,19 +284,18 @@ NodeLocRef visit_lambda(LocRef loc, ConstRefIter formals_begin,
     if (!astnode.is<NodeType::List>())
         return node;
     const auto& children_list = astnode.value().get_unchecked<NodeList>();
-    std::vector<NodeLocRef> quoted_children;
-    for (const auto& child : children_list) {
-        auto quoted_node = visit_quote(child, arena);
-        if (!quoted_node.is_valid())
-            return NodeLocRef::invalid();
-        quoted_children.push_back(quoted_node);
-    }
-    if (quoted_children.size() < 2
-        || !arena[quoted_children[0]].is<NodeType::Keyword>()
-        || arena[quoted_children[0]].value().get_unchecked<Keyword>()
-            != Keyword::QUOTE)
-        return arena.emplace(
-            node.loc_ref(), NodeType::List, std::move(quoted_children));
+    NodeList quoted_children;
+    std::ranges::transform(children_list,
+        std::back_inserter(quoted_children),
+        [&](NodeLocRef child) noexcept { return visit_quote(child, arena); });
+    if (std::ranges::any_of(quoted_children,
+            [](NodeLocRef child) { return !child.is_valid(); }))
+        if (quoted_children.size() < 2
+            || !arena[quoted_children[0]].is<NodeType::Keyword>()
+            || arena[quoted_children[0]].value().get_unchecked<Keyword>()
+                != Keyword::QUOTE)
+            return arena.emplace(
+                node.loc_ref(), NodeType::List, std::move(quoted_children));
     if (quoted_children.size() == 2) {
         Error("Invalid syntax: Expected quoted expression, got {} at {}",
             arena.dump(node), arena.location(node).source_location());
@@ -314,8 +311,8 @@ NodeLocRef visit_lambda(LocRef loc, ConstRefIter formals_begin,
             arena.location(node).source_location());
         return NodeLocRef::invalid();
     }
-    return arena.emplace(node.loc_ref(), NodeType::Quotation,
-        std::vector<NodeLocRef> { quoted_children[1] });
+    return arena.emplace(
+        node.loc_ref(), NodeType::Quotation, NodeList { quoted_children[1] });
 }
 
 } // namespace lpc::frontend
