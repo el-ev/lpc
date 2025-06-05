@@ -136,6 +136,7 @@ NodeLocRef visit_expression(NodeLocRef node, NodeArena& arena) noexcept {
                 return arena.emplace(node.loc_ref(), NodeType::Assignment,
                     std::vector<NodeLocRef> { children_list[1], exp_node });
             }
+            default:
                 Error("Should be handled earlier: {} at {}", arena.dump(node),
                     arena.location(node).source_location());
                 return NodeLocRef::invalid();
@@ -285,31 +286,36 @@ NodeLocRef visit_lambda(LocRef loc, ConstRefIter formals_begin,
     if (!astnode.is<NodeType::List>())
         return node;
     const auto& children_list = astnode.value().get_unchecked<NodeList>();
-    if (children_list.size() < 2
-        || !arena[children_list[0]].is<NodeType::Keyword>()
-        || arena[children_list[0]].value().get_unchecked<Keyword>()
+    std::vector<NodeLocRef> quoted_children;
+    for (const auto& child : children_list) {
+        auto quoted_node = visit_quote(child, arena);
+        if (!quoted_node.is_valid())
+            return NodeLocRef::invalid();
+        quoted_children.push_back(quoted_node);
+    }
+    if (quoted_children.size() < 2
+        || !arena[quoted_children[0]].is<NodeType::Keyword>()
+        || arena[quoted_children[0]].value().get_unchecked<Keyword>()
             != Keyword::QUOTE)
-        return node;
-    if (children_list.size() == 2) {
+        return arena.emplace(
+            node.loc_ref(), NodeType::List, std::move(quoted_children));
+    if (quoted_children.size() == 2) {
         Error("Invalid syntax: Expected quoted expression, got {} at {}",
             arena.dump(node), arena.location(node).source_location());
         return NodeLocRef::invalid();
     }
-    if (children_list.size() > 3) {
+    if (quoted_children.size() > 3) {
         Error("Invalid syntax: Expected quoted expression, got {} at {}",
-            children_list.size() - 1, arena.location(node).source_location());
+            quoted_children.size() - 1, arena.location(node).source_location());
         return NodeLocRef::invalid();
     }
-    if (!arena[children_list.back()].is<NodeType::Nil>()) {
+    if (!arena[quoted_children.back()].is<NodeType::Nil>()) {
         Error("Invalid syntax: Improper list at {}",
             arena.location(node).source_location());
         return NodeLocRef::invalid();
     }
-    NodeLocRef quoted_node = visit_quote(children_list[1], arena);
-    if (!quoted_node.is_valid())
-        return NodeLocRef::invalid();
     return arena.emplace(node.loc_ref(), NodeType::Quotation,
-        std::vector<NodeLocRef> { quoted_node });
+        std::vector<NodeLocRef> { quoted_children[1] });
 }
 
 } // namespace lpc::frontend
