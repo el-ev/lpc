@@ -46,8 +46,7 @@ export enum class Keyword : std::uint8_t {
     SET,
     UNQUOTE,
     UNQUOTE_SPLICING,
-    ARROW,
-    COUNT
+    ARROW
 };
 
 export enum class TokenType : std::uint8_t {
