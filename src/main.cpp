@@ -21,8 +21,11 @@ auto main(int argc, char* argv[]) noexcept -> int {
             [&](auto path) { session.set_output_file(path); })
         .add_option("print", NO_SHORT_NAME,
             "Print intermediate representations, separated by commas. (token, "
-            "sexpr, annonate, ...)",
+            "raw, annonate, ...)",
             "", [&](auto passes_str) { session.set_print_passes(passes_str); })
+        .add_option("print-fmt", NO_SHORT_NAME,
+            "Print format, either 'json' or 'sexpr'. Default is 'sexpr'.",
+            "sexpr", [&](auto print_fmt) { session.set_print_fmt(print_fmt); })
         .build()
         .parse({ argv + 1, argv + argc });
 

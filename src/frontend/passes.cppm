@@ -43,7 +43,7 @@ public:
     }
 
     [[nodiscard]] NodeLocRef run_all(NodeLocRef root, NodeArena& arena,
-        std::vector<std::string>& print_passes) noexcept;
+        std::vector<std::string>& print_passes, bool print_json) noexcept;
 
     void clear() noexcept {
         _passes.clear();
