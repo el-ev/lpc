@@ -117,8 +117,11 @@ std::string NodeArena::dump(NodeLocRef ref) const {
     case NodeType::ProcedureCall: {
         const auto& children = value.get_unchecked<NodeList>();
         std::string result = "(";
-        for (auto i : children)
-            result += " " + dump(i);
+        for (std::size_t i = 0; i < children.size(); ++i) {
+            if (i > 0)
+                result += " ";
+            result += dump(children[i]);
+        }
         result += ")";
         return result;
     }

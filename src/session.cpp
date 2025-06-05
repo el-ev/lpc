@@ -53,11 +53,12 @@ int Session::run() noexcept {
     auto root = parser.root();
     auto node_arena = std::move(parser.arena());
 
-    if (std::ranges::find(_print_passes, "raw") != _print_passes.end())
+    if (std::ranges::find(_print_passes, "raw") != _print_passes.end()) {
         if (_print_json)
             std::print("{}", node_arena.dump_json(root, 2));
         else
             std::print("{}", node_arena.dump(root));
+    }
 
     frontend::PassManager pass_manager;
     // pass_manager.add_pass<frontend::ExpandPass>();
