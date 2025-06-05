@@ -83,7 +83,7 @@ std::string NodeArena::dump_json(NodeLocRef ref, std::size_t indent) const {
         break;
     }
 
-    result += "\n" + prefix + "}";
+    result += "\n" + prefix + "}\n";
     return result;
 }
 
@@ -162,8 +162,19 @@ std::string NodeArena::dump(NodeLocRef ref) const {
     }
     case NodeType::Quotation:
         return "'" + dump(value.get_unchecked<NodeList>()[0]);
-    case NodeType::Nil:
-        return "()";
+    case NodeType::If: {
+        const auto& children = value.get_unchecked<NodeList>();
+        std::string if_str
+            = "(if " + dump(children[0]) + " " + dump(children[1]);
+        if (children.size() > 2)
+            if_str += " " + dump(children[2]);
+        if_str += ")";
+        return if_str;
+    }
+    case NodeType::Assignment: {
+        const auto& children = value.get_unchecked<NodeList>();
+        return "(set! " + dump(children[0]) + " " + dump(children[1]) + ")";
+    }
     default:
         return "";
     }

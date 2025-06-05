@@ -178,7 +178,8 @@ public:
     [[nodiscard]] std::string dump(NodeLocRef ref) const;
 
 private:
-    std::array<ASTNodeRef, static_cast<std::size_t>(Keyword::COUNT)> _keywords;
+    std::array<ASTNodeRef, static_cast<std::size_t>(Keyword::ARROW) + 1>
+        _keywords;
     std::unordered_map<std::string, ASTNodeRef> _variables;
     std::pair<ASTNodeRef, ASTNodeRef> _boolean_nodes;
 };
