@@ -20,6 +20,7 @@ export namespace lex_defs {
     constexpr std::string_view SPECIAL_INITIAL = "!$%&*/:<=>?^_~";
     constexpr std::string_view SPECIAL_SUBSEQUENT = "+-.@";
 
+    // TODO: Remove Keywords from AST
     constexpr std::string_view KEYWORDS[20]
         = { "and", "begin", "case", "cond", "define", "delay", "do", "else",
               "if", "lambda", "let", "let*", "letrec", "or", "quasiquote",
