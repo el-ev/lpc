@@ -113,6 +113,8 @@ using lpc::utils::Error;
         new_params.reserve(params.size());
         std::ranges::transform(
             params, std::back_inserter(new_params), [&](NodeLocRef param) {
+                if (!arena[param].is<NodeType::Variable>())
+                    return param;
                 NodeLocRef new_param
                     = arena.emplace(param.loc_ref(), NodeType::Variable,
                         arena[param].value().get_unchecked<std::string>()
