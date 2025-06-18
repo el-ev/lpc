@@ -83,7 +83,7 @@ std::string NodeArena::dump_json(NodeLocRef ref, std::size_t indent) const {
         break;
     }
 
-    result += "\n" + prefix + "}\n";
+    result += "\n" + prefix + "}";
     return result;
 }
 
