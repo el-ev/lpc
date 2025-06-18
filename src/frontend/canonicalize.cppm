@@ -3,6 +3,7 @@ export module lpc.frontend.canonicalize;
 import std;
 import lpc.frontend.ast;
 import lpc.frontend.passes;
+import lpc.frontend.builtin;
 
 namespace lpc::frontend {
 
@@ -41,6 +42,10 @@ export class CanonicalizePass final : public Pass {
 private:
     std::size_t _counter = 0;
     SymbolMapping _symbol_mapping;
+    BuiltinFunctions _builtins;
+
+    [[nodiscard]] NodeLocRef visit(
+        NodeLocRef root, NodeArena& arena, bool top_level) noexcept;
 
 public:
     [[nodiscard]] std::string name() const noexcept final {

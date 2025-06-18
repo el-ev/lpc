@@ -285,17 +285,17 @@ NodeLocRef visit_lambda(LocRef loc, ConstRefIter formals_begin,
         return node;
     const auto& children_list = astnode.value().get_unchecked<NodeList>();
     NodeList quoted_children;
-    std::ranges::transform(children_list,
-        std::back_inserter(quoted_children),
+    std::ranges::transform(children_list, std::back_inserter(quoted_children),
         [&](NodeLocRef child) noexcept { return visit_quote(child, arena); });
     if (std::ranges::any_of(quoted_children,
             [](NodeLocRef child) { return !child.is_valid(); }))
-        if (quoted_children.size() < 2
-            || !arena[quoted_children[0]].is<NodeType::Keyword>()
-            || arena[quoted_children[0]].value().get_unchecked<Keyword>()
-                != Keyword::QUOTE)
-            return arena.emplace(
-                node.loc_ref(), NodeType::List, std::move(quoted_children));
+        return NodeLocRef::invalid();
+    if (quoted_children.size() < 2
+        || !arena[quoted_children[0]].is<NodeType::Keyword>()
+        || arena[quoted_children[0]].value().get_unchecked<Keyword>()
+            != Keyword::QUOTE)
+        return arena.emplace(
+            node.loc_ref(), NodeType::List, std::move(quoted_children));
     if (quoted_children.size() == 2) {
         Error("Invalid syntax: Expected quoted expression, got {} at {}",
             arena.dump(node), arena.location(node).source_location());
