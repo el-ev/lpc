@@ -72,8 +72,8 @@ using lpc::utils::Error;
                 const auto* builtin = _builtins.get(
                     arena[children[0]].value().get_unchecked<std::string>());
                 if (builtin != nullptr) {
-                    return builtin->get_call(arena, node.loc_ref(),
-                        NodeList(children.begin() + 1, children.end()));
+                    return builtin->get_call(
+                        arena, node.loc_ref(), std::move(new_children));
                 }
                 Error("Procedure call '{}' is not bound at {}",
                     arena[children[0]].value().get_unchecked<std::string>(),
@@ -96,13 +96,18 @@ using lpc::utils::Error;
         const auto& children = astnode.value().get_unchecked<NodeList>();
         NodeList new_children;
         new_children.reserve(children.size());
-        std::ranges::transform(children, std::back_inserter(new_children),
-            [&](NodeLocRef child) { return visit(child, arena, false); });
+        std::ranges::transform(
+            children, std::back_inserter(new_children), [&](NodeLocRef child) {
+                _symbol_mapping.push_scope();
+                NodeLocRef new_child = visit(child, arena, false);
+                _symbol_mapping.pop_scope();
+                return new_child;
+            });
         if (std::ranges::any_of(new_children,
                 [](NodeLocRef child) { return !child.is_valid(); }))
             return NodeLocRef::invalid();
         return arena.emplace(
-            node.loc_ref(), NodeType::ProcedureCall, std::move(new_children));
+            node.loc_ref(), NodeType::If, std::move(new_children));
     }
     case NodeType::Lambda: {
         const auto& children = astnode.value().get_unchecked<NodeList>();

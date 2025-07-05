@@ -7,7 +7,7 @@ namespace lpc::frontend {
 
 // Built-in functions
 
-constexpr std::string BUILTIN_PREFIX = "_builtin_";
+constexpr std::string BUILTIN_PREFIX = "_lpc_bi_";
 
 export class BuiltinFunctions;
 
