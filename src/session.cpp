@@ -6,7 +6,7 @@ import lpc.frontend.annonate;
 import lpc.frontend.lexer;
 import lpc.frontend.canonicalize;
 import lpc.frontend.syntax;
-import lpc.frontend.passes;
+import lpc.passes;
 
 namespace lpc {
 
@@ -61,7 +61,7 @@ int Session::run() noexcept {
             std::print("{}", node_arena.dump(root));
     }
 
-    frontend::PassManager pass_manager;
+    PassManager pass_manager;
     // pass_manager.add_pass<frontend::ExpandPass>();
     pass_manager.add_pass<frontend::AnnonatePass>();
     pass_manager.add_pass<frontend::CanonicalizePass>();

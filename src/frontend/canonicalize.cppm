@@ -2,7 +2,7 @@ export module lpc.frontend.canonicalize;
 
 import std;
 import lpc.frontend.ast;
-import lpc.frontend.passes;
+import lpc.passes;
 import lpc.frontend.builtin;
 
 namespace lpc::frontend {
@@ -45,7 +45,7 @@ private:
     BuiltinFunctions _builtins;
 
     [[nodiscard]] NodeLocRef visit(
-        NodeLocRef root, NodeArena& arena, bool top_level) noexcept;
+        NodeLocRef node, NodeArena& arena, bool top_level) noexcept;
 
 public:
     [[nodiscard]] std::string name() const noexcept final {

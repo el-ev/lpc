@@ -1,8 +1,8 @@
-module lpc.frontend.passes;
+module lpc.passes;
 
 import lpc.utils.logging;
 
-namespace lpc::frontend {
+namespace lpc {
 
 using lpc::utils::Debug;
 using lpc::utils::Error;

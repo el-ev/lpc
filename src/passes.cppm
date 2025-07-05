@@ -1,9 +1,10 @@
-export module lpc.frontend.passes;
+export module lpc.passes;
 
 import std;
 import lpc.frontend.ast;
 
-namespace lpc::frontend {
+namespace lpc {
+using namespace lpc::frontend;
 
 export class Pass {
 public:
@@ -54,4 +55,4 @@ public:
     }
 };
 
-} // namespace lpc::frontend
+} // namespace lpc

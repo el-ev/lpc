@@ -2,7 +2,7 @@ export module lpc.frontend.annonate;
 
 import std;
 import lpc.frontend.ast;
-import lpc.frontend.passes;
+import lpc.passes;
 
 namespace lpc::frontend {
 
