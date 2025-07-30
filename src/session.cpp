@@ -63,10 +63,12 @@ int Session::run() noexcept {
     }
 
     PassManager pass_manager;
-    // pass_manager.add_pass<frontend::ExpandPass>();
-    pass_manager.add_pass<frontend::AnnonatePass>();
-    pass_manager.add_pass<frontend::CanonicalizePass>();
-    pass_manager.add_pass<cps::LowerPass>();
+    pass_manager.add_passes<
+        // frontend::ExpandPass,
+        frontend::AnnonatePass,
+        frontend::CanonicalizePass,
+        cps::LowerPass
+    >();
     root = pass_manager.run_all(root, node_arena, _print_passes, _print_json);
     if (!root.is_valid())
         return 1;
