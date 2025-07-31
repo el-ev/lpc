@@ -6,6 +6,8 @@ namespace lpc::frontend {
 
 using lpc::utils::Error;
 
+// TODO
+
 template <>
 NodeLocRef ExpandPass::walk<NodeType::Program>(
     NodeLocRef node, NodeArena& arena) noexcept {
@@ -33,7 +35,7 @@ NodeLocRef ExpandPass::walk<NodeType::Program>(
             }
             break;
         }
-        case NodeType::Variable:
+        case NodeType::Identifier:
         case NodeType::Number:
         case NodeType::Character:
         case NodeType::Boolean:
@@ -41,7 +43,6 @@ NodeLocRef ExpandPass::walk<NodeType::Program>(
             new_child = child;
             break;
         case NodeType::Vector:
-        case NodeType::Keyword:
             Error("Invalid syntax: Unexpected {}({}) in program body at {}",
                 node_type_to_string(child_node.type()), arena.dump(child),
                 arena.location(child).source_location());
@@ -75,7 +76,7 @@ int ExpandPass::try_add_syntax_def(
     // it is verified that it is a list and not empty
     const auto& children = node.value().get_unchecked<NodeList>();
     const ASTNode& first_child = arena[children[0]];
-    if (!first_child.is<NodeType::Variable>())
+    if (!first_child.is<NodeType::Identifier>())
         return 0;
     const auto& ident = first_child.value().get_unchecked<std::string>();
     if (ident != "define-syntax")
@@ -89,7 +90,7 @@ int ExpandPass::try_add_syntax_def(
         return -1;
     }
     const ASTNode& second_child = arena[children[1]];
-    if (!second_child.is<NodeType::Variable, NodeType::Keyword>()) {
+    if (!second_child.is<NodeType::Identifier>()) {
         Error("Invalid syntax: expected an identifier at {}, found {}({})",
             arena.location(children[1]).source_location(),
             node_type_to_string(second_child.type()), arena.dump(children[1]));
@@ -118,7 +119,7 @@ bool verify_transformer_spec(NodeLocRef spec_node, NodeArena& arena) noexcept {
         return false;
     }
     const ASTNode& first_child = arena[children[0]];
-    if (!first_child.is<NodeType::Variable>()
+    if (!first_child.is<NodeType::Identifier>()
         || first_child.value().get_unchecked<std::string>() != "syntax-rules") {
         Error("Invalid syntax: expected \"syntax-rules\" at {}, found {}",
             arena.location(children[0]).source_location(),
@@ -133,8 +134,7 @@ bool verify_transformer_spec(NodeLocRef spec_node, NodeArena& arena) noexcept {
     // bindings.insert(name);
     for (auto ident : second_child.value().get_unchecked<NodeList>()) {
         const ASTNode& ident_node = arena[ident];
-        if (!ident_node
-                .is<NodeType::Variable, NodeType::Keyword, NodeType::Nil>()) {
+        if (!ident_node.is<NodeType::Identifier, NodeType::Nil>()) {
             Error("Invalid syntax: expected an identifier at {}, found {}({})",
                 arena.location(ident).source_location(),
                 node_type_to_string(ident_node.type()), arena.dump(ident));

@@ -61,89 +61,90 @@ NodeLocRef visit_expression(NodeLocRef node, NodeArena& arena) noexcept {
             return NodeLocRef::invalid();
         }
         const ASTNode& first_child = arena[children_list[0]];
-        if (first_child.is<NodeType::Keyword>()) {
-            Keyword keyword = first_child.value().get_unchecked<Keyword>();
-            switch (keyword) {
-            case Keyword::DEFINE:
-                return visit_definition(node, arena);
-            case Keyword::LAMBDA: {
-                if (children_list.size() < 4) {
-                    Error(
-                        "Invalid syntax: Expected at least 3 children, got {} "
-                        "at {}",
-                        children_list.size() - 1,
-                        arena.location(node).source_location());
-                    return NodeLocRef::invalid();
-                }
-                const ASTNode& second_child = arena[children_list[1]];
-                if (!second_child.is<NodeType::List>()) {
-                    Error("Invalid syntax: Expected list of formals, got {} "
-                          "{} at {}",
-                        node_type_to_string(second_child.type()),
-                        arena.dump(children_list[1]),
-                        arena.location(children_list[1]).source_location());
-                    return NodeLocRef::invalid();
-                }
-                const auto& formals_list
-                    = second_child.value().get_unchecked<NodeList>();
-                return visit_lambda(node.loc_ref(), formals_list.begin(),
-                    formals_list.end(), children_list.begin() + 2,
-                    children_list.end(), arena);
-            }
-            case Keyword::IF: {
-                if (children_list.size() != 4 && children_list.size() != 5) {
-                    Error("Invalid syntax: Expected 3 or 4 children, got {} "
-                          "at {}",
-                        children_list.size() - 1,
-                        arena.location(node).source_location());
-                    return NodeLocRef::invalid();
-                }
-                NodeLocRef test_node
-                    = visit_expression(children_list[1], arena);
-                NodeLocRef then_node
-                    = visit_expression(children_list[2], arena);
-                if (!test_node.is_valid() || !then_node.is_valid())
-                    return NodeLocRef::invalid();
-                if (children_list.size() == 4)
-                    return arena.emplace(node.loc_ref(), NodeType::If,
-                        NodeList { test_node, then_node });
-                NodeLocRef else_node
-                    = visit_expression(children_list[3], arena);
-                if (!else_node.is_valid())
-                    return NodeLocRef::invalid();
-                return arena.emplace(node.loc_ref(), NodeType::If,
-                    NodeList { test_node, then_node, else_node });
-            }
-            case Keyword::SET: {
-                if (children_list.size() != 4) {
-                    Error("Invalid syntax: Expected 3 children, got {} at {}",
-                        children_list.size() - 1,
-                        arena.location(node).source_location());
-                    return NodeLocRef::invalid();
-                }
-                const ASTNode& second_child = arena[children_list[1]];
-                if (!second_child.is<NodeType::Variable>()) {
-                    Error("Invalid syntax: Expected variable, got {} {} at {}",
-                        node_type_to_string(second_child.type()),
-                        arena.dump(children_list[1]),
-                        arena.location(children_list[1]).source_location());
-                    return NodeLocRef::invalid();
-                }
-                NodeLocRef exp_node = visit_expression(children_list[2], arena);
-                if (!exp_node.is_valid())
-                    return NodeLocRef::invalid();
-                return arena.emplace(node.loc_ref(), NodeType::Assignment,
-                    NodeList { children_list[1], exp_node });
-            }
-            default:
-                Error("Should be handled earlier: {} at {}", arena.dump(node),
-                    arena.location(node).source_location());
-                return NodeLocRef::invalid();
-            }
-        }
+        // FIXME
+        // if (first_child.is<NodeType::Keyword>()) {
+        //     Keyword keyword = first_child.value().get_unchecked<Keyword>();
+        //     switch (keyword) {
+        //     case Keyword::DEFINE:
+        //         return visit_definition(node, arena);
+        //     case Keyword::LAMBDA: {
+        //         if (children_list.size() < 4) {
+        //             Error(
+        //                 "Invalid syntax: Expected at least 3 children, got {} "
+        //                 "at {}",
+        //                 children_list.size() - 1,
+        //                 arena.location(node).source_location());
+        //             return NodeLocRef::invalid();
+        //         }
+        //         const ASTNode& second_child = arena[children_list[1]];
+        //         if (!second_child.is<NodeType::List>()) {
+        //             Error("Invalid syntax: Expected list of formals, got {} "
+        //                   "{} at {}",
+        //                 node_type_to_string(second_child.type()),
+        //                 arena.dump(children_list[1]),
+        //                 arena.location(children_list[1]).source_location());
+        //             return NodeLocRef::invalid();
+        //         }
+        //         const auto& formals_list
+        //             = second_child.value().get_unchecked<NodeList>();
+        //         return visit_lambda(node.loc_ref(), formals_list.begin(),
+        //             formals_list.end(), children_list.begin() + 2,
+        //             children_list.end(), arena);
+        //     }
+        //     case Keyword::IF: {
+        //         if (children_list.size() != 4 && children_list.size() != 5) {
+        //             Error("Invalid syntax: Expected 3 or 4 children, got {} "
+        //                   "at {}",
+        //                 children_list.size() - 1,
+        //                 arena.location(node).source_location());
+        //             return NodeLocRef::invalid();
+        //         }
+        //         NodeLocRef test_node
+        //             = visit_expression(children_list[1], arena);
+        //         NodeLocRef then_node
+        //             = visit_expression(children_list[2], arena);
+        //         if (!test_node.is_valid() || !then_node.is_valid())
+        //             return NodeLocRef::invalid();
+        //         if (children_list.size() == 4)
+        //             return arena.emplace(node.loc_ref(), NodeType::If,
+        //                 NodeList { test_node, then_node });
+        //         NodeLocRef else_node
+        //             = visit_expression(children_list[3], arena);
+        //         if (!else_node.is_valid())
+        //             return NodeLocRef::invalid();
+        //         return arena.emplace(node.loc_ref(), NodeType::If,
+        //             NodeList { test_node, then_node, else_node });
+        //     }
+        //     case Keyword::SET: {
+        //         if (children_list.size() != 4) {
+        //             Error("Invalid syntax: Expected 3 children, got {} at {}",
+        //                 children_list.size() - 1,
+        //                 arena.location(node).source_location());
+        //             return NodeLocRef::invalid();
+        //         }
+        //         const ASTNode& second_child = arena[children_list[1]];
+        //         if (!second_child.is<NodeType::Identifier>()) {
+        //             Error("Invalid syntax: Expected variable, got {} {} at {}",
+        //                 node_type_to_string(second_child.type()),
+        //                 arena.dump(children_list[1]),
+        //                 arena.location(children_list[1]).source_location());
+        //             return NodeLocRef::invalid();
+        //         }
+        //         NodeLocRef exp_node = visit_expression(children_list[2], arena);
+        //         if (!exp_node.is_valid())
+        //             return NodeLocRef::invalid();
+        //         return arena.emplace(node.loc_ref(), NodeType::Assignment,
+        //             NodeList { children_list[1], exp_node });
+        //     }
+        //     default:
+        //         Error("Should be handled earlier: {} at {}", arena.dump(node),
+        //             arena.location(node).source_location());
+        //         return NodeLocRef::invalid();
+        //     }
+        // }
         return visit_proc_call(node, arena);
     }
-    case NodeType::Variable:
+    case NodeType::Identifier:
     case NodeType::Number:
     case NodeType::Character:
     case NodeType::Boolean:
@@ -173,7 +174,7 @@ NodeLocRef visit_definition(NodeLocRef node, NodeArena& arena) noexcept {
     }
     // first child is 'define'
     const ASTNode& second_child = arena[children_list[1]];
-    if (second_child.is<NodeType::Variable>()) {
+    if (second_child.is<NodeType::Identifier>()) {
         if (children_list.size() != 4) {
             Error("Invalid syntax: Expected 3 children, got {} at {}",
                 children_list.size() - 1,
@@ -194,7 +195,7 @@ NodeLocRef visit_definition(NodeLocRef node, NodeArena& arena) noexcept {
                 arena.location(children_list[1]).source_location());
             return NodeLocRef::invalid();
         }
-        if (!arena[list[0]].is<NodeType::Variable>()) {
+        if (!arena[list[0]].is<NodeType::Identifier>()) {
             Error("Invalid syntax: Expected variable name in definition, "
                   "got {} "
                   "at {}",
@@ -223,13 +224,13 @@ NodeLocRef visit_proc_call(NodeLocRef node, NodeArena& arena) noexcept {
     const ASTNode& astnode = arena[node];
     const auto& children_list = astnode.value().get_unchecked<NodeList>();
     const ASTNode& first_child = arena[children_list[0]];
-    if (!first_child.is<NodeType::List, NodeType::Variable>())
+    if (!first_child.is<NodeType::List, NodeType::Identifier>())
         Warn("{} {} doesn't seem to be callable at {}",
             node_type_to_string(first_child.type()),
             arena.dump(children_list[0]),
             arena.location(node).source_location());
     // TODO Remove this
-    if (first_child.is<NodeType::Variable>()
+    if (first_child.is<NodeType::Identifier>()
         && (first_child.value().get_unchecked<std::string>() == "define-syntax"
             || first_child.value().get_unchecked<std::string>() == "let-syntax"
             || first_child.value().get_unchecked<std::string>()
@@ -254,9 +255,9 @@ NodeLocRef visit_lambda(LocRef loc, ConstRefIter formals_begin,
     NodeArena& arena) noexcept {
     if (!std::ranges::all_of(formals_begin, formals_end - 1,
             [&arena](const NodeLocRef& formal) {
-                return arena[formal].template is<NodeType::Variable>();
+                return arena[formal].template is<NodeType::Identifier>();
             })
-        || !arena[*(formals_end - 1)].is<NodeType::Nil, NodeType::Variable>()) {
+        || !arena[*(formals_end - 1)].is<NodeType::Nil, NodeType::Identifier>()) {
         Error("Invalid syntax: Some formals are not variables at {}",
             arena.location(*formals_begin).source_location());
         return NodeLocRef::invalid();
@@ -290,22 +291,19 @@ NodeLocRef visit_lambda(LocRef loc, ConstRefIter formals_begin,
     if (std::ranges::any_of(quoted_children,
             [](NodeLocRef child) { return !child.is_valid(); }))
         return NodeLocRef::invalid();
-    if (quoted_children.size() < 2
-        || !arena[quoted_children[0]].is<NodeType::Keyword>()
-        || arena[quoted_children[0]].value().get_unchecked<Keyword>()
-            != Keyword::QUOTE)
-        return arena.emplace(
-            node.loc_ref(), NodeType::List, std::move(quoted_children));
-    if (quoted_children.size() == 2) {
+    // FIXME
+    // if (quoted_children.size() < 2
+    //     || !arena[quoted_children[0]].is<NodeType::Keyword>()
+    //     || arena[quoted_children[0]].value().get_unchecked<Keyword>()
+    //         != Keyword::QUOTE)
+    //     return arena.emplace(
+    //         node.loc_ref(), NodeType::List, std::move(quoted_children));
+    if (quoted_children.size() == 2 || quoted_children.size() > 3) {
         Error("Invalid syntax: Expected quoted expression, got {} at {}",
             arena.dump(node), arena.location(node).source_location());
         return NodeLocRef::invalid();
     }
-    if (quoted_children.size() > 3) {
-        Error("Invalid syntax: Expected quoted expression, got {} at {}",
-            quoted_children.size() - 1, arena.location(node).source_location());
-        return NodeLocRef::invalid();
-    }
+
     if (!arena[quoted_children.back()].is<NodeType::Nil>()) {
         Error("Invalid syntax: Improper list at {}",
             arena.location(node).source_location());

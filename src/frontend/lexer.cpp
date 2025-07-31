@@ -96,15 +96,6 @@ bool Lexer::read_ident() noexcept {
             return false;
         }
 
-        const auto* it = std::ranges::lower_bound(lex_defs::KEYWORDS, value);
-        if (it != std::ranges::end(lex_defs::KEYWORDS) && *it == value) {
-            auto keyword = static_cast<Keyword>(
-                std::distance(std::begin(lex_defs::KEYWORDS), it));
-            _tokens.emplace_back(
-                TokenType::KEYWORD, loc(std::move(value)), keyword);
-            _cursor.remove_prefix(pos);
-            return true;
-        }
         _tokens.emplace_back(
             TokenType::IDENT, loc(std::string(ident)), std::move(value));
         _cursor.remove_prefix(pos);

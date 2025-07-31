@@ -18,7 +18,7 @@ std::string NodeArena::dump_json(NodeLocRef ref, std::size_t indent) const {
         + "\"";
 
     switch (node.type()) {
-    case NodeType::Variable:
+    case NodeType::Identifier:
     case NodeType::String:
         result += ",\n" + prefix + R"(  "value": ")";
         for (char c : value.get_unchecked<std::string>()) {
@@ -61,12 +61,6 @@ std::string NodeArena::dump_json(NodeLocRef ref, std::size_t indent) const {
         result += ",\n" + prefix + "  \"value\": "
             + (value.get_unchecked<bool>() ? "\"#t\"" : "\"#f\"");
         break;
-    case NodeType::Keyword:
-        result += ",\n" + prefix + R"(  "value": ")"
-            + std::string(lex_defs::KEYWORDS[static_cast<std::size_t>(
-                value.get_unchecked<Keyword>())])
-            + "\"";
-        break;
     case NodeType::Nil:
         break;
     default:
@@ -92,7 +86,7 @@ std::string NodeArena::dump(NodeLocRef ref) const {
     const auto& value = node.value();
 
     switch (node.type()) {
-    case NodeType::Variable:
+    case NodeType::Identifier:
         return value.get_unchecked<std::string>();
     case NodeType::String:
         return "\"" + value.get_unchecked<std::string>() + "\"";
@@ -111,9 +105,6 @@ std::string NodeArena::dump(NodeLocRef ref) const {
         return std::to_string(value.get_unchecked<std::int64_t>());
     case NodeType::Boolean:
         return value.get_unchecked<bool>() ? "#t" : "#f";
-    case NodeType::Keyword:
-        return std::string(lex_defs::KEYWORDS[static_cast<std::size_t>(
-            value.get_unchecked<Keyword>())]);
     case NodeType::ProcedureCall: {
         const auto& children = value.get_unchecked<NodeList>();
         std::string result = "(";
@@ -198,18 +189,11 @@ const ASTNode* NodeArena::get(NodeLocRef ref) const noexcept {
     return Arena::get(ref.node_ref());
 }
 
-NodeLocRef NodeArena::get_keyword(LocRef loc, Keyword keyword) noexcept {
-    if (!_keywords[static_cast<std::size_t>(keyword)].is_valid())
-        _keywords[static_cast<std::size_t>(keyword)]
-            = Arena::emplace(NodeType::Keyword, keyword);
-    return NodeLocRef(_keywords[static_cast<std::size_t>(keyword)], loc);
-}
-
 NodeLocRef NodeArena::get_variable(LocRef loc, std::string&& name) noexcept {
     auto [it, inserted]
         = _variables.try_emplace(name, NodeArena::ASTNodeRef::invalid());
     if (inserted)
-        it->second = Arena::emplace(NodeType::Variable, std::move(name));
+        it->second = Arena::emplace(NodeType::Identifier, std::move(name));
     return NodeLocRef(it->second, loc);
 }
 
@@ -223,13 +207,6 @@ NodeLocRef NodeArena::get_boolean(LocRef loc, bool value) noexcept {
         _boolean_nodes.second = Arena::emplace(NodeType::Boolean, false);
     }
     return NodeLocRef(_boolean_nodes.second, loc);
-}
-
-NodeLocRef Cursor::get_keyword() const noexcept {
-    if (type() != TokenType::KEYWORD)
-        return NodeLocRef::invalid();
-    Keyword keyword = value().get_unchecked<Keyword>();
-    return arena().get_keyword(loc(), keyword);
 }
 
 NodeLocRef Cursor::get_ident() const noexcept {

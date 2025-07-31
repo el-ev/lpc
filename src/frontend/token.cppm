@@ -19,8 +19,6 @@ export namespace lex_defs {
     // constexpr std::string_view PECULIAR_IDENTIFIERS[3] = { "+", "-", "..." };
     constexpr std::string_view SPECIAL_INITIAL = "!$%&*/:<=>?^_~";
     constexpr std::string_view SPECIAL_SUBSEQUENT = "+-.@";
-
-    // TODO: Remove Keywords from AST
     constexpr std::string_view KEYWORDS[20]
         = { "and", "begin", "case", "cond", "define", "delay", "do", "else",
               "if", "lambda", "let", "let*", "letrec", "or", "quasiquote",
@@ -51,7 +49,6 @@ export enum class Keyword : std::uint8_t {
 };
 
 export enum class TokenType : std::uint8_t {
-    KEYWORD,
     IDENT,
     BOOLEAN,
     NUMBER,
@@ -73,7 +70,6 @@ export enum class TokenType : std::uint8_t {
 export [[nodiscard]] constexpr auto token_type_to_string(TokenType type)
     -> std::string_view {
     switch (type) {
-    case TokenType::KEYWORD     : return "KEYWORD";
     case TokenType::IDENT       : return "IDENT";
     case TokenType::BOOLEAN     : return "BOOLEAN";
     case TokenType::NUMBER      : return "NUMBER";
@@ -95,7 +91,7 @@ export class Token {
 private:
     TokenType _type;
     LocRef _location;
-    TaggedUnion<Keyword, std::string, std::int64_t, char, bool> _value;
+    TaggedUnion<std::string, std::int64_t, char, bool> _value;
 
     Token(const Token&) = default;
 

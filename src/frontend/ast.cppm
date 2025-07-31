@@ -17,8 +17,7 @@ using lpc::utils::TaggedUnion;
     /* Datums */                                                               \
     X(List)                                                                    \
     X(Vector)                                                                  \
-    X(Keyword)                                                                 \
-    X(Variable)                                                                \
+    X(Identifier)                                                                \
     X(Boolean)                                                                 \
     X(Number)                                                                  \
     X(Character)                                                               \
@@ -31,7 +30,6 @@ using lpc::utils::TaggedUnion;
     X(If)                                                                      \
     X(Assignment)                                                              \
     X(Definition)                                                              \
-    X(Invalid)
 
 #define ENUM_VALUE(name) name,
 export enum class NodeType : std::uint8_t { NODE_TYPE_LIST(ENUM_VALUE) };
@@ -58,13 +56,10 @@ class ASTNode {
 private:
     using NodeList = std::vector<NodeLocRef>;
     NodeType _type;
-    TaggedUnion<NodeList, Keyword, std::string, std::int64_t, char, bool>
+    TaggedUnion<NodeList, std::string, std::int64_t, char, bool>
         _value;
 
 public:
-    explicit ASTNode()
-        : _type(NodeType::Invalid) { };
-
     template <typename T>
     explicit ASTNode(NodeType type, T&& value)
         : _type(type)
@@ -164,11 +159,9 @@ public:
     [[nodiscard]] const ASTNode* get(NodeLocRef ref) const noexcept;
 
     [[nodiscard]] NodeLocRef get_boolean(LocRef loc, bool value) noexcept;
-    [[nodiscard]] NodeLocRef get_keyword(LocRef loc, Keyword keyword) noexcept;
     [[nodiscard]] NodeLocRef get_variable(
         LocRef loc, std::string&& name) noexcept;
 
-    [[nodiscard]] NodeLocRef insert_keyword(Keyword keyword, LocRef loc);
     [[nodiscard]] NodeLocRef insert_variable(
         const std::string& name, LocRef loc);
 
@@ -178,8 +171,6 @@ public:
     [[nodiscard]] std::string dump(NodeLocRef ref) const;
 
 private:
-    std::array<ASTNodeRef, static_cast<std::size_t>(Keyword::ARROW) + 1>
-        _keywords;
     std::unordered_map<std::string, ASTNodeRef> _variables;
     std::pair<ASTNodeRef, ASTNodeRef> _boolean_nodes;
 };
@@ -268,28 +259,6 @@ public:
         return type() == T;
     }
 
-    template <Keyword K>
-    [[nodiscard]] constexpr bool is() const noexcept {
-        return type() == TokenType::KEYWORD
-            && value().get_unchecked<Keyword>() == K;
-    }
-
-    template <std::size_t Hash>
-    [[nodiscard]] constexpr bool is() const noexcept {
-        if (type() != TokenType::IDENT)
-            return false;
-        auto string_hash = [](const std::string& str) noexcept {
-            std::size_t h = 14695981039346656037ULL;
-            for (const char& it : str) {
-                h ^= static_cast<std::size_t>(it);
-                h *= 1099511628211ULL;
-            }
-            return h;
-        };
-        return string_hash(value().get_unchecked<std::string>()) == Hash;
-    }
-
-    [[nodiscard]] NodeLocRef get_keyword() const noexcept;
     [[nodiscard]] NodeLocRef get_ident() const noexcept;
     [[nodiscard]] NodeLocRef get_constant() const noexcept;
 };

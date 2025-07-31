@@ -46,8 +46,7 @@ static constexpr auto rule() noexcept {
 return
 any(
     GetConstant()
-  , GetVariable()
-  , GetKeyword()
+  , GetIdentifier()
   , make_node<NodeType::List>(Def<List>())
   , make_node<NodeType::Vector>(
         chain(

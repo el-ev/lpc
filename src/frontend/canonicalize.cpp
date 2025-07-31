@@ -23,7 +23,7 @@ using lpc::utils::Error;
                 children[0].node_ref(), children[0].node_ref());
             lhs = children[0];
         } else {
-            lhs = arena.emplace(children[0].loc_ref(), NodeType::Variable,
+            lhs = arena.emplace(children[0].loc_ref(), NodeType::Identifier,
                 arena[children[0]].value().get_unchecked<std::string>()
                     + std::to_string(_counter++));
             _symbol_mapping.add_mapping(children[0].node_ref(), lhs.node_ref());
@@ -34,7 +34,7 @@ using lpc::utils::Error;
         return arena.emplace(
             node.loc_ref(), NodeType::Definition, NodeList { lhs, rhs });
     }
-    case NodeType::Variable: {
+    case NodeType::Identifier: {
         auto mapping = _symbol_mapping.get_mapping(node.node_ref());
         if (!mapping.has_value()) {
             Error("Variable '{}' is not bound at {}",
@@ -65,7 +65,7 @@ using lpc::utils::Error;
             std::ranges::subrange(children.begin() + 1, children.end()),
             std::back_inserter(new_children),
             [&](NodeLocRef child) { return visit(child, arena, false); });
-        if (arena[children[0]].is<NodeType::Variable>()) {
+        if (arena[children[0]].is<NodeType::Identifier>()) {
             auto mapping = _symbol_mapping.get_mapping(children[0].node_ref());
             if (!mapping.has_value()) {
                 // check if the first child is a builtin function
@@ -118,10 +118,10 @@ using lpc::utils::Error;
         new_params.reserve(params.size());
         std::ranges::transform(
             params, std::back_inserter(new_params), [&](NodeLocRef param) {
-                if (!arena[param].is<NodeType::Variable>())
+                if (!arena[param].is<NodeType::Identifier>())
                     return param;
                 NodeLocRef new_param
-                    = arena.emplace(param.loc_ref(), NodeType::Variable,
+                    = arena.emplace(param.loc_ref(), NodeType::Identifier,
                         arena[param].value().get_unchecked<std::string>()
                             + std::to_string(_counter++));
                 _symbol_mapping.add_mapping(

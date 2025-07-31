@@ -43,14 +43,6 @@ struct OneToken {
 };
 
 template <Keyword K>
-struct OneKeyword {
-    using manages_rollback = std::true_type;
-    explicit constexpr OneKeyword() noexcept = default;
-
-    [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
-};
-
-template <Keyword K>
 struct InsertKeyword {
     using manages_rollback = std::true_type;
     explicit constexpr InsertKeyword() noexcept = default;
@@ -58,16 +50,9 @@ struct InsertKeyword {
     [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
 };
 
-struct GetKeyword {
+struct GetIdentifier {
     using manages_rollback = std::true_type;
-    explicit constexpr GetKeyword() noexcept = default;
-
-    [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
-};
-
-struct GetVariable {
-    using manages_rollback = std::true_type;
-    explicit constexpr GetVariable() noexcept = default;
+    explicit constexpr GetIdentifier() noexcept = default;
 
     [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
 };
@@ -191,30 +176,13 @@ OptNodeList OneToken<T>::operator()(Cursor& cursor) const noexcept {
 }
 
 template <Keyword K>
-OptNodeList OneKeyword<K>::operator()(Cursor& cursor) const noexcept {
-    if (cursor.is<K>()) {
-        cursor.advance();
-        return NodeList {};
-    }
-    return std::nullopt;
-}
-
-OptNodeList GetKeyword::operator()(Cursor& cursor) const noexcept {
-    NodeLocRef node = cursor.get_keyword();
-    if (!node.is_valid())
-        return std::nullopt;
-    cursor.advance();
-    return NodeList(1, node);
-}
-
-template <Keyword K>
 OptNodeList InsertKeyword<K>::operator()(Cursor& cursor) const noexcept {
-    NodeLocRef node
-        = cursor.arena().emplace(cursor.loc(), NodeType::Keyword, K);
+    NodeLocRef node = cursor.arena().emplace(cursor.loc(), NodeType::Identifier,
+        std::string(lex_defs::KEYWORDS[static_cast<std::size_t>(K)]));
     return NodeList(1, node);
 }
 
-OptNodeList GetVariable::operator()(Cursor& cursor) const noexcept {
+OptNodeList GetIdentifier::operator()(Cursor& cursor) const noexcept {
     NodeLocRef node = cursor.get_ident();
     if (!node.is_valid())
         return std::nullopt;
