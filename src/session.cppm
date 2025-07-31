@@ -9,6 +9,7 @@ private:
     std::string_view _output_file_path;
     std::vector<std::string_view> _input_file_paths;
     std::vector<std::string> _print_passes;
+    std::string _backend;
     bool _print_json = false;
 
 public:
@@ -43,6 +44,13 @@ public:
             _print_json = true;
         else if (print_fmt == "sexpr")
             _print_json = false;
+    }
+
+    void set_backend(std::string_view backend) {
+        if (backend != "interp")
+            throw std::invalid_argument(
+                "Unsupported backend: " + std::string(backend));
+        _backend = std::string(backend);
     }
 
     [[nodiscard]] int run() noexcept;

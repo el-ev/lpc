@@ -8,6 +8,7 @@ import lpc.frontend.canonicalize;
 import lpc.frontend.syntax;
 import lpc.passes;
 import lpc.cps.lower;
+import lpc.backend.interp;
 
 namespace lpc {
 
@@ -65,13 +66,16 @@ int Session::run() noexcept {
     PassManager pass_manager;
     pass_manager.add_passes<
         // frontend::ExpandPass,
-        frontend::AnnonatePass,
-        frontend::CanonicalizePass,
-        cps::LowerPass
-    >();
+        frontend::AnnonatePass, frontend::CanonicalizePass, cps::LowerPass>();
     root = pass_manager.run_all(root, node_arena, _print_passes, _print_json);
     if (!root.is_valid())
         return 1;
+
+    if (_backend == "interp") {
+        backend::Interp interp;
+        return 0;
+    }
+
     return 0;
 }
 

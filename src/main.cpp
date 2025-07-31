@@ -26,6 +26,10 @@ auto main(int argc, char* argv[]) noexcept -> int {
         .add_option("print-fmt", NO_SHORT_NAME,
             "Print format, either 'json' or 'sexpr'. Default is 'sexpr'.",
             "sexpr", [&](auto print_fmt) { session.set_print_fmt(print_fmt); })
+        .add_option("backend", 'b',
+            "Backend to use, either 'interp', 'c', or 'llvm'. Default is "
+            "'interp'",
+            "interp", [&](auto backend) { session.set_backend(backend); })
         .build()
         .parse({ argv + 1, argv + argc });
 
