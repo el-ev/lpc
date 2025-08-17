@@ -2,6 +2,11 @@ module lpc.frontend.ast;
 
 namespace lpc::frontend {
 
+template <typename... Ts>
+struct SExprVisitor : Ts... {
+    using Ts::operator()...;
+};
+
 std::string SExprArena::dump_root(SExprRef root) const {
     if (!root.is_valid())
         return "";
@@ -14,46 +19,40 @@ std::string SExprArena::dump_root(SExprRef root) const {
 }
 
 std::string SExprArena::dump(SExprRef ref) const {
-    const SExpr& s = at(ref);
-    if (s.holds_alternative<LispNil>()) {
-        // normally won't happen
-    } else if (s.holds_alternative<LispIdent>()) {
-        return s.get_unchecked<LispIdent>().name;
-    } else if (s.holds_alternative<LispString>()) {
-        return "\"" + s.get_unchecked<LispString>() + "\"";
-    } else if (s.holds_alternative<LispNumber>()) {
-        return std::to_string(s.get_unchecked<LispNumber>());
-    } else if (s.holds_alternative<LispChar>()) {
-        char c = s.get_unchecked<LispChar>();
-        switch (c) {
-        case '\n':
-            return "#\\newline";
-        case ' ':
-            return "#\\space";
-        default:
-            return std::string("#\\") + c;
-        }
-    } else if (s.holds_alternative<LispBool>()) {
-        return s.get_unchecked<LispBool>() ? "#t" : "#f";
-    } else if (s.holds_alternative<SExprList>()) {
-        const auto& children = s.get_unchecked<SExprList>();
-        std::string result = "(";
-        for (std::size_t i = 0; i < children.elem.size() - 1; ++i) {
-            if (i > 0)
-                result += " ";
-            result += dump(children.elem[i].expr_ref());
-        }
-        if (!at(children.elem.back()).holds_alternative<LispNil>()) {
-            if (children.elem.size() > 1)
-                result += " . ";
-            result += dump(children.elem.back().expr_ref());
-        }
-        result += ")";
-        return result;
-    }
-
-    return "";
+    return at(ref).visit(
+        SExprVisitor { [](const LispIdent& id) { return id.name; },
+            [](const LispString& str) { return "\"" + str + "\""; },
+            [](const LispNumber& num) { return std::to_string(num); },
+            [](const LispChar& c) -> std::string {
+                switch (c) {
+                case '\n':
+                    return "#\\newline";
+                case ' ':
+                    return "#\\space";
+                default:
+                    return std::string("#\\") + c;
+                }
+            },
+            [](const LispBool& b) { return b ? "#t" : "#f"; },
+            [this](const SExprList& list) {
+                std::string result = "(";
+                for (std::size_t i = 0; i < list.elem.size() - 1; ++i) {
+                    if (i > 0)
+                        result += " ";
+                    result += dump(list.elem[i].expr_ref());
+                }
+                if (!list.elem.empty()
+                    && !at(list.elem.back()).holds_alternative<LispNil>()) {
+                    if (list.elem.size() > 1)
+                        result += " . ";
+                    result += dump(list.elem.back().expr_ref());
+                }
+                result += ")";
+                return result;
+            },
+            [](const auto&) { return ""; } });
 };
+
 const SExpr& SExprArena::at(SExprRef ref) const& {
     return Arena::at(ref);
 }
