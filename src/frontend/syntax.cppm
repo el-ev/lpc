@@ -9,8 +9,8 @@ export class Parser {
 private:
     std::vector<Token> _tokens;
     Cursor _cursor;
-    NodeArena _arena;
-    NodeLocRef _root;
+    SExprArena _arena;
+    SExprLocRef _root;
 
     void parse() noexcept;
 
@@ -20,7 +20,7 @@ public:
         : _tokens(std::move(tokens))
         , _cursor(_tokens, _arena)
         , _arena(std::move(location_arena))
-        , _root(NodeLocRef::invalid()) {
+        , _root(SExprLocRef::invalid()) {
         _arena.reserve(_tokens.size() >> 2u);
         parse();
     };
@@ -38,11 +38,11 @@ public:
         return _cursor.is_eof();
     }
 
-    [[nodiscard]] inline NodeLocRef root() noexcept {
+    [[nodiscard]] inline SExprLocRef root() noexcept {
         return _root;
     }
 
-    [[nodiscard]] inline NodeArena&& arena() noexcept {
+    [[nodiscard]] inline SExprArena&& arena() noexcept {
         return std::move(_arena);
     }
 };

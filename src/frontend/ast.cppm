@@ -10,103 +10,45 @@ namespace lpc::frontend {
 using lpc::utils::Arena;
 using lpc::utils::TaggedUnion;
 
-// AST node types
-// 7.1 Formal Syntax
-#define NODE_TYPE_LIST(X)                                                      \
-    X(Program)                                                                 \
-    /* Datums */                                                               \
-    X(List)                                                                    \
-    X(Vector)                                                                  \
-    X(Identifier)                                                              \
-    X(Boolean)                                                                 \
-    X(Number)                                                                  \
-    X(Character)                                                               \
-    X(String)                                                                  \
-    X(Nil)                                                                     \
-    /* Expressions */                                                          \
-    X(Quotation)                                                               \
-    X(ProcedureCall)                                                           \
-    X(Lambda)                                                                  \
-    X(If)                                                                      \
-    X(Assignment)                                                              \
-    X(Definition)                                                              \
-
-#define ENUM_VALUE(name) name,
-export enum class NodeType : std::uint8_t { NODE_TYPE_LIST(ENUM_VALUE) };
-#undef ENUM_VALUE
-
-#define CASE_STATEMENT(name)                                                   \
-    case NodeType::name:                                                       \
-        return #name;
-export [[nodiscard]] constexpr auto node_type_to_string(NodeType type)
-    -> std::string_view {
-    switch (type) { NODE_TYPE_LIST(CASE_STATEMENT) }
-    return "Unknown";
-}
-#undef CASE_STATEMENT
-
-export class ASTNode;
-export class NodeArena;
-export class NodeLocRef;
-export using ASTNodeRef = Arena<ASTNode, std::uint32_t>::elem_ref;
-export using NodeList = std::vector<NodeLocRef>;
-export using OptNodeList = std::optional<NodeList>;
-
-class ASTNode {
-private:
-    using NodeList = std::vector<NodeLocRef>;
-    NodeType _type;
-    TaggedUnion<NodeList, std::string, std::int64_t, char, bool>
-        _value;
-
+export class LispNil { };
+export class LispIdent {
 public:
-    template <typename T>
-    explicit ASTNode(NodeType type, T&& value)
-        : _type(type)
-        , _value(std::forward<T>(value)) {};
+    std::string name;
 
-    explicit ASTNode(const ASTNode&) = delete;
-    ASTNode& operator=(const ASTNode&) = delete;
-
-    ASTNode(ASTNode&&) noexcept = default;
-    ASTNode& operator=(ASTNode&&) noexcept = default;
-
-    template <NodeType... Ts>
-    [[nodiscard]] bool is() const noexcept {
-        return ((Ts == _type) || ...);
+    explicit LispIdent(std::string name)
+        : name(std::move(name)) {
     }
 
-    [[nodiscard]] NodeType type() const noexcept {
-        return _type;
-    }
-
-    [[nodiscard]] const auto& value() const& noexcept {
-        return _value;
+    [[nodiscard]] inline constexpr bool operator==(
+        const LispIdent& other) const noexcept {
+        return name == other.name;
     }
 };
-
-class NodeLocRef {
+export using LispString = std::string;
+export class SExpr;
+export class SExprArena;
+export using SExprRef = Arena<SExpr, std::uint32_t>::elem_ref;
+export class SExprLocRef {
 private:
-    using ASTNodeRef = Arena<ASTNode, std::uint32_t>::elem_ref;
-    ASTNodeRef _node_ref;
+    SExprRef _expr_ref;
     LocRef _loc_ref;
 
 public:
-    explicit NodeLocRef() noexcept = default;
-    explicit NodeLocRef(ASTNodeRef node_ref, LocRef loc_ref) noexcept
-        : _node_ref(node_ref)
+    explicit SExprLocRef() noexcept = default;
+    explicit SExprLocRef(SExprRef expr_ref, LocRef loc_ref) noexcept
+        : _expr_ref(expr_ref)
         , _loc_ref(loc_ref) { };
 
-    static constexpr NodeLocRef invalid() noexcept {
-        return NodeLocRef(ASTNodeRef::invalid(), LocRef::invalid());
+    static constexpr SExprLocRef invalid() noexcept {
+        return SExprLocRef(SExprRef::invalid(), LocRef::invalid());
     }
 
     [[nodiscard]] inline constexpr bool is_valid() const noexcept {
-        return _node_ref.is_valid();
+        return _expr_ref.is_valid();
     }
 
-    [[nodiscard]] inline constexpr ASTNodeRef node_ref() const noexcept {
-        return _node_ref;
+    [[nodiscard]] inline constexpr SExprRef expr_ref() const noexcept {
+        return _expr_ref;
     }
 
     [[nodiscard]] inline constexpr LocRef loc_ref() const noexcept {
@@ -114,35 +56,66 @@ public:
     }
 };
 
+export struct SExprList {
+    std::vector<SExprLocRef> elem;
+
+    [[nodiscard]] explicit SExprList() noexcept = default;
+    [[nodiscard]] explicit SExprList(
+        std::vector<SExprLocRef>&& elements) noexcept
+        : elem(std::move(elements)) { };
+};
+export struct SExprVector {
+    std::vector<SExprLocRef> elem;
+    [[nodiscard]] explicit SExprVector() noexcept = default;
+    [[nodiscard]] explicit SExprVector(
+        std::vector<SExprLocRef>&& elements) noexcept
+        : elem(std::move(elements)) { };
+};
+
+export class SExpr
+    : public TaggedUnion<LispNil, LispIdent, LispString, LispNumber, LispChar,
+          LispBool, SExprList, SExprVector> {
+public:
+    using TaggedUnion = TaggedUnion<LispNil, LispIdent, LispString, LispNumber,
+        LispChar, LispBool, SExprList, SExprVector>;
+
+    template <typename... Args>
+    [[nodiscard]] explicit SExpr(Args&&... args) noexcept
+        : TaggedUnion(std::forward<Args>(args)...) {
+    }
+};
+
 export inline constexpr bool operator==(
-    const NodeLocRef& lhs, const NodeLocRef& rhs) noexcept {
-    return lhs.node_ref() == rhs.node_ref() && lhs.loc_ref() == rhs.loc_ref();
+    const SExprLocRef& lhs, const SExprLocRef& rhs) noexcept {
+    return lhs.expr_ref() == rhs.expr_ref() && lhs.loc_ref() == rhs.loc_ref();
 }
 
-class NodeArena : Arena<ASTNode, std::uint32_t> {
+export using ParseResult = std::optional<std::vector<SExprLocRef>>;
+
+class SExprArena : Arena<SExpr, std::uint32_t> {
 private:
     LocationArena _loc_arena;
 
 public:
-    using ASTNodeRef = Arena<ASTNode, std::uint32_t>::elem_ref;
+    using SExprRef = Arena<SExpr, std::uint32_t>::elem_ref;
 
-    explicit NodeArena(LocationArena&& loc_arena)
+    explicit SExprArena(LocationArena&& loc_arena)
         : _loc_arena(std::move(loc_arena)) { };
 
     inline void reserve(std::size_t size) {
         Arena::reserve(size);
     }
 
-    [[nodiscard]] const ASTNode& operator[](NodeLocRef ref) const& {
+    [[nodiscard]] const SExpr& operator[](SExprLocRef ref) const& {
         return at(ref);
     }
 
     template <typename... Args>
-    NodeLocRef emplace(LocRef loc, Args&&... args) {
-        return NodeLocRef(Arena::emplace(std::forward<Args>(args)...), loc);
+    SExprLocRef emplace(LocRef loc, Args&&... args) {
+        return SExprLocRef(Arena::emplace(std::forward<Args>(args)...), loc);
     }
 
-    [[nodiscard]] inline Location location(NodeLocRef ref) const noexcept {
+    [[nodiscard]] inline Location location(SExprLocRef ref) const noexcept {
         return _loc_arena.at(ref.loc_ref());
     }
 
@@ -150,24 +123,22 @@ public:
         return _loc_arena.at(ref);
     }
 
-    [[nodiscard]] const ASTNode& at(NodeLocRef ref) const&;
-    [[nodiscard]] const ASTNode* get(NodeLocRef ref) const noexcept;
+    [[nodiscard]] const SExpr& at(SExprRef ref) const&;
+    [[nodiscard]] const SExpr& at(SExprLocRef ref) const&;
 
-    [[nodiscard]] NodeLocRef get_boolean(LocRef loc, bool value) noexcept;
-    [[nodiscard]] NodeLocRef get_variable(
+    [[nodiscard]] SExprLocRef get_boolean(LocRef loc, bool value) noexcept;
+    [[nodiscard]] SExprLocRef get_variable(
         LocRef loc, std::string&& name) noexcept;
 
-    [[nodiscard]] NodeLocRef insert_variable(
+    [[nodiscard]] SExprLocRef insert_variable(
         const std::string& name, LocRef loc);
 
-    [[nodiscard]] std::string dump_json(
-        NodeLocRef ref, std::size_t indent = 0) const;
-
-    [[nodiscard]] std::string dump(NodeLocRef ref) const;
+    [[nodiscard]] std::string dump_root(SExprRef root) const;
 
 private:
-    std::unordered_map<std::string, ASTNodeRef> _variables;
-    std::pair<ASTNodeRef, ASTNodeRef> _boolean_nodes;
+    [[nodiscard]] std::string dump(SExprRef ref) const;
+    std::unordered_map<std::string, SExprRef> _variables;
+    std::pair<SExprRef, SExprRef> _boolean_nodes;
 };
 
 export class Cursor {
@@ -175,7 +146,7 @@ private:
     const std::vector<Token>& _tokens;
     bool _failed = false;
     std::vector<Token>::const_iterator _token;
-    NodeArena& _arena;
+    SExprArena& _arena;
 
     struct SavePoint {
     private:
@@ -190,7 +161,7 @@ private:
 
 public:
     explicit constexpr Cursor(
-        const std::vector<Token>& tokens, NodeArena& arena) noexcept
+        const std::vector<Token>& tokens, SExprArena& arena) noexcept
         : _tokens(tokens)
         , _token(_tokens.begin())
         , _arena(arena) { };
@@ -241,11 +212,11 @@ public:
         return _token->value();
     }
 
-    [[nodiscard]] inline constexpr NodeArena& arena() & noexcept {
+    [[nodiscard]] inline constexpr SExprArena& arena() & noexcept {
         return _arena;
     }
 
-    [[nodiscard]] inline constexpr NodeArena& arena() const& noexcept {
+    [[nodiscard]] inline constexpr SExprArena& arena() const& noexcept {
         return _arena;
     }
 
@@ -254,8 +225,8 @@ public:
         return type() == T;
     }
 
-    [[nodiscard]] NodeLocRef get_ident() const noexcept;
-    [[nodiscard]] NodeLocRef get_constant() const noexcept;
+    [[nodiscard]] SExprLocRef get_ident() const noexcept;
+    [[nodiscard]] SExprLocRef get_constant() const noexcept;
 };
 
 } // namespace lpc::frontend

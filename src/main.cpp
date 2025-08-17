@@ -23,9 +23,6 @@ auto main(int argc, char* argv[]) noexcept -> int {
             "Print intermediate representations, separated by commas. (token, "
             "raw, ...)",
             "", [&](auto passes_str) { session.set_print_passes(passes_str); })
-        .add_option("print-fmt", NO_SHORT_NAME,
-            "Print format, either 'json' or 'sexpr'. Default is 'sexpr'.",
-            "sexpr", [&](auto print_fmt) { session.set_print_fmt(print_fmt); })
         .add_option("backend", 'b',
             "Backend to use, either 'interp', 'c', or 'llvm'. Default is "
             "'interp'",

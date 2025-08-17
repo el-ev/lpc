@@ -10,7 +10,6 @@ private:
     std::vector<std::string_view> _input_file_paths;
     std::vector<std::string> _print_passes;
     std::string _backend;
-    bool _print_json = false;
 
 public:
     explicit Session() = default;
@@ -37,13 +36,6 @@ public:
         std::ranges::for_each(split_view, [this](std::string_view pass) {
             _print_passes.emplace_back(pass);
         });
-    }
-
-    void set_print_fmt(std::string_view print_fmt) {
-        if (print_fmt == "json")
-            _print_json = true;
-        else if (print_fmt == "sexpr")
-            _print_json = false;
     }
 
     void set_backend(std::string_view backend) {

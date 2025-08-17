@@ -11,8 +11,8 @@ public:
     virtual ~Pass() = default;
 
     [[nodiscard]] virtual std::string name() const noexcept = 0;
-    [[nodiscard]] virtual NodeLocRef run(
-        NodeLocRef root, NodeArena& arena) noexcept
+    [[nodiscard]] virtual SExprLocRef run(
+        SExprLocRef root, SExprArena& arena) noexcept
         = 0;
 
     Pass(const Pass&) = delete;
@@ -44,17 +44,17 @@ public:
     }
 
     template <typename P, typename... Ps>
-        requires std::is_base_of_v<Pass, P> && (std::is_base_of_v<Pass, Ps> && ...)
+        requires std::is_base_of_v<Pass, P>
+        && (std::is_base_of_v<Pass, Ps> && ...)
     void add_passes() {
         _passes.emplace_back(std::make_unique<P>());
         if constexpr (sizeof...(Ps) > 0) {
             add_passes<Ps...>();
         }
     }
-        
 
-    [[nodiscard]] NodeLocRef run_all(NodeLocRef root, NodeArena& arena,
-        std::vector<std::string>& print_passes, bool print_json) noexcept;
+    [[nodiscard]] SExprLocRef run_all(SExprLocRef root, SExprArena& arena,
+        std::vector<std::string>& print_passes) noexcept;
 
     void clear() noexcept {
         _passes.clear();

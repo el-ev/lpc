@@ -10,6 +10,10 @@ namespace lpc::frontend {
 
 using lpc::utils::TaggedUnion;
 
+export using LispNumber = std::int64_t;
+export using LispChar = char;
+export using LispBool = bool;
+
 export namespace lex_defs {
     constexpr char COMMENT_START = ';';
     constexpr char NEWLINE = '\n';
@@ -91,7 +95,7 @@ export class Token {
 private:
     TokenType _type;
     LocRef _location;
-    TaggedUnion<std::string, std::int64_t, char, bool> _value;
+    TaggedUnion<std::string, LispNumber, LispChar, LispBool> _value;
 
     Token(const Token&) = default;
 

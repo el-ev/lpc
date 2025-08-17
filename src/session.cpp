@@ -3,7 +3,6 @@ module lpc.session;
 import lpc.utils.logging;
 import lpc.frontend.expand;
 import lpc.frontend.lexer;
-import lpc.frontend.canonicalize;
 import lpc.frontend.syntax;
 import lpc.passes;
 import lpc.cps.lower;
@@ -55,18 +54,12 @@ int Session::run() noexcept {
     auto root = parser.root();
     auto node_arena = std::move(parser.arena());
 
-    if (std::ranges::find(_print_passes, "raw") != _print_passes.end()) {
-        if (_print_json)
-            std::print("{}", node_arena.dump_json(root, 2));
-        else
-            std::print("{}", node_arena.dump(root));
-    }
+    if (std::ranges::find(_print_passes, "raw") != _print_passes.end())
+        std::print("{}", node_arena.dump_root(root.expr_ref()));
 
     PassManager pass_manager;
-    pass_manager.add_passes<
-        // frontend::ExpandPass,
-        frontend::CanonicalizePass, cps::LowerPass>();
-    root = pass_manager.run_all(root, node_arena, _print_passes, _print_json);
+    pass_manager.add_passes<frontend::ExpandPass>();
+    root = pass_manager.run_all(root, node_arena, _print_passes);
     if (!root.is_valid())
         return 1;
 

@@ -25,16 +25,12 @@ chain(
           , any(
                 chain(
                     OneToken<TokenType::DOT>()
-                  , Def<List>()
-                )
-              , chain(
-                    OneToken<TokenType::DOT>()
                   , Def<Datum>()
                 )
-              , make_node<NodeType::Nil>(Succeed())
+              , CreateNil()
             )
         )
-      , make_node<NodeType::Nil>(Succeed())
+      , CreateNil()
     )
   , OneToken<TokenType::RPAREN>()
 );
@@ -47,15 +43,15 @@ return
 any(
     GetConstant()
   , GetIdentifier()
-  , make_node<NodeType::List>(Def<List>())
-  , make_node<NodeType::Vector>(
+  , CreateList(Def<List>())
+  , CreateVector(
         chain(
             OneToken<TokenType::SHELL_LPAREN>()
           , Many<Def<Datum>>()
           , OneToken<TokenType::RPAREN>()
         )
     )
-  , make_node<NodeType::List>(
+  , CreateList(
         chain(
             any(
                 chain(
@@ -76,7 +72,7 @@ any(
                 )
             )
           , Def<Datum>()
-          , make_node<NodeType::Nil>(Succeed())
+          , CreateNil()
         )
     )
 );
@@ -85,7 +81,7 @@ any(
 
 struct Program {
 static constexpr auto rule() noexcept {
-    return make_node<NodeType::Program>(
+    return CreateList(
         Many(Def<Datum>())
     );
 }

@@ -7,20 +7,10 @@ export namespace lpc::frontend::combinators {
 
 template <typename T>
 concept ParserRule = requires(T t) {
-    { t(std::declval<Cursor&>()) } -> std::same_as<OptNodeList>;
+    { t(std::declval<Cursor&>()) } -> std::same_as<ParseResult>;
     typename T::manages_rollback;
     requires std::same_as<typename T::manages_rollback, std::true_type>
         || std::same_as<typename T::manages_rollback, std::false_type>;
-};
-
-struct Succeed {
-    using manages_rollback = std::true_type;
-
-    explicit constexpr Succeed() noexcept = default;
-
-    [[nodiscard]] OptNodeList operator()(Cursor& /* cursor */) const noexcept {
-        return NodeList {};
-    }
 };
 
 template <typename Wrapper>
@@ -29,7 +19,7 @@ struct Def {
 
     explicit constexpr Def() noexcept = default;
 
-    [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept {
+    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept {
         return Wrapper::rule()(cursor);
     }
 };
@@ -39,7 +29,7 @@ struct OneToken {
     using manages_rollback = std::true_type;
     explicit constexpr OneToken() noexcept = default;
 
-    [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
+    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
 
 template <Keyword K>
@@ -47,36 +37,47 @@ struct InsertKeyword {
     using manages_rollback = std::true_type;
     explicit constexpr InsertKeyword() noexcept = default;
 
-    [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
+    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
 
 struct GetIdentifier {
     using manages_rollback = std::true_type;
     explicit constexpr GetIdentifier() noexcept = default;
 
-    [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
+    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
 
 struct GetConstant {
     using manages_rollback = std::true_type;
     explicit constexpr GetConstant() noexcept = default;
 
-    [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
+    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
 
-template <NodeType T, ParserRule R>
-struct OneNode {
+template <ParserRule R>
+struct CreateList {
     using manages_rollback = std::true_type;
-    explicit constexpr OneNode() noexcept = default;
-    explicit constexpr OneNode(NodeType /* t */, R /* r */) noexcept { };
+    explicit constexpr CreateList() noexcept = default;
+    explicit constexpr CreateList(R /* r */) noexcept { };
 
-    [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
+    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
 
-template <NodeType T, ParserRule R>
-[[nodiscard]] constexpr auto make_node(R r) noexcept {
-    return OneNode<T, R> { T, r };
-}
+template <ParserRule R>
+struct CreateVector {
+    using manages_rollback = std::true_type;
+    explicit constexpr CreateVector() noexcept = default;
+    explicit constexpr CreateVector(R /* r */) noexcept { };
+
+    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
+};
+
+struct CreateNil {
+    using manages_rollback = std::true_type;
+    explicit constexpr CreateNil() noexcept = default;
+
+    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
+};
 
 template <ParserRule Lhs, ParserRule Rhs>
 struct Any {
@@ -85,7 +86,7 @@ struct Any {
     explicit constexpr Any() noexcept = default;
     explicit constexpr Any(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
 
-    [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
+    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
 
 template <ParserRule Lhs, ParserRule Rhs>
@@ -95,7 +96,7 @@ struct Then {
     explicit constexpr Then() noexcept = default;
     explicit constexpr Then(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
 
-    [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
+    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
 
 template <ParserRule R>
@@ -105,7 +106,7 @@ struct Maybe {
     explicit constexpr Maybe() noexcept = default;
     explicit constexpr Maybe(R /* r */) noexcept { };
 
-    [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
+    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
 
 template <ParserRule R>
@@ -115,7 +116,7 @@ struct Many {
     explicit constexpr Many() noexcept = default;
     explicit constexpr Many(R /* r */) noexcept { };
 
-    [[nodiscard]] OptNodeList operator()(Cursor& cursor) const noexcept;
+    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
 
 template <ParserRule R>
@@ -167,43 +168,44 @@ template <ParserRule... Rules>
 }
 
 template <TokenType T>
-OptNodeList OneToken<T>::operator()(Cursor& cursor) const noexcept {
+ParseResult OneToken<T>::operator()(Cursor& cursor) const noexcept {
     if (cursor.is<T>()) {
         cursor.advance();
-        return NodeList {};
+        return std::vector<SExprLocRef> {};
     }
     return std::nullopt;
 }
 
 template <Keyword K>
-OptNodeList InsertKeyword<K>::operator()(Cursor& cursor) const noexcept {
-    NodeLocRef node = cursor.arena().emplace(cursor.loc(), NodeType::Identifier,
-        std::string(lex_defs::KEYWORDS[static_cast<std::size_t>(K)]));
-    return NodeList(1, node);
+ParseResult InsertKeyword<K>::operator()(Cursor& cursor) const noexcept {
+    SExprLocRef node = cursor.arena().emplace(cursor.loc(),
+        LispIdent(
+            std::string(lex_defs::KEYWORDS[static_cast<std::size_t>(K)])));
+    return std::vector<SExprLocRef> { node };
 }
 
-OptNodeList GetIdentifier::operator()(Cursor& cursor) const noexcept {
-    NodeLocRef node = cursor.get_ident();
+ParseResult GetIdentifier::operator()(Cursor& cursor) const noexcept {
+    SExprLocRef node = cursor.get_ident();
     if (!node.is_valid())
         return std::nullopt;
     cursor.advance();
-    return NodeList(1, node);
+    return std::vector<SExprLocRef> { node };
 }
 
-OptNodeList GetConstant::operator()(Cursor& cursor) const noexcept {
-    NodeLocRef node = cursor.get_constant();
+ParseResult GetConstant::operator()(Cursor& cursor) const noexcept {
+    SExprLocRef node = cursor.get_constant();
     if (!node.is_valid())
         return std::nullopt;
     cursor.advance();
-    return NodeList(1, node);
+    return std::vector<SExprLocRef> { node };
 }
 
-template <NodeType T, ParserRule R>
-OptNodeList OneNode<T, R>::operator()(Cursor& cursor) const noexcept {
+template <ParserRule R>
+ParseResult CreateList<R>::operator()(Cursor& cursor) const noexcept {
     if (cursor.is_failed())
         return std::nullopt;
     LocRef loc = cursor.loc();
-    OptNodeList res;
+    ParseResult res;
     if constexpr (R::manages_rollback::value) {
         res = R()(cursor);
         if (!res)
@@ -216,12 +218,41 @@ OptNodeList OneNode<T, R>::operator()(Cursor& cursor) const noexcept {
             return std::nullopt;
         }
     }
-    NodeLocRef node = cursor.arena().emplace(loc, T, std::move(res.value()));
-    return NodeList(1, node);
+    SExprLocRef node
+        = cursor.arena().emplace(loc, SExprList(std::move(res.value())));
+    return std::vector<SExprLocRef> { node };
+}
+
+template <ParserRule R>
+ParseResult CreateVector<R>::operator()(Cursor& cursor) const noexcept {
+    if (cursor.is_failed())
+        return std::nullopt;
+    LocRef loc = cursor.loc();
+    ParseResult res;
+    if constexpr (R::manages_rollback::value) {
+        res = R()(cursor);
+        if (!res)
+            return std::nullopt;
+    } else {
+        auto save = cursor.save();
+        res = R()(cursor);
+        if (!res) {
+            cursor.set(save);
+            return std::nullopt;
+        }
+    }
+    SExprLocRef node
+        = cursor.arena().emplace(loc, SExprVector(std::move(res.value())));
+    return std::vector<SExprLocRef> { node };
+}
+
+ParseResult CreateNil::operator()(Cursor& cursor) const noexcept {
+    SExprLocRef node = cursor.arena().emplace(cursor.loc(), LispNil());
+    return std::vector<SExprLocRef> { node };
 }
 
 template <ParserRule Lhs, ParserRule Rhs>
-OptNodeList Any<Lhs, Rhs>::operator()(Cursor& cursor) const noexcept {
+ParseResult Any<Lhs, Rhs>::operator()(Cursor& cursor) const noexcept {
     if constexpr (Lhs::manages_rollback::value
         && Rhs::manages_rollback::value) {
         auto left = Lhs()(cursor);
@@ -262,7 +293,7 @@ OptNodeList Any<Lhs, Rhs>::operator()(Cursor& cursor) const noexcept {
 }
 
 template <ParserRule Lhs, ParserRule Rhs>
-OptNodeList Then<Lhs, Rhs>::operator()(Cursor& cursor) const noexcept {
+ParseResult Then<Lhs, Rhs>::operator()(Cursor& cursor) const noexcept {
     auto left = Lhs()(cursor);
     if (!left)
         return std::nullopt;
@@ -278,26 +309,26 @@ OptNodeList Then<Lhs, Rhs>::operator()(Cursor& cursor) const noexcept {
 }
 
 template <ParserRule R>
-OptNodeList Maybe<R>::operator()(Cursor& cursor) const noexcept {
+ParseResult Maybe<R>::operator()(Cursor& cursor) const noexcept {
     if constexpr (R::manages_rollback::value) {
         auto result = R()(cursor);
         if (result)
             return std::move(result.value());
-        return NodeList {};
+        return {};
     } else {
         auto save = cursor.save();
         auto result = R()(cursor);
         if (!result) {
             cursor.set(save);
-            return NodeList {};
+            return {};
         }
         return std::move(result.value());
     }
 }
 
 template <ParserRule R>
-OptNodeList Many<R>::operator()(Cursor& cursor) const noexcept {
-    NodeList result;
+ParseResult Many<R>::operator()(Cursor& cursor) const noexcept {
+    std::vector<SExprLocRef> result;
     if constexpr (R::manages_rollback::value) {
         while (auto nl = R()(cursor)) {
             if (result.capacity() - result.size() < nl->size())

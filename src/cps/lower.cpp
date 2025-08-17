@@ -2,7 +2,8 @@ module lpc.cps.lower;
 
 namespace lpc::cps {
 
-[[nodiscard]] NodeLocRef LowerPass::run(NodeLocRef root, NodeArena& arena) noexcept {
+[[nodiscard]] SExprLocRef LowerPass::run(
+    SExprLocRef root, SExprArena& arena) noexcept {
     return root;
 }
 

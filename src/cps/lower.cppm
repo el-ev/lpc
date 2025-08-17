@@ -13,8 +13,8 @@ public:
         return "lower";
     }
 
-    [[nodiscard]] NodeLocRef run(
-        NodeLocRef root, NodeArena& arena) noexcept final;
+    [[nodiscard]] SExprLocRef run(
+        SExprLocRef root, SExprArena& arena) noexcept final;
 
     LowerPass() = default;
     ~LowerPass() final = default;
