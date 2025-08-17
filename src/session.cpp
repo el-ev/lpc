@@ -2,7 +2,6 @@ module lpc.session;
 
 import lpc.utils.logging;
 import lpc.frontend.expand;
-import lpc.frontend.annonate;
 import lpc.frontend.lexer;
 import lpc.frontend.canonicalize;
 import lpc.frontend.syntax;
@@ -66,7 +65,7 @@ int Session::run() noexcept {
     PassManager pass_manager;
     pass_manager.add_passes<
         // frontend::ExpandPass,
-        frontend::AnnonatePass, frontend::CanonicalizePass, cps::LowerPass>();
+        frontend::CanonicalizePass, cps::LowerPass>();
     root = pass_manager.run_all(root, node_arena, _print_passes, _print_json);
     if (!root.is_valid())
         return 1;

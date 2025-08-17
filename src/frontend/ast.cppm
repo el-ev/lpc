@@ -17,7 +17,7 @@ using lpc::utils::TaggedUnion;
     /* Datums */                                                               \
     X(List)                                                                    \
     X(Vector)                                                                  \
-    X(Identifier)                                                                \
+    X(Identifier)                                                              \
     X(Boolean)                                                                 \
     X(Number)                                                                  \
     X(Character)                                                               \
@@ -71,14 +71,9 @@ public:
     ASTNode(ASTNode&&) noexcept = default;
     ASTNode& operator=(ASTNode&&) noexcept = default;
 
-    template <NodeType First, NodeType... Ts>
+    template <NodeType... Ts>
     [[nodiscard]] bool is() const noexcept {
-        if (_type == First)
-            return true;
-        if constexpr (sizeof...(Ts) > 0) {
-            return is<Ts...>();
-        }
-        return false;
+        return ((Ts == _type) || ...);
     }
 
     [[nodiscard]] NodeType type() const noexcept {
