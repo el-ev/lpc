@@ -99,7 +99,7 @@ void App::parse(std::vector<std::string_view> args) noexcept {
         }
 
         if (found_option == nullptr) {
-            Error("Unknown option: ", *it);
+            Error("Unknown option: {}", *it);
             std::println("Run with '--help' to see available options.");
             std::quick_exit(1);
         }
@@ -107,7 +107,8 @@ void App::parse(std::vector<std::string_view> args) noexcept {
         if (found_option->accepts_value) {
             ++it;
             if (it == args.end()) {
-                Error("Option", found_option->long_name, "requires a value");
+                Error("Option '{}' requires a value",
+                    found_option->long_name);
                 std::quick_exit(1);
             }
             if (found_option->callback)
@@ -128,22 +129,22 @@ void App::add_option(Option&& option) noexcept {
 
     if (option.short_name != NO_SHORT_NAME
         && std::isalpha(option.short_name) == 0) {
-        Error("Invalid short option name: '-", option.short_name,
-            "'. Must be a letter.");
+        Error("Invalid short option name: '-{}'. Must be a letter.",
+            option.short_name);
         return;
     }
 
     if (std::isalpha(option.long_name[0]) == 0
         || !std::ranges::all_of(option.long_name,
             [](char c) { return std::isalnum(c) || c == '-'; })) {
-        Error("Invalid option name: '--", option.long_name, "'");
+        Error("Invalid option name: '--{}'", option.long_name);
         return;
     }
 
     if (option.short_name != NO_SHORT_NAME
         && option.short_name != option.long_name[0])
-        Warn("Short option \"-", option.short_name,
-            "\"does not match long option \" --", option.long_name, "\"");
+        Warn("Short option '-{}' does not match long option '--{}'",
+            option.short_name, option.long_name);
 
     if (_help_enabled
         && (option.long_name == "help" || option.short_name == 'h')) {
@@ -155,8 +156,8 @@ void App::add_option(Option&& option) noexcept {
         if (existing.long_name == option.long_name
             || (existing.short_name != NO_SHORT_NAME
                 && existing.short_name == option.short_name)) {
-            Error("Option already exists: '--", existing.long_name, "' or '-",
-                existing.short_name, "'");
+            Error("Option already exists: '--{}' or '-{}'",
+                existing.long_name, existing.short_name);
             return;
         }
     }

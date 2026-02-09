@@ -38,11 +38,13 @@ public:
         });
     }
 
-    void set_backend(std::string_view backend) {
-        if (backend != "interp")
-            throw std::invalid_argument(
-                "Unsupported backend: " + std::string(backend));
+    bool set_backend(std::string_view backend) noexcept {
+        if (backend != "interp") {
+            std::println(std::cerr, "Unsupported backend: {}", backend);
+            return false;
+        }
         _backend = std::string(backend);
+        return true;
     }
 
     [[nodiscard]] int run() noexcept;

@@ -12,4 +12,4 @@ void Logger::make_active() noexcept {
     set_logger(std::move(*this));
 }
 
-} // namespace lpc
+} // namespace lpc::utils

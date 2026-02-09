@@ -24,9 +24,12 @@ auto main(int argc, char* argv[]) noexcept -> int {
             "raw, ...)",
             "", [&](auto passes_str) { session.set_print_passes(passes_str); })
         .add_option("backend", 'b',
-            "Backend to use, either 'interp', 'c', or 'llvm'. Default is "
-            "'interp'",
-            "interp", [&](auto backend) { session.set_backend(backend); })
+            "Backend to use. Currently only 'interp' is supported.",
+            "interp",
+            [&](auto backend) {
+                if (!session.set_backend(backend))
+                    std::quick_exit(1);
+            })
         .build()
         .parse({ argv + 1, argv + argc });
 

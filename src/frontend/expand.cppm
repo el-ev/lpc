@@ -91,19 +91,14 @@ export class ExpandPass final : public Pass {
 private:
     LexEnv _env;
 
-    template <NodeType T>
-    [[nodiscard]] NodeLocRef walk(NodeLocRef node, NodeArena& _arena) noexcept;
-
 public:
     [[nodiscard]] std::string name() const noexcept final {
         return "expand";
     }
 
-    [[nodiscard]] NodeLocRef run(
-        NodeLocRef root, NodeArena& arena) noexcept final;
+    [[nodiscard]] SExprLocRef run(
+        SExprLocRef root, SExprArena& arena) noexcept final;
 
-    // [[nodiscard]] int try_add_syntax_def(
-    //     NodeLocRef list_node_ref, NodeArena& arena) noexcept;
     ExpandPass() = default;
     ~ExpandPass() final = default;
 };

@@ -36,16 +36,28 @@ std::string SExprArena::dump(SExprRef ref) const {
             [](const LispBool& b) { return b ? "#t" : "#f"; },
             [this](const SExprList& list) {
                 std::string result = "(";
-                for (std::size_t i = 0; i < list.elem.size() - 1; ++i) {
+                if (!list.elem.empty()) {
+                    for (std::size_t i = 0; i + 1 < list.elem.size(); ++i) {
+                        if (i > 0)
+                            result += " ";
+                        result += dump(list.elem[i].expr_ref());
+                    }
+                    if (!at(list.elem.back())
+                             .holds_alternative<LispNil>()) {
+                        if (list.elem.size() > 1)
+                            result += " . ";
+                        result += dump(list.elem.back().expr_ref());
+                    }
+                }
+                result += ")";
+                return result;
+            },
+            [this](const SExprVector& vec) {
+                std::string result = "#(";
+                for (std::size_t i = 0; i < vec.elem.size(); ++i) {
                     if (i > 0)
                         result += " ";
-                    result += dump(list.elem[i].expr_ref());
-                }
-                if (!list.elem.empty()
-                    && !at(list.elem.back()).holds_alternative<LispNil>()) {
-                    if (list.elem.size() > 1)
-                        result += " . ";
-                    result += dump(list.elem.back().expr_ref());
+                    result += dump(vec.elem[i].expr_ref());
                 }
                 result += ")";
                 return result;

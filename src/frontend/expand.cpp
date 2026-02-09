@@ -6,8 +6,10 @@ namespace lpc::frontend {
 
 using lpc::utils::Error;
 
-[[nodiscard]] NodeLocRef ExpandPass::run(
-    NodeLocRef root, NodeArena& arena) noexcept {
+[[nodiscard]] SExprLocRef ExpandPass::run(
+    SExprLocRef root, SExprArena& /* arena */) noexcept {
+    // TODO: implement macro expansion
+    return root;
 }
 
 } // namespace lpc::frontend

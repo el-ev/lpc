@@ -105,11 +105,19 @@ class TestChecker:
         
         return TestResult(stdout_match, stderr_match)
             
+    @staticmethod
+    def _extract_error_lines(stderr_output: str) -> list:
+        return [
+            line.split('] ')[1].strip()
+            for line in stderr_output.splitlines()
+            if line.startswith('[ERROR]')
+        ]
+
     def _print_comparison_results(self, stdout_match: bool, stderr_match: bool, 
                                 expected_stderr: str, actual_stderr: str):
         if not stderr_match:
             expected_lines = expected_stderr.splitlines()
-            actual_lines = self.comparator._extract_error_lines(actual_stderr)
+            actual_lines = self._extract_error_lines(actual_stderr)
             
             if len(actual_lines) != len(expected_lines):
                 print("✗ stderr differs in number of lines")

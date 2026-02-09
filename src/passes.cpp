@@ -30,4 +30,4 @@ SExprLocRef PassManager::run_all(SExprLocRef root, SExprArena& arena,
     return result;
 }
 
-} // namespace lpc::frontend
+} // namespace lpc

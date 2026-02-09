@@ -44,8 +44,9 @@ bool Lexer::skip_whitespaces() noexcept {
     if (std::ranges::find(lex_defs::WHITESPACE, _cursor[0])
         == lex_defs::WHITESPACE.end())
         return false;
-    while (std::ranges::find(lex_defs::WHITESPACE, _cursor[0])
-        != lex_defs::WHITESPACE.end()) {
+    while (!is_eof()
+        && std::ranges::find(lex_defs::WHITESPACE, _cursor[0])
+            != lex_defs::WHITESPACE.end()) {
         if (_cursor[0] == lex_defs::NEWLINE) {
             _line++;
             _line_start = _cursor.begin();
@@ -372,7 +373,7 @@ bool Lexer::read_operator() noexcept {
         _cursor.remove_prefix(1);
         return true;
     case ',':
-        if (_cursor.size() > 1 && _cursor[0] == '@') {
+        if (_cursor.size() > 1 && _cursor[1] == '@') {
             _tokens.emplace_back(TokenType::COMMA_AT, loc(",@"));
             _cursor.remove_prefix(2);
             return true;

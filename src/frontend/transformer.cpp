@@ -5,11 +5,12 @@ namespace lpc::frontend {
 class Transformer {
 private:
     struct SyntaxRule {
-        NodeLocRef pattern;
-        NodeLocRef template_;
+        SExprLocRef pattern;
+        SExprLocRef template_;
     };
+
 public:
-    Transformer() {
-    }
+    Transformer() = default;
 };
+
 } // namespace lpc::frontend
