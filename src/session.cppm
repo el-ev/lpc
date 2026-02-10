@@ -6,7 +6,7 @@ namespace lpc {
 
 export class Session {
 private:
-    std::string_view _output_file_path;
+    std::string _output_file_path;
     std::vector<std::string_view> _input_file_paths;
     std::vector<std::string> _print_passes;
     std::string _backend;
@@ -19,11 +19,11 @@ public:
     Session(Session&&) = default;
     Session& operator=(Session&&) = default;
 
-    void set_output_file(std::string_view path) {
-        _output_file_path = path;
+    void set_output_file(std::string&& path) {
+        _output_file_path = std::move(path);
     }
 
-    void set_input_files(std::vector<std::string_view>&& input_file_paths) {
+    void set_input_files(std::vector<std::string>&& input_file_paths) {
         _input_file_paths = std::move(input_file_paths);
     }
 

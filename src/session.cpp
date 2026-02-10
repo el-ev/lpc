@@ -24,7 +24,7 @@ int Session::run() noexcept {
     }
     std::string_view path = _input_file_paths[0];
 
-    std::ifstream input_file(path.data());
+    std::ifstream input_file(std::string(path));
     if (!input_file.is_open()) {
         Error("Failed to open input file: {}", path);
         return 1;

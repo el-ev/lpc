@@ -130,8 +130,6 @@ public:
     [[nodiscard]] SExprLocRef get_variable(
         LocRef loc, std::string&& name) noexcept;
 
-    [[nodiscard]] SExprLocRef insert_variable(
-        const std::string& name, LocRef loc);
 
     [[nodiscard]] std::string dump_root(SExprRef root) const;
 

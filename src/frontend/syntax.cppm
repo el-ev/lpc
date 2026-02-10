@@ -8,8 +8,8 @@ namespace lpc::frontend {
 export class Parser {
 private:
     std::vector<Token> _tokens;
-    Cursor _cursor;
     SExprArena _arena;
+    Cursor _cursor;
     SExprLocRef _root;
 
     void parse() noexcept;
@@ -18,8 +18,8 @@ public:
     explicit constexpr Parser(
         std::vector<Token>&& tokens, LocationArena&& location_arena) noexcept
         : _tokens(std::move(tokens))
-        , _cursor(_tokens, _arena)
         , _arena(std::move(location_arena))
+        , _cursor(_tokens, _arena)
         , _root(SExprLocRef::invalid()) {
         _arena.reserve(_tokens.size() >> 2u);
         parse();

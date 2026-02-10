@@ -135,4 +135,4 @@ AppBuilder App::builder(
         std::move(name), std::move(author), std::move(description));
 }
 
-} // namespace lpc
+} // namespace lpc::utils

@@ -349,37 +349,37 @@ export namespace tagged_union {
 
     template <typename... Types, TaggedUnion<Types...>::index_t I>
         requires(I < sizeof...(Types))
-    [[nodiscard]] constexpr auto& get(TaggedUnion<Types...>& v) {
+    [[nodiscard]] constexpr auto get(TaggedUnion<Types...>& v) {
         return v.template get<I>();
     }
 
     template <typename... Types, TaggedUnion<Types...>::index_t I>
         requires(I < sizeof...(Types))
-    [[nodiscard]] constexpr const auto& get(const TaggedUnion<Types...>& v) {
+    [[nodiscard]] constexpr auto get(const TaggedUnion<Types...>& v) {
         return v.template get<I>();
     }
 
     template <typename... Types, TaggedUnion<Types...>::index_t I>
         requires(I < sizeof...(Types))
-    [[nodiscard]] constexpr auto&& get(TaggedUnion<Types...>&& v) {
+    [[nodiscard]] constexpr auto get(TaggedUnion<Types...>&& v) {
         return std::move(v).template get<I>();
     }
 
     template <typename T, typename... Types>
         requires(std::disjunction_v<std::is_same<T, Types>...>)
-    [[nodiscard]] constexpr T& get(TaggedUnion<Types...>& v) {
+    [[nodiscard]] constexpr auto get(TaggedUnion<Types...>& v) {
         return v.template get<T>();
     }
 
     template <typename T, typename... Types>
         requires(std::disjunction_v<std::is_same<T, Types>...>)
-    [[nodiscard]] constexpr const T& get(const TaggedUnion<Types...>& v) {
+    [[nodiscard]] constexpr auto get(const TaggedUnion<Types...>& v) {
         return v.template get<T>();
     }
 
     template <typename T, typename... Types>
         requires(std::disjunction_v<std::is_same<T, Types>...>)
-    [[nodiscard]] constexpr T&& get(TaggedUnion<Types...>&& v) {
+    [[nodiscard]] constexpr auto get(TaggedUnion<Types...>&& v) {
         return std::move(v).template get<T>();
     }
 

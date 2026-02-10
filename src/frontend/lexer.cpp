@@ -238,7 +238,10 @@ bool Lexer::read_number(int radix) noexcept {
         return false;
     }
 
-    std::string value_string(value_start.substr(0, size - sharp_count));
+    auto prefix_len
+        = static_cast<std::size_t>(std::distance(_cursor.begin(), value_start.begin()));
+    std::string value_string(
+        value_start.substr(0, size - prefix_len - sharp_count));
     std::int64_t value = std::stoll(value_string, nullptr, radix_value);
     _tokens.emplace_back(
         TokenType::NUMBER, loc(std::string(_cursor.substr(0, size))), value);
