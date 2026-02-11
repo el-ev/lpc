@@ -31,11 +31,16 @@ public:
 private:
     std::vector<SyntaxRule> _rules;
     SExprArena& _def_arena;
+    std::set<std::string> _literals;
 
 public:
-    explicit Transformer(std::vector<SyntaxRule> rules, SExprArena& def_arena)
+    explicit Transformer(std::vector<SyntaxRule> rules,
+        std::vector<std::string> literals, SExprArena& def_arena)
         : _rules(std::move(rules))
-        , _def_arena(def_arena) { }
+        , _def_arena(def_arena)
+        , _literals(std::make_move_iterator(literals.begin()),
+              std::make_move_iterator(literals.end())) {
+    }
 
     [[nodiscard]] SExprLocRef transcribe(
         SExprLocRef input, SExprArena& input_arena) const;

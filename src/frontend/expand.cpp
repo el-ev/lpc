@@ -397,8 +397,22 @@ static SExprLocRef expand_define_syntax(
         return root;
     }
 
-    // spec_list[1]: literals list (TODO: honour literal matching)
+    // spec_list[1]: literals list
     // spec_list[2…]: rules
+    std::vector<std::string> literals;
+    if (spec_list.size() >= 2) {
+        if (ctx.arena.at(spec_list[1]).holds_alternative<SExprList>()) {
+            const auto& lit_list
+                = ctx.arena.at(spec_list[1]).get<SExprList>()->get().elem;
+            for (const auto& lit : lit_list) {
+                if (ctx.arena.at(lit).holds_alternative<LispIdent>()) {
+                    literals.push_back(
+                        ctx.arena.at(lit).get<LispIdent>()->get().name);
+                }
+            }
+        }
+    }
+
     std::vector<Transformer::SyntaxRule> rules;
     for (std::size_t i = 2; i < spec_list.size(); ++i) {
         if (!ctx.arena.at(spec_list[i]).holds_alternative<SExprList>())
@@ -409,8 +423,8 @@ static SExprLocRef expand_define_syntax(
             rules.push_back({ rule_parts[0], rule_parts[1] });
     }
 
-    auto transformer
-        = std::make_shared<Transformer>(std::move(rules), ctx.arena);
+    auto transformer = std::make_shared<Transformer>(
+        std::move(rules), std::move(literals), ctx.arena);
     ctx.env.add_binding(macro_name,
         Binding(MacroBinding {
             .transformer = transformer, .is_stdlib = ctx.is_stdlib }));
@@ -465,8 +479,6 @@ static SExprLocRef expand_macro(
     }
     auto new_ctx = ctx;
     new_ctx.is_stdlib = macro.is_stdlib;
-    // Macro expansion result might contain valid top-level forms if we are at
-    // top-level
     return expand(add_scope(result, intro, ctx.arena), new_ctx);
 }
 
@@ -543,7 +555,6 @@ static SExprLocRef expand_macro(
         out.reserve(list.elem.size());
         for (const auto& el : list.elem) {
             auto sub_ctx = ctx;
-            // implicity sequence / function call args -> not top level
             sub_ctx.is_top_level = false;
             auto r = expand(el, sub_ctx);
             if (!r.is_valid())
@@ -609,7 +620,7 @@ static constexpr std::string_view STDLIB_SOURCE = R"STDLIB(
          (cond clause1 clause2 ...)))))
 
 ; It works for now
-(define-syntax macro-error
+(define-syntax syntax-error
   (syntax-rules ()))
 
   ; TODO missing begin letrec
@@ -683,11 +694,7 @@ void ExpandPass::load_stdlib(SExprArena& /* user_arena */) {
             return SExprLocRef::invalid();
         return resolve_names(expanded, arena);
     }
-
-    auto expanded = expand(root, ctx);
-    if (_had_error || !expanded.is_valid())
-        return SExprLocRef::invalid();
-    return resolve_names(expanded, arena);
+    __builtin_unreachable();
 }
 
 ExpandPass::ExpandPass(bool show_stdlib_expansion) noexcept
