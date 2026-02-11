@@ -19,12 +19,6 @@ set(CMAKE_CXX_EXTENSIONS ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# --- import std setup ---
-# CMake's auto-detection of libc++.modules.json fails on Homebrew LLVM because
-# clang -print-library-module-manifest-path returns <NOT PRESENT>.
-# We manually locate the manifest and provide it to cmake.
-
-# Try compiler detection first
 execute_process(
   COMMAND "${CMAKE_CXX_COMPILER}" -print-library-module-manifest-path
   OUTPUT_VARIABLE _libcxx_manifest
@@ -107,7 +101,6 @@ target_compile_options(std_module PRIVATE $<$<CONFIG:Release>:-march=native -O3 
 target_link_options(std_module PRIVATE $<$<CONFIG:Debug>:-fsanitize=address>)
 set_target_properties(std_module PROPERTIES CXX_MODULE_STD OFF)
 
-# --- Main target ---
 file(GLOB_RECURSE MAIN "src/main.cpp")
 file(GLOB_RECURSE CPP_MODULE_INTERFACE "src/*.cppm")
 file(GLOB_RECURSE CPP_MODULE_IMPL "src/*.cpp")
@@ -128,7 +121,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
-target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_options(${PROJECT_NAME} PRIVATE -Wall -Wextra -Wpedantic -ffile-prefix-map=${CMAKE_SOURCE_DIR}=.)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build (Debug/Release)" FORCE)

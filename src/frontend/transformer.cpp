@@ -118,7 +118,6 @@ static bool match(SExprLocRef pattern, SExprArena& pattern_arena,
             && !input_arena.at(i_list.elem.back()).holds_alternative<LispNil>();
 
         if (!p_improper) {
-            // Proper pattern matches only proper list
             if (i_improper)
                 return false;
 
@@ -134,11 +133,7 @@ static bool match(SExprLocRef pattern, SExprArena& pattern_arena,
             }
         }
 
-        // If proper pattern with ellipsis (and proper input forced above),
-        // or improper pattern (checked below).
-
         if (!p_improper) {
-            // Proper pattern with ellipsis
             if (ellipsis_pos == 0)
                 return false;
 

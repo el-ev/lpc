@@ -624,6 +624,73 @@ static constexpr std::string_view STDLIB_SOURCE = R"STDLIB(
   (syntax-rules ()))
 
   ; TODO missing begin letrec
+
+(define-syntax quasiquote
+  (syntax-rules 
+    (unquote unquote-splicing)
+    ((_ x) 
+     (__qq-expand () x))))
+
+(define-syntax __qq-expand
+  (syntax-rules
+    (unquote unquote-splicing quasiquote)
+    ((_ () (unquote x))
+     x)
+    
+    ((_ () (unquote-splicing x))
+     (syntax-error "unquote-splicing at level 0"))
+
+    ((_ () (quasiquote x))
+     (list 'quasiquote (__qq-expand (x) x)))
+    
+    ((_ (x . d) (unquote e))
+     (list 'unquote (__qq-expand d e)))
+    
+    ((_ (x . d) (quasiquote e))
+     (list 'quasiquote (__qq-expand (x x . d) e)))
+
+    ((_ d #(e ...))
+     (list->vector (__qq-list d (e ...))))
+
+    ((_ d (e . f))
+     (__qq-list d (e . f)))
+
+    ((_ d atom)
+     'atom)))
+
+(define-syntax __qq-list
+  (syntax-rules (unquote unquote-splicing quasiquote)
+    ((_ () ((unquote-splicing x) . rest))
+     (append x (__qq-list () rest)))
+    
+    ((_ (x . d) ((unquote-splicing e) . rest))
+     (cons (list 'unquote-splicing (__qq-expand d e))
+           (__qq-list (x . d) rest)))
+    
+    ((_ () (unquote e))
+     e)
+    
+    ((_ (x . d) (unquote e))
+     (list 'unquote (__qq-expand d e)))
+    
+    ((_ d (head . tail))
+     (cons (__qq-expand d head) (__qq-list d tail)))
+    
+    ((_ d atom)
+     'atom)))
+
+(define-syntax unquote
+  (syntax-rules
+    ()
+    ((_ x)
+     (syntax-error "unquote outside of quasiquote"))))
+
+(define-syntax unquote-splicing
+    (syntax-rules
+      ()
+      ((_ x)
+       (syntax-error "unquote-splicing outside of quasiquote"))))
+
 )STDLIB";
 
 void ExpandPass::load_stdlib(SExprArena& /* user_arena */) {
