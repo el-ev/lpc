@@ -433,13 +433,14 @@ static SExprLocRef expand_define_syntax(
 
 static void report_expansion_error(SExprLocRef failed_expr,
     ExpansionStack& stack, ExpStackRef frame, SExprArena& arena,
-    bool show_stdlib, bool& had_error) {
+    bool show_stdlib, bool& had_error,
+    std::string_view msg = "no syntax-rules pattern matched") {
     had_error = true;
 
     auto resolved = resolve_names(failed_expr, arena);
     auto failed_str = arena.dump(resolved.expr_ref());
 
-    Error("macro expansion failed: no syntax-rules pattern matched");
+    Error("macro expansion failed: {}", msg);
     std::println(std::cerr, "  for: {}", failed_str);
 
     auto cur = frame;
@@ -539,6 +540,18 @@ static SExprLocRef expand_macro(
                     return expand_define(list, root, ctx);
                 if (name == "define-syntax")
                     return expand_define_syntax(list, root, ctx);
+                if (name == "syntax-error") {
+                    std::string msg;
+                    if (list.elem.size() >= 3) {
+                        auto msg_expr = ctx.arena.at(list.elem[2]);
+                        if (msg_expr.holds_alternative<LispString>()) {
+                            msg = msg_expr.get<LispString>()->get();
+                        }
+                    }
+                    report_expansion_error(root, ctx.stack, ctx.parent,
+                        ctx.arena, ctx.show_stdlib, ctx.had_error, msg);
+                    return root;
+                }
             }
 
             if (binding && binding->holds_alternative<MacroBinding>()) {
@@ -619,11 +632,7 @@ static constexpr std::string_view STDLIB_SOURCE = R"STDLIB(
          (begin result1 result2 ...)
          (cond clause1 clause2 ...)))))
 
-; It works for now
-(define-syntax syntax-error
-  (syntax-rules ()))
-
-  ; TODO missing begin letrec
+; TODO missing begin letrec
 
 (define-syntax quasiquote
   (syntax-rules 
@@ -774,6 +783,7 @@ ExpandPass::ExpandPass(bool show_stdlib_expansion) noexcept
     _env.define_core_syntax("begin");
     _env.define_core_syntax("define");
     _env.define_core_syntax("define-syntax");
+    _env.define_core_syntax("syntax-error");
 }
 
 } // namespace lpc::frontend

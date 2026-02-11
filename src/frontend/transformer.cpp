@@ -270,11 +270,12 @@ static bool match(SExprLocRef pattern, SExprArena& pattern_arena,
 }
 
 static SExprLocRef instantiate(SExprLocRef element, SExprArena& tmpl_arena,
-    SExprArena& output_arena, const Bindings& bindings) {
+    SExprArena& output_arena, const Bindings& bindings,
+    LocRef call_site_loc) {
     if (!element.is_valid())
         return element;
 
-    auto loc = element.loc_ref();
+    auto loc = call_site_loc;
     const auto& expr = tmpl_arena.at(element);
 
     if (expr.holds_alternative<LispIdent>()) {
@@ -309,15 +310,18 @@ static SExprLocRef instantiate(SExprLocRef element, SExprArena& tmpl_arena,
         if (ellipsis_pos < 0) {
             for (const auto& el : elems)
                 out.push_back(
-                    instantiate(el, tmpl_arena, output_arena, bindings));
+                    instantiate(el, tmpl_arena, output_arena, bindings,
+                        call_site_loc));
         } else if (ellipsis_pos == 0) {
             for (const auto& el : elems)
                 out.push_back(
-                    instantiate(el, tmpl_arena, output_arena, bindings));
+                    instantiate(el, tmpl_arena, output_arena, bindings,
+                        call_site_loc));
         } else {
             for (int i = 0; i < ellipsis_pos - 1; ++i)
                 out.push_back(
-                    instantiate(elems[i], tmpl_arena, output_arena, bindings));
+                    instantiate(elems[i], tmpl_arena, output_arena, bindings,
+                        call_site_loc));
 
             auto repeat_tmpl = elems[ellipsis_pos - 1];
 
@@ -342,16 +346,19 @@ static SExprLocRef instantiate(SExprLocRef element, SExprArena& tmpl_arena,
                         if (val.is_list && i < val.values.size())
                             val = BindingValue::single(val.values[i]);
                     out.push_back(instantiate(
-                        repeat_tmpl, tmpl_arena, output_arena, temp));
+                        repeat_tmpl, tmpl_arena, output_arena, temp,
+                        call_site_loc));
                 }
             } else {
                 out.push_back(instantiate(
-                    repeat_tmpl, tmpl_arena, output_arena, bindings));
+                    repeat_tmpl, tmpl_arena, output_arena, bindings,
+                    call_site_loc));
             }
 
             for (std::size_t i = ellipsis_pos + 1; i < elems.size(); ++i)
                 out.push_back(
-                    instantiate(elems[i], tmpl_arena, output_arena, bindings));
+                    instantiate(elems[i], tmpl_arena, output_arena, bindings,
+                        call_site_loc));
         }
 
         return output_arena.emplace(loc, SExprList(std::move(out)));
@@ -386,8 +393,8 @@ SExprLocRef Transformer::transcribe(
         Bindings bindings;
         if (match(rule.pattern, _def_arena, input, input_arena, bindings,
                 _literals)) {
-            return instantiate(
-                rule.template_, _def_arena, input_arena, bindings);
+            return instantiate(rule.template_, _def_arena, input_arena,
+                bindings, input.loc_ref());
         }
     }
     return SExprLocRef::invalid();
