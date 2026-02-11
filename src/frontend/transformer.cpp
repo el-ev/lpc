@@ -12,7 +12,7 @@ static bool is_ellipsis(SExprLocRef ref, SExprArena& arena) {
     const auto& expr = arena.at(ref);
     if (!expr.holds_alternative<LispIdent>())
         return false;
-    return expr.get<LispIdent>()->get().name == "...";
+    return expr.get_unchecked<LispIdent>().name == "...";
 }
 
 static std::size_t logical_size(const SExprList& list, SExprArena& arena) {
@@ -29,11 +29,11 @@ static void collect_pattern_vars(
         return;
     const auto& expr = arena.at(pattern);
     if (expr.holds_alternative<LispIdent>()) {
-        const auto& name = expr.get<LispIdent>()->get().name;
+        const auto& name = expr.get_unchecked<LispIdent>().name;
         if (name != "_" && name != "...")
             vars.insert(name);
     } else if (expr.holds_alternative<SExprList>()) {
-        const auto& list = expr.get<SExprList>()->get().elem;
+        const auto& list = expr.get_unchecked<SExprList>().elem;
         for (const auto& el : list) {
             collect_pattern_vars(el, arena, vars);
         }
@@ -75,7 +75,7 @@ static bool match(SExprLocRef pattern, SExprArena& pattern_arena,
     const auto& p_expr = pattern_arena.at(pattern);
 
     if (p_expr.holds_alternative<LispIdent>()) {
-        const auto& name = p_expr.get<LispIdent>()->get().name;
+        const auto& name = p_expr.get_unchecked<LispIdent>().name;
         if (name == "_")
             return true;
 
@@ -83,7 +83,7 @@ static bool match(SExprLocRef pattern, SExprArena& pattern_arena,
             const auto& i_expr = input_arena.at(input);
             if (!i_expr.holds_alternative<LispIdent>())
                 return false;
-            return i_expr.get<LispIdent>()->get().name == name;
+                return i_expr.get_unchecked<LispIdent>().name == name;
         }
 
         bindings[name] = BindingValue::single(input);
@@ -97,8 +97,8 @@ static bool match(SExprLocRef pattern, SExprArena& pattern_arena,
         if (!i_expr.holds_alternative<SExprList>())
             return false;
 
-        const auto& p_list = p_expr.get<SExprList>()->get();
-        const auto& i_list = i_expr.get<SExprList>()->get();
+        const auto& p_list = p_expr.get_unchecked<SExprList>();
+        const auto& i_list = i_expr.get_unchecked<SExprList>();
 
         std::size_t p_logical = logical_size(p_list, pattern_arena);
         std::size_t i_logical = logical_size(i_list, input_arena);
@@ -279,7 +279,7 @@ static SExprLocRef instantiate(SExprLocRef element, SExprArena& tmpl_arena,
     const auto& expr = tmpl_arena.at(element);
 
     if (expr.holds_alternative<LispIdent>()) {
-        auto ident = expr.get<LispIdent>()->get();
+        auto ident = expr.get_unchecked<LispIdent>();
         auto it = bindings.find(ident.name);
         if (it != bindings.end()) {
             if (!it->second.is_list && !it->second.values.empty())
@@ -291,7 +291,7 @@ static SExprLocRef instantiate(SExprLocRef element, SExprArena& tmpl_arena,
     }
 
     if (expr.holds_alternative<SExprList>()) {
-        auto elems = expr.get<SExprList>()->get().elem;
+        auto elems = expr.get_unchecked<SExprList>().elem;
         std::size_t tmpl_logical = elems.size();
         if (!elems.empty()
             && tmpl_arena.at(elems.back()).holds_alternative<LispNil>())
@@ -367,19 +367,19 @@ static SExprLocRef instantiate(SExprLocRef element, SExprArena& tmpl_arena,
     if (expr.holds_alternative<LispNil>())
         return output_arena.emplace(loc, LispNil());
     if (expr.holds_alternative<LispNumber>()) {
-        auto v = expr.get<LispNumber>()->get();
+        auto v = expr.get_unchecked<LispNumber>();
         return output_arena.emplace(loc, v);
     }
     if (expr.holds_alternative<LispBool>()) {
-        auto v = expr.get<LispBool>()->get();
+        auto v = expr.get_unchecked<LispBool>();
         return output_arena.emplace(loc, v);
     }
     if (expr.holds_alternative<LispChar>()) {
-        auto v = expr.get<LispChar>()->get();
+        auto v = expr.get_unchecked<LispChar>();
         return output_arena.emplace(loc, v);
     }
     if (expr.holds_alternative<LispString>()) {
-        auto v = expr.get<LispString>()->get();
+        auto v = expr.get_unchecked<LispString>();
         return output_arena.emplace(loc, std::move(v));
     }
 

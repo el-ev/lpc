@@ -26,12 +26,12 @@ struct ExpCtx {
         return expr;
     const auto& sexpr = arena.at(expr);
     if (sexpr.holds_alternative<LispIdent>()) {
-        auto ident = sexpr.get<LispIdent>()->get();
+        auto ident = sexpr.get_unchecked<LispIdent>();
         ident.scopes.insert(scope);
         return arena.emplace(expr.loc_ref(), std::move(ident));
     }
     if (sexpr.holds_alternative<SExprList>()) {
-        auto elems = sexpr.get<SExprList>()->get().elem; // copy
+        auto elems = sexpr.get_unchecked<SExprList>().elem; // copy
         std::vector<SExprLocRef> v;
         v.reserve(elems.size());
         for (const auto& el : elems)
@@ -39,7 +39,7 @@ struct ExpCtx {
         return arena.emplace(expr.loc_ref(), SExprList(std::move(v)));
     }
     if (sexpr.holds_alternative<SExprVector>()) {
-        auto elems = sexpr.get<SExprVector>()->get().elem; // copy
+        auto elems = sexpr.get_unchecked<SExprVector>().elem; // copy
         std::vector<SExprLocRef> v;
         v.reserve(elems.size());
         for (const auto& el : elems)
@@ -55,12 +55,12 @@ struct ExpCtx {
         return expr;
     const auto& sexpr = arena.at(expr);
     if (sexpr.holds_alternative<LispIdent>()) {
-        auto ident = sexpr.get<LispIdent>()->get();
+        auto ident = sexpr.get_unchecked<LispIdent>();
         ident.scopes.clear();
         return arena.emplace(expr.loc_ref(), std::move(ident));
     }
     if (sexpr.holds_alternative<SExprList>()) {
-        auto elems = sexpr.get<SExprList>()->get().elem;
+        auto elems = sexpr.get_unchecked<SExprList>().elem;
         std::vector<SExprLocRef> v;
         v.reserve(elems.size());
         for (const auto& el : elems)
@@ -82,13 +82,13 @@ static void collect_idents(SExprLocRef root, SExprArena& arena,
         return;
     const auto& expr = arena.at(root);
     if (expr.holds_alternative<LispIdent>()) {
-        const auto& id = expr.get<LispIdent>()->get();
+        const auto& id = expr.get_unchecked<LispIdent>();
         groups[id.name].insert(id.scopes);
     } else if (expr.holds_alternative<SExprList>()) {
-        for (const auto& el : expr.get<SExprList>()->get().elem)
+        for (const auto& el : expr.get_unchecked<SExprList>().elem)
             collect_idents(el, arena, groups);
     } else if (expr.holds_alternative<SExprVector>()) {
-        for (const auto& el : expr.get<SExprVector>()->get().elem)
+        for (const auto& el : expr.get_unchecked<SExprVector>().elem)
             collect_idents(el, arena, groups);
     }
 }
@@ -99,7 +99,7 @@ static SExprLocRef apply_names(SExprLocRef root, SExprArena& arena,
         return root;
     const auto& expr = arena.at(root);
     if (expr.holds_alternative<LispIdent>()) {
-        const auto& id = expr.get<LispIdent>()->get();
+        const auto& id = expr.get_unchecked<LispIdent>();
         auto it
             = name_map.find(ScopeKey { .name = id.name, .scopes = id.scopes });
         if (it != name_map.end())
@@ -107,7 +107,7 @@ static SExprLocRef apply_names(SExprLocRef root, SExprArena& arena,
         return root;
     }
     if (expr.holds_alternative<SExprList>()) {
-        const auto& list = expr.get<SExprList>()->get();
+        const auto& list = expr.get_unchecked<SExprList>();
         std::vector<SExprLocRef> v;
         v.reserve(list.elem.size());
         for (const auto& el : list.elem)
@@ -115,7 +115,7 @@ static SExprLocRef apply_names(SExprLocRef root, SExprArena& arena,
         return arena.emplace(root.loc_ref(), SExprList(std::move(v)));
     }
     if (expr.holds_alternative<SExprVector>()) {
-        const auto& vec = expr.get<SExprVector>()->get();
+        const auto& vec = expr.get_unchecked<SExprVector>();
         std::vector<SExprLocRef> v;
         v.reserve(vec.elem.size());
         for (const auto& el : vec.elem)
@@ -173,13 +173,13 @@ static SExprLocRef expand_lambda(
 
     auto bind = [&](SExprLocRef p) {
         if (ctx.arena.at(p).holds_alternative<LispIdent>()) {
-            auto id = ctx.arena.at(p).get<LispIdent>()->get();
+            auto id = ctx.arena.at(p).get_unchecked<LispIdent>();
             ctx.env.add_binding(id, Binding(VarBinding { id }));
         }
     };
     const auto& p_expr = ctx.arena.at(scoped_params);
     if (p_expr.holds_alternative<SExprList>()) {
-        for (const auto& p : p_expr.get<SExprList>()->get().elem)
+        for (const auto& p : p_expr.get_unchecked<SExprList>().elem)
             bind(p);
     } else if (p_expr.holds_alternative<LispIdent>()) {
         bind(scoped_params);
@@ -254,7 +254,7 @@ static SExprLocRef expand_define(
     auto var = list.elem[1];
 
     if (ctx.arena.at(var).holds_alternative<SExprList>()) {
-        const auto& var_list = ctx.arena.at(var).get<SExprList>()->get().elem;
+        const auto& var_list = ctx.arena.at(var).get_unchecked<SExprList>().elem;
         if (var_list.empty())
             return root;
 
@@ -293,8 +293,8 @@ static SExprLocRef expand_define(
 
     // (define var expr)
     if (ctx.arena.at(var).holds_alternative<LispIdent>()) {
-        ctx.env.add_binding(ctx.arena.at(var).get<LispIdent>()->get(),
-            Binding(VarBinding { ctx.arena.at(var).get<LispIdent>()->get() }));
+        ctx.env.add_binding(ctx.arena.at(var).get_unchecked<LispIdent>(),
+            Binding(VarBinding { ctx.arena.at(var).get_unchecked<LispIdent>() }));
     }
 
     std::vector<SExprLocRef> out;
@@ -403,11 +403,11 @@ static SExprLocRef expand_define_syntax(
     if (spec_list.size() >= 2) {
         if (ctx.arena.at(spec_list[1]).holds_alternative<SExprList>()) {
             const auto& lit_list
-                = ctx.arena.at(spec_list[1]).get<SExprList>()->get().elem;
+                = ctx.arena.at(spec_list[1]).get_unchecked<SExprList>().elem;
             for (const auto& lit : lit_list) {
                 if (ctx.arena.at(lit).holds_alternative<LispIdent>()) {
                     literals.push_back(
-                        ctx.arena.at(lit).get<LispIdent>()->get().name);
+                        ctx.arena.at(lit).get_unchecked<LispIdent>().name);
                 }
             }
         }
@@ -418,7 +418,7 @@ static SExprLocRef expand_define_syntax(
         if (!ctx.arena.at(spec_list[i]).holds_alternative<SExprList>())
             continue;
         const auto& rule_parts
-            = ctx.arena.at(spec_list[i]).get<SExprList>()->get().elem;
+            = ctx.arena.at(spec_list[i]).get_unchecked<SExprList>().elem;
         if (rule_parts.size() >= 2)
             rules.push_back({ rule_parts[0], rule_parts[1] });
     }
@@ -490,7 +490,7 @@ static SExprLocRef expand_macro(
     const auto& sexpr = ctx.arena.at(root);
 
     if (sexpr.holds_alternative<LispIdent>()) {
-        const auto& ident = sexpr.get<LispIdent>()->get();
+        const auto& ident = sexpr.get_unchecked<LispIdent>();
         auto binding = ctx.env.find_binding(ident);
         if (!binding) {
             auto clean = ident;
@@ -499,31 +499,31 @@ static SExprLocRef expand_macro(
         }
         if (binding->holds_alternative<VarBinding>())
             return ctx.arena.emplace(
-                root.loc_ref(), binding->get<VarBinding>()->get().id);
+                root.loc_ref(), binding->get_unchecked<VarBinding>().id);
         if (binding->holds_alternative<CoreBinding>()) {
             auto clean = ident;
             clean.scopes.clear();
             return ctx.arena.emplace(root.loc_ref(), std::move(clean));
         }
         if (binding->holds_alternative<MacroBinding>()) {
-            bool is_stdlib = binding->get<MacroBinding>()->get().is_stdlib;
+            bool is_stdlib = binding->get_unchecked<MacroBinding>().is_stdlib;
             ExpStackRef frame = ctx.stack.push(root, is_stdlib, ctx.parent);
             auto macro_ctx = ctx;
             macro_ctx.parent = frame;
             return expand_macro(
-                root, binding->get<MacroBinding>()->get(), macro_ctx);
+                root, binding->get_unchecked<MacroBinding>(), macro_ctx);
         }
         return root;
     }
 
     if (sexpr.holds_alternative<SExprList>()) {
-        auto list = sexpr.get<SExprList>()->get();
+        auto list = sexpr.get_unchecked<SExprList>();
         if (list.elem.empty())
             return root;
 
         const auto& head_expr = ctx.arena.at(list.elem[0]);
         if (head_expr.holds_alternative<LispIdent>()) {
-            auto head_id = head_expr.get<LispIdent>()->get();
+            auto head_id = head_expr.get_unchecked<LispIdent>();
             auto binding = ctx.env.find_binding(head_id);
 
             if (binding && binding->holds_alternative<CoreBinding>()) {
@@ -545,7 +545,7 @@ static SExprLocRef expand_macro(
                     if (list.elem.size() >= 3) {
                         auto msg_expr = ctx.arena.at(list.elem[2]);
                         if (msg_expr.holds_alternative<LispString>()) {
-                            msg = msg_expr.get<LispString>()->get();
+                            msg = msg_expr.get_unchecked<LispString>();
                         }
                     }
                     report_expansion_error(root, ctx.stack, ctx.parent,
@@ -555,7 +555,7 @@ static SExprLocRef expand_macro(
             }
 
             if (binding && binding->holds_alternative<MacroBinding>()) {
-                bool is_stdlib = binding->get<MacroBinding>()->get().is_stdlib;
+                bool is_stdlib = binding->get_unchecked<MacroBinding>().is_stdlib;
                 ExpStackRef frame = ctx.stack.push(root, is_stdlib, ctx.parent);
                 auto macro_ctx = ctx;
                 macro_ctx.parent = frame;
@@ -717,7 +717,7 @@ void ExpandPass::load_stdlib(SExprArena& /* user_arena */) {
     const auto& root_expr = _stdlib_arena->at(stdlib_root);
     if (root_expr.holds_alternative<SExprList>()) {
         bool dummy_error = false;
-        for (const auto& form : root_expr.get<SExprList>()->get().elem) {
+        for (const auto& form : root_expr.get_unchecked<SExprList>().elem) {
             ExpCtx ctx {
                 .env = _env,
                 .arena = *_stdlib_arena,
@@ -753,7 +753,7 @@ void ExpandPass::load_stdlib(SExprArena& /* user_arena */) {
     };
 
     if (arena.at(root).holds_alternative<SExprList>()) {
-        const auto& list = arena.at(root).get<SExprList>()->get();
+        const auto& list = arena.at(root).get_unchecked<SExprList>();
         std::vector<SExprLocRef> out;
         out.reserve(list.elem.size());
         for (const auto& el : list.elem) {
