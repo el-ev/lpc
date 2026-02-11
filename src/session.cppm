@@ -7,9 +7,10 @@ namespace lpc {
 export class Session {
 private:
     std::string _output_file_path;
-    std::vector<std::string_view> _input_file_paths;
+    std::vector<std::string> _input_file_paths;
     std::vector<std::string> _print_passes;
     std::string _backend;
+    bool _show_stdlib_expansion = false;
 
 public:
     explicit Session() = default;
@@ -45,6 +46,10 @@ public:
         }
         _backend = std::string(backend);
         return true;
+    }
+
+    void set_show_stdlib_expansion(bool v) noexcept {
+        _show_stdlib_expansion = v;
     }
 
     [[nodiscard]] int run() noexcept;

@@ -24,7 +24,7 @@ int Session::run() noexcept {
     }
     std::string_view path = _input_file_paths[0];
 
-    std::ifstream input_file(std::string(path));
+    std::ifstream input_file { std::string(path) };
     if (!input_file.is_open()) {
         Error("Failed to open input file: {}", path);
         return 1;
@@ -58,13 +58,13 @@ int Session::run() noexcept {
         std::print("{}", node_arena.dump_root(root.expr_ref()));
 
     PassManager pass_manager;
-    pass_manager.add_passes<frontend::ExpandPass>();
+    pass_manager.add_pass<frontend::ExpandPass>(_show_stdlib_expansion);
     root = pass_manager.run_all(root, node_arena, _print_passes);
     if (!root.is_valid())
         return 1;
 
     if (_backend == "interp") {
-        backend::Interp interp;
+        // backend::Interp interp;
         return 0;
     }
 

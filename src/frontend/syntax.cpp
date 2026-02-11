@@ -82,7 +82,10 @@ any(
 struct Program {
 static constexpr auto rule() noexcept {
     return CreateList(
-        Many(Def<Datum>())
+        chain(
+            Many(Def<Datum>())
+          , CreateNil()
+        )
     );
 }
 };

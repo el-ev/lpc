@@ -10,18 +10,22 @@ namespace lpc::frontend {
 using lpc::utils::Arena;
 using lpc::utils::TaggedUnion;
 
+export using ScopeID = std::uint32_t;
 export class LispNil { };
+
 export class LispIdent {
 public:
     std::string name;
+    std::set<ScopeID> scopes;
 
-    explicit LispIdent(std::string name)
-        : name(std::move(name)) {
+    explicit LispIdent(std::string name, std::set<ScopeID> scopes = {})
+        : name(std::move(name))
+        , scopes(std::move(scopes)) {
     }
 
     [[nodiscard]] inline constexpr bool operator==(
         const LispIdent& other) const noexcept {
-        return name == other.name;
+        return name == other.name && scopes == other.scopes;
     }
 };
 export using LispString = std::string;
@@ -130,11 +134,10 @@ public:
     [[nodiscard]] SExprLocRef get_variable(
         LocRef loc, std::string&& name) noexcept;
 
-
     [[nodiscard]] std::string dump_root(SExprRef root) const;
+    [[nodiscard]] std::string dump(SExprRef ref) const;
 
 private:
-    [[nodiscard]] std::string dump(SExprRef ref) const;
     std::unordered_map<std::string, SExprRef> _variables;
     std::pair<SExprRef, SExprRef> _boolean_nodes;
 };

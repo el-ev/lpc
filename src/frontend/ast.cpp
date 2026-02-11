@@ -1,4 +1,5 @@
 module lpc.frontend.ast;
+import std;
 
 namespace lpc::frontend {
 
@@ -13,56 +14,65 @@ std::string SExprArena::dump_root(SExprRef root) const {
     const auto& children = at(root).get_unchecked<SExprList>();
     std::string result;
     for (const auto& child : children.elem) {
+        if (at(child).holds_alternative<LispNil>())
+            continue;
         result += dump(child.expr_ref()) + "\n";
     }
     return result;
 }
 
 std::string SExprArena::dump(SExprRef ref) const {
-    return at(ref).visit(
-        SExprVisitor { [](const LispIdent& id) { return id.name; },
-            [](const LispString& str) { return "\"" + str + "\""; },
-            [](const LispNumber& num) { return std::to_string(num); },
-            [](const LispChar& c) -> std::string {
-                switch (c) {
-                case '\n':
-                    return "#\\newline";
-                case ' ':
-                    return "#\\space";
-                default:
-                    return std::string("#\\") + c;
-                }
-            },
-            [](const LispBool& b) { return b ? "#t" : "#f"; },
-            [this](const SExprList& list) {
-                std::string result = "(";
-                if (!list.elem.empty()) {
-                    for (std::size_t i = 0; i + 1 < list.elem.size(); ++i) {
-                        if (i > 0)
-                            result += " ";
-                        result += dump(list.elem[i].expr_ref());
-                    }
-                    if (!at(list.elem.back())
-                             .holds_alternative<LispNil>()) {
-                        if (list.elem.size() > 1)
-                            result += " . ";
-                        result += dump(list.elem.back().expr_ref());
-                    }
-                }
-                result += ")";
-                return result;
-            },
-            [this](const SExprVector& vec) {
-                std::string result = "#(";
-                for (std::size_t i = 0; i < vec.elem.size(); ++i) {
+    return at(ref).visit(SExprVisitor { [](const LispIdent& id) {
+                                           std::string res = id.name;
+                                           if (!id.scopes.empty()) {
+                                               for (auto s : id.scopes) {
+                                                   res += "_"
+                                                       + std::to_string(s);
+                                               }
+                                           }
+                                           return res;
+                                       },
+        [](const LispString& str) { return "\"" + str + "\""; },
+        [](const LispNumber& num) { return std::to_string(num); },
+        [](const LispChar& c) -> std::string {
+            switch (c) {
+            case '\n':
+                return "#\\newline";
+            case ' ':
+                return "#\\space";
+            default:
+                return std::string("#\\") + c;
+            }
+        },
+        [](const LispBool& b) { return b ? "#t" : "#f"; },
+        [this](const SExprList& list) {
+            std::string result = "(";
+            if (!list.elem.empty()) {
+                for (std::size_t i = 0; i + 1 < list.elem.size(); ++i) {
                     if (i > 0)
                         result += " ";
-                    result += dump(vec.elem[i].expr_ref());
+                    result += dump(list.elem[i].expr_ref());
                 }
-                result += ")";
-                return result;
-            },
-            [](const auto&) { return ""; } });
+                if (!at(list.elem.back()).holds_alternative<LispNil>()) {
+                    if (list.elem.size() > 1)
+                        result += " . ";
+                    result += dump(list.elem.back().expr_ref());
+                }
+            }
+            result += ")";
+            return result;
+        },
+        [this](const SExprVector& vec) {
+            std::string result = "#(";
+            for (std::size_t i = 0; i < vec.elem.size(); ++i) {
+                if (i > 0)
+                    result += " ";
+                result += dump(vec.elem[i].expr_ref());
+            }
+            result += ")";
+            return result;
+        },
+        [](const auto&) { return ""; } });
 };
 
 const SExpr& SExprArena::at(SExprRef ref) const& {
