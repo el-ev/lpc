@@ -20,6 +20,7 @@ struct CoreBinding { };
 struct MacroBinding {
     std::shared_ptr<Transformer> transformer;
     bool is_core = false;
+    std::optional<ScopeID> output_excluded_scope;
 };
 
 using Binding = TaggedUnion<VarBinding, CoreBinding, MacroBinding>;
@@ -80,8 +81,8 @@ public:
             .scopes = id.scopes, .binding = std::move(binding) });
     }
 
-    [[nodiscard]] std::optional<Binding> find_binding(
-        const LispIdent& id) const noexcept {
+    [[nodiscard]] std::optional<Binding> find_binding(const LispIdent& id,
+        std::optional<ScopeID> exclude_scope = std::nullopt) const noexcept {
 
         auto it = _bindings.find(id.name);
         if (it == _bindings.end())
@@ -91,6 +92,8 @@ public:
         std::size_t best_size = 0;
 
         for (const auto& entry : it->second) {
+            if (exclude_scope && entry.scopes.contains(*exclude_scope))
+                continue;
             if (std::ranges::includes(id.scopes, entry.scopes)) {
                 if (best == nullptr || entry.scopes.size() > best_size) {
                     best = &entry;
