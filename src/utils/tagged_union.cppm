@@ -170,6 +170,24 @@ public:
         return index_ == type_index<T>();
     }
 
+    [[nodiscard]] constexpr bool operator==(const TaggedUnion& other) const
+        requires(std::equality_comparable<Types> && ...) {
+        if (index_ != other.index_)
+            return false;
+        if (index_ == npos_)
+            return true;
+        return equals_impl(other, std::make_index_sequence<sizeof...(Types)>{});
+    }
+    
+    template <std::size_t... Is>
+    constexpr bool equals_impl(const TaggedUnion& other,
+                              std::index_sequence<Is...> /* indices */) const noexcept {
+        return ((index_ == static_cast<index_t>(Is)
+                 ? (*storage_as<type_at<Is>>() == *other.storage_as<type_at<Is>>())
+                 : false)
+                || ...);
+    }
+
     template <index_t I>
         requires(I < sizeof...(Types))
     [[nodiscard]] constexpr std::optional<std::reference_wrapper<type_at<I>>>

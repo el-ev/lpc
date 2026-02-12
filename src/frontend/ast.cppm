@@ -13,6 +13,11 @@ using lpc::utils::TaggedUnion;
 export using ScopeID = std::uint32_t;
 export class LispNil { };
 
+export inline constexpr bool operator==(
+    const LispNil& /* lhs */, const LispNil& /* rhs */) noexcept {
+    return true;
+}
+
 export class LispIdent {
 public:
     std::string name;
@@ -58,6 +63,11 @@ public:
     [[nodiscard]] inline constexpr LocRef loc_ref() const noexcept {
         return _loc_ref;
     }
+
+    [[nodiscard]] inline constexpr bool operator==(
+        const SExprLocRef& other) const noexcept {
+        return expr_ref() == other.expr_ref() && loc_ref() == other.loc_ref();
+    }
 };
 
 export struct SExprList {
@@ -68,6 +78,12 @@ export struct SExprList {
         std::vector<SExprLocRef>&& elements) noexcept
         : elem(std::move(elements)) { };
 };
+
+export inline constexpr bool operator==(
+    const SExprList& lhs, const SExprList& rhs) noexcept {
+    return lhs.elem == rhs.elem;
+}
+
 export struct SExprVector {
     std::vector<SExprLocRef> elem;
     [[nodiscard]] explicit SExprVector() noexcept = default;
@@ -75,6 +91,11 @@ export struct SExprVector {
         std::vector<SExprLocRef>&& elements) noexcept
         : elem(std::move(elements)) { };
 };
+
+export inline constexpr bool operator==(
+    const SExprVector& lhs, const SExprVector& rhs) noexcept {
+    return lhs.elem == rhs.elem;
+}
 
 export class SExpr
     : public TaggedUnion<LispNil, LispIdent, LispString, LispNumber, LispChar,

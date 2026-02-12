@@ -248,25 +248,8 @@ static bool match(SExprLocRef pattern, SExprArena& pattern_arena,
     if (!input.is_valid())
         return false;
     const auto& i_expr = input_arena.at(input);
-    if (p_expr.index() != i_expr.index())
-        return false;
 
-    if (p_expr.holds_alternative<LispNil>())
-        return true;
-    if (p_expr.holds_alternative<LispString>())
-        return p_expr.get_unchecked<LispString>()
-            == i_expr.get_unchecked<LispString>();
-    if (p_expr.holds_alternative<LispNumber>())
-        return p_expr.get_unchecked<LispNumber>()
-            == i_expr.get_unchecked<LispNumber>();
-    if (p_expr.holds_alternative<LispChar>())
-        return p_expr.get_unchecked<LispChar>()
-            == i_expr.get_unchecked<LispChar>();
-    if (p_expr.holds_alternative<LispBool>())
-        return p_expr.get_unchecked<LispBool>()
-            == i_expr.get_unchecked<LispBool>();
-
-    return false;
+    return p_expr == i_expr;
 }
 
 static SExprLocRef instantiate(SExprLocRef element, SExprArena& tmpl_arena,
