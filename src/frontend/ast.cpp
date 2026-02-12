@@ -45,6 +45,19 @@ std::string SExprArena::dump(SExprRef ref) const {
         },
         [](const LispBool& b) { return b ? "#t" : "#f"; },
         [this](const SExprList& list) {
+            // FIXME: misleading(but technically vaild?) when they are shadowed
+            if (list.elem.size() == 3 && at(list.elem.back()).isa<LispNil>()
+                && at(list.elem[0]).isa<LispIdent>()) {
+                const auto& id = at(list.elem[0]).get_unchecked<LispIdent>();
+                if (id.name == "quote")
+                    return "'" + dump(list.elem[1].expr_ref());
+                if (id.name == "quasiquote")
+                    return "`" + dump(list.elem[1].expr_ref());
+                if (id.name == "unquote")
+                    return "," + dump(list.elem[1].expr_ref());
+                if (id.name == "unquote-splicing")
+                    return ",@" + dump(list.elem[1].expr_ref());
+            }
             std::string result = "(";
             if (!list.elem.empty()) {
                 for (std::size_t i = 0; i + 1 < list.elem.size(); ++i) {
