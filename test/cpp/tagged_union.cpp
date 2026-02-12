@@ -11,12 +11,12 @@ TEST(one_int_elem_default) {
     TaggedUnion<int> one_int;
     ASSERT_TRUE(one_int.valueless());
     ASSERT_EQ(one_int.index(), static_cast<std::size_t>(-1));
-    ASSERT_FALSE(one_int.holds_alternative<int>());
+    ASSERT_FALSE(one_int.isa<int>());
     ASSERT_FALSE(one_int.get<int>().has_value());
     one_int = 42;
     ASSERT_FALSE(one_int.valueless());
     ASSERT_EQ(one_int.index(), static_cast<std::size_t>(0));
-    ASSERT_TRUE(one_int.holds_alternative<int>());
+    ASSERT_TRUE(one_int.isa<int>());
     ASSERT_TRUE(one_int.get<int>().has_value());
     ASSERT_TRUE(one_int.get<0>().has_value());
     ASSERT_EQ(one_int.get<int>().value(), 42);
@@ -31,23 +31,23 @@ TEST(multiple_types_basic) {
     variant = 42;
     ASSERT_FALSE(variant.valueless());
     ASSERT_EQ(variant.index(), static_cast<std::size_t>(0));
-    ASSERT_TRUE(variant.holds_alternative<int>());
-    ASSERT_FALSE(variant.holds_alternative<std::string>());
-    ASSERT_FALSE(variant.holds_alternative<double>());
+    ASSERT_TRUE(variant.isa<int>());
+    ASSERT_FALSE(variant.isa<std::string>());
+    ASSERT_FALSE(variant.isa<double>());
     ASSERT_EQ(variant.get_unchecked<int>(), 42);
 
     variant = std::string("hello");
     ASSERT_EQ(variant.index(), static_cast<std::size_t>(1));
-    ASSERT_FALSE(variant.holds_alternative<int>());
-    ASSERT_TRUE(variant.holds_alternative<std::string>());
-    ASSERT_FALSE(variant.holds_alternative<double>());
+    ASSERT_FALSE(variant.isa<int>());
+    ASSERT_TRUE(variant.isa<std::string>());
+    ASSERT_FALSE(variant.isa<double>());
     ASSERT_EQ(variant.get_unchecked<std::string>(), "hello");
 
     variant = 3.14;
     ASSERT_EQ(variant.index(), static_cast<std::size_t>(2));
-    ASSERT_FALSE(variant.holds_alternative<int>());
-    ASSERT_FALSE(variant.holds_alternative<std::string>());
-    ASSERT_TRUE(variant.holds_alternative<double>());
+    ASSERT_FALSE(variant.isa<int>());
+    ASSERT_FALSE(variant.isa<std::string>());
+    ASSERT_TRUE(variant.isa<double>());
     ASSERT_EQ(variant.get_unchecked<double>(), 3.14);
 }
 
@@ -57,7 +57,7 @@ TEST(copy_constructor) {
 
     ASSERT_FALSE(copy.valueless());
     ASSERT_EQ(copy.index(), std::size_t(0));
-    ASSERT_TRUE(copy.holds_alternative<int>());
+    ASSERT_TRUE(copy.isa<int>());
     ASSERT_EQ(copy.get_unchecked<int>(), 42);
 
     // Original should still be valid
@@ -70,7 +70,7 @@ TEST(move_constructor) {
 
     ASSERT_FALSE(moved.valueless());
     ASSERT_EQ(moved.index(), std::size_t(1));
-    ASSERT_TRUE(moved.holds_alternative<std::string>());
+    ASSERT_TRUE(moved.isa<std::string>());
     ASSERT_EQ(moved.get_unchecked<std::string>(), "test");
 
     // Original should be valueless after move
@@ -85,7 +85,7 @@ TEST(copy_assignment) {
 
     ASSERT_FALSE(variant2.valueless());
     ASSERT_EQ(variant2.index(), std::size_t(0));
-    ASSERT_TRUE(variant2.holds_alternative<int>());
+    ASSERT_TRUE(variant2.isa<int>());
     ASSERT_EQ(variant2.get_unchecked<int>(), 42);
 }
 
@@ -97,7 +97,7 @@ TEST(move_assignment) {
 
     ASSERT_FALSE(variant2.valueless());
     ASSERT_EQ(variant2.index(), std::size_t(1));
-    ASSERT_TRUE(variant2.holds_alternative<std::string>());
+    ASSERT_TRUE(variant2.isa<std::string>());
     ASSERT_EQ(variant2.get_unchecked<std::string>(), "test");
 
     ASSERT_TRUE(variant1.valueless());
@@ -109,13 +109,13 @@ TEST(emplace_functionality) {
     auto& str_ref = variant.emplace<std::string>("hello world");
     ASSERT_FALSE(variant.valueless());
     ASSERT_EQ(variant.index(), static_cast<std::size_t>(1));
-    ASSERT_TRUE(variant.holds_alternative<std::string>());
+    ASSERT_TRUE(variant.isa<std::string>());
     ASSERT_EQ(variant.get_unchecked<std::string>(), "hello world");
     ASSERT_EQ(&str_ref, &variant.get_unchecked<std::string>());
 
     auto& int_ref = variant.emplace<int>(99);
     ASSERT_EQ(variant.index(), static_cast<std::size_t>(0));
-    ASSERT_TRUE(variant.holds_alternative<int>());
+    ASSERT_TRUE(variant.isa<int>());
     ASSERT_EQ(variant.get_unchecked<int>(), 99);
     ASSERT_EQ(&int_ref, &variant.get_unchecked<int>());
 }
@@ -169,30 +169,30 @@ TEST(get_with_optional) {
     ASSERT_EQ(str_opt.value().get(), "hello");
 }
 
-TEST(free_function_holds_alternative) {
+TEST(free_function_isa) {
     TaggedUnion<int, std::string> variant(42);
 
-    ASSERT_TRUE(lpc::utils::tagged_union::holds_alternative<int>(variant));
+    ASSERT_TRUE(lpc::utils::tagged_union::isa<int>(variant));
     ASSERT_FALSE(
-        lpc::utils::tagged_union::holds_alternative<std::string>(variant));
+        lpc::utils::tagged_union::isa<std::string>(variant));
 
     variant = std::string("test");
-    ASSERT_FALSE(lpc::utils::tagged_union::holds_alternative<int>(variant));
+    ASSERT_FALSE(lpc::utils::tagged_union::isa<int>(variant));
     ASSERT_TRUE(
-        lpc::utils::tagged_union::holds_alternative<std::string>(variant));
+        lpc::utils::tagged_union::isa<std::string>(variant));
 }
 
 TEST(constructor_with_value) {
     TaggedUnion<int, std::string> variant1(42);
     ASSERT_FALSE(variant1.valueless());
     ASSERT_EQ(variant1.index(), static_cast<std::size_t>(0));
-    ASSERT_TRUE(variant1.holds_alternative<int>());
+    ASSERT_TRUE(variant1.isa<int>());
     ASSERT_EQ(variant1.get_unchecked<int>(), 42);
 
     TaggedUnion<int, std::string> variant2(std::string("hello"));
     ASSERT_FALSE(variant2.valueless());
     ASSERT_EQ(variant2.index(), static_cast<std::size_t>(1));
-    ASSERT_TRUE(variant2.holds_alternative<std::string>());
+    ASSERT_TRUE(variant2.isa<std::string>());
     ASSERT_EQ(variant2.get_unchecked<std::string>(), "hello");
 }
 

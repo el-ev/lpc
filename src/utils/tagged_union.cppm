@@ -166,7 +166,7 @@ public:
 
     template <typename T>
         requires(std::disjunction_v<std::is_same<T, Types>...>)
-    [[nodiscard]] constexpr bool holds_alternative() const noexcept {
+    [[nodiscard]] constexpr bool isa() const noexcept {
         return index_ == type_index<T>();
     }
 
@@ -360,9 +360,9 @@ private:
 export namespace tagged_union {
     template <typename T, typename... Types>
         requires(std::disjunction_v<std::is_same<T, Types>...>)
-    [[nodiscard]] constexpr bool holds_alternative(
+    [[nodiscard]] constexpr bool isa(
         const TaggedUnion<Types...>& v) noexcept {
-        return v.template holds_alternative<T>();
+        return v.template isa<T>();
     }
 
     template <typename... Types, TaggedUnion<Types...>::index_t I>

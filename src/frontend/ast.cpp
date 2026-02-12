@@ -14,7 +14,7 @@ std::string SExprArena::dump_root(SExprRef root) const {
     const auto& children = at(root).get_unchecked<SExprList>();
     std::string result;
     for (const auto& child : children.elem) {
-        if (at(child).holds_alternative<LispNil>())
+        if (at(child).isa<LispNil>())
             continue;
         result += dump(child.expr_ref()) + "\n";
     }
@@ -52,7 +52,7 @@ std::string SExprArena::dump(SExprRef ref) const {
                         result += " ";
                     result += dump(list.elem[i].expr_ref());
                 }
-                if (!at(list.elem.back()).holds_alternative<LispNil>()) {
+                if (!at(list.elem.back()).isa<LispNil>()) {
                     if (list.elem.size() > 1)
                         result += " . ";
                     result += dump(list.elem.back().expr_ref());

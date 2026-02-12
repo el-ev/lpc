@@ -10,7 +10,7 @@ static bool is_ellipsis(SExprLocRef ref, SExprArena& arena) {
     if (!ref.is_valid())
         return false;
     const auto& expr = arena.at(ref);
-    if (!expr.holds_alternative<LispIdent>())
+    if (!expr.isa<LispIdent>())
         return false;
     return expr.get_unchecked<LispIdent>().name == "...";
 }
@@ -18,7 +18,7 @@ static bool is_ellipsis(SExprLocRef ref, SExprArena& arena) {
 static std::size_t logical_size(const SExprList& list, SExprArena& arena) {
     if (list.elem.empty())
         return 0;
-    if (arena.at(list.elem.back()).holds_alternative<LispNil>())
+    if (arena.at(list.elem.back()).isa<LispNil>())
         return list.elem.size() - 1;
     return list.elem.size();
 }
@@ -28,11 +28,11 @@ static void collect_pattern_vars(
     if (!pattern.is_valid())
         return;
     const auto& expr = arena.at(pattern);
-    if (expr.holds_alternative<LispIdent>()) {
+    if (expr.isa<LispIdent>()) {
         const auto& name = expr.get_unchecked<LispIdent>().name;
         if (name != "_" && name != "...")
             vars.insert(name);
-    } else if (expr.holds_alternative<SExprList>()) {
+    } else if (expr.isa<SExprList>()) {
         const auto& list = expr.get_unchecked<SExprList>().elem;
         for (const auto& el : list) {
             collect_pattern_vars(el, arena, vars);
@@ -44,14 +44,14 @@ static SExprLocRef get_tail(
     const SExprList& list, std::size_t start, SExprArena& arena) {
     if (start >= list.elem.size()) {
         if (!list.elem.empty()
-            && !arena.at(list.elem.back()).holds_alternative<LispNil>()) {
+            && !arena.at(list.elem.back()).isa<LispNil>()) {
             return list.elem.back();
         }
         return arena.emplace(SExprLocRef::invalid().loc_ref(), LispNil());
     }
 
     bool is_improper = !list.elem.empty()
-        && !arena.at(list.elem.back()).holds_alternative<LispNil>();
+        && !arena.at(list.elem.back()).isa<LispNil>();
 
     if (is_improper && start == list.elem.size() - 1) {
         return list.elem.back();
@@ -74,14 +74,14 @@ static bool match(SExprLocRef pattern, SExprArena& pattern_arena,
 
     const auto& p_expr = pattern_arena.at(pattern);
 
-    if (p_expr.holds_alternative<LispIdent>()) {
+    if (p_expr.isa<LispIdent>()) {
         const auto& name = p_expr.get_unchecked<LispIdent>().name;
         if (name == "_")
             return true;
 
         if (literals.contains(name)) {
             const auto& i_expr = input_arena.at(input);
-            if (!i_expr.holds_alternative<LispIdent>())
+            if (!i_expr.isa<LispIdent>())
                 return false;
             return i_expr.get_unchecked<LispIdent>().name == name;
         }
@@ -90,11 +90,11 @@ static bool match(SExprLocRef pattern, SExprArena& pattern_arena,
         return true;
     }
 
-    if (p_expr.holds_alternative<SExprList>()) {
+    if (p_expr.isa<SExprList>()) {
         if (!input.is_valid())
             return false;
         const auto& i_expr = input_arena.at(input);
-        if (!i_expr.holds_alternative<SExprList>())
+        if (!i_expr.isa<SExprList>())
             return false;
 
         const auto& p_list = p_expr.get_unchecked<SExprList>();
@@ -113,9 +113,9 @@ static bool match(SExprLocRef pattern, SExprArena& pattern_arena,
 
         bool p_improper = !p_list.elem.empty()
             && !pattern_arena.at(p_list.elem.back())
-                    .holds_alternative<LispNil>();
+                    .isa<LispNil>();
         bool i_improper = !i_list.elem.empty()
-            && !input_arena.at(i_list.elem.back()).holds_alternative<LispNil>();
+            && !input_arena.at(i_list.elem.back()).isa<LispNil>();
 
         if (!p_improper) {
             if (i_improper)
@@ -260,7 +260,7 @@ static SExprLocRef instantiate(SExprLocRef element, SExprArena& tmpl_arena,
     auto loc = call_site_loc;
     const auto& expr = tmpl_arena.at(element);
 
-    if (expr.holds_alternative<LispIdent>()) {
+    if (expr.isa<LispIdent>()) {
         auto ident = expr.get_unchecked<LispIdent>();
         auto it = bindings.find(ident.name);
         if (it != bindings.end()) {
@@ -272,11 +272,11 @@ static SExprLocRef instantiate(SExprLocRef element, SExprArena& tmpl_arena,
         return output_arena.emplace(loc, std::move(ident));
     }
 
-    if (expr.holds_alternative<SExprList>()) {
+    if (expr.isa<SExprList>()) {
         auto elems = expr.get_unchecked<SExprList>().elem;
         std::size_t tmpl_logical = elems.size();
         if (!elems.empty()
-            && tmpl_arena.at(elems.back()).holds_alternative<LispNil>())
+            && tmpl_arena.at(elems.back()).isa<LispNil>())
             tmpl_logical--;
 
         std::vector<SExprLocRef> out;
@@ -322,21 +322,21 @@ static SExprLocRef instantiate(SExprLocRef element, SExprArena& tmpl_arena,
         return output_arena.emplace(loc, SExprList(std::move(out)));
     }
 
-    if (expr.holds_alternative<LispNil>())
+    if (expr.isa<LispNil>())
         return output_arena.emplace(loc, LispNil());
-    if (expr.holds_alternative<LispNumber>()) {
+    if (expr.isa<LispNumber>()) {
         auto v = expr.get_unchecked<LispNumber>();
         return output_arena.emplace(loc, v);
     }
-    if (expr.holds_alternative<LispBool>()) {
+    if (expr.isa<LispBool>()) {
         auto v = expr.get_unchecked<LispBool>();
         return output_arena.emplace(loc, v);
     }
-    if (expr.holds_alternative<LispChar>()) {
+    if (expr.isa<LispChar>()) {
         auto v = expr.get_unchecked<LispChar>();
         return output_arena.emplace(loc, v);
     }
-    if (expr.holds_alternative<LispString>()) {
+    if (expr.isa<LispString>()) {
         auto v = expr.get_unchecked<LispString>();
         return output_arena.emplace(loc, std::move(v));
     }

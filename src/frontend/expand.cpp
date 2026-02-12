@@ -18,6 +18,7 @@ struct ExpCtx {
     bool show_core;
     bool is_top_level;
     bool& had_error;
+    // FIXME: this is just stupid
     std::optional<ScopeID> output_excluded_scope;
 };
 
@@ -26,12 +27,12 @@ struct ExpCtx {
     if (!expr.is_valid())
         return expr;
     const auto& sexpr = arena.at(expr);
-    if (sexpr.holds_alternative<LispIdent>()) {
+    if (sexpr.isa<LispIdent>()) {
         auto ident = sexpr.get_unchecked<LispIdent>();
         ident.scopes.insert(scope);
         return arena.emplace(expr.loc_ref(), std::move(ident));
     }
-    if (sexpr.holds_alternative<SExprList>()) {
+    if (sexpr.isa<SExprList>()) {
         auto elems = sexpr.get_unchecked<SExprList>().elem; // copy
         std::vector<SExprLocRef> v;
         v.reserve(elems.size());
@@ -39,7 +40,7 @@ struct ExpCtx {
             v.push_back(add_scope(el, scope, arena));
         return arena.emplace(expr.loc_ref(), SExprList(std::move(v)));
     }
-    if (sexpr.holds_alternative<SExprVector>()) {
+    if (sexpr.isa<SExprVector>()) {
         auto elems = sexpr.get_unchecked<SExprVector>().elem; // copy
         std::vector<SExprLocRef> v;
         v.reserve(elems.size());
@@ -55,12 +56,12 @@ struct ExpCtx {
     if (!expr.is_valid())
         return expr;
     const auto& sexpr = arena.at(expr);
-    if (sexpr.holds_alternative<LispIdent>()) {
+    if (sexpr.isa<LispIdent>()) {
         auto ident = sexpr.get_unchecked<LispIdent>();
         ident.scopes.clear();
         return arena.emplace(expr.loc_ref(), std::move(ident));
     }
-    if (sexpr.holds_alternative<SExprList>()) {
+    if (sexpr.isa<SExprList>()) {
         auto elems = sexpr.get_unchecked<SExprList>().elem;
         std::vector<SExprLocRef> v;
         v.reserve(elems.size());
@@ -82,13 +83,13 @@ static void collect_idents(SExprLocRef root, SExprArena& arena,
     if (!root.is_valid())
         return;
     const auto& expr = arena.at(root);
-    if (expr.holds_alternative<LispIdent>()) {
+    if (expr.isa<LispIdent>()) {
         const auto& id = expr.get_unchecked<LispIdent>();
         groups[id.name].insert(id.scopes);
-    } else if (expr.holds_alternative<SExprList>()) {
+    } else if (expr.isa<SExprList>()) {
         for (const auto& el : expr.get_unchecked<SExprList>().elem)
             collect_idents(el, arena, groups);
-    } else if (expr.holds_alternative<SExprVector>()) {
+    } else if (expr.isa<SExprVector>()) {
         for (const auto& el : expr.get_unchecked<SExprVector>().elem)
             collect_idents(el, arena, groups);
     }
@@ -99,7 +100,7 @@ static SExprLocRef apply_names(SExprLocRef root, SExprArena& arena,
     if (!root.is_valid())
         return root;
     const auto& expr = arena.at(root);
-    if (expr.holds_alternative<LispIdent>()) {
+    if (expr.isa<LispIdent>()) {
         const auto& id = expr.get_unchecked<LispIdent>();
         auto it
             = name_map.find(ScopeKey { .name = id.name, .scopes = id.scopes });
@@ -107,7 +108,7 @@ static SExprLocRef apply_names(SExprLocRef root, SExprArena& arena,
             return arena.emplace(root.loc_ref(), LispIdent(it->second));
         return root;
     }
-    if (expr.holds_alternative<SExprList>()) {
+    if (expr.isa<SExprList>()) {
         const auto& list = expr.get_unchecked<SExprList>();
         std::vector<SExprLocRef> v;
         v.reserve(list.elem.size());
@@ -115,7 +116,7 @@ static SExprLocRef apply_names(SExprLocRef root, SExprArena& arena,
             v.push_back(apply_names(el, arena, name_map));
         return arena.emplace(root.loc_ref(), SExprList(std::move(v)));
     }
-    if (expr.holds_alternative<SExprVector>()) {
+    if (expr.isa<SExprVector>()) {
         const auto& vec = expr.get_unchecked<SExprVector>();
         std::vector<SExprLocRef> v;
         v.reserve(vec.elem.size());
@@ -173,16 +174,16 @@ static SExprLocRef expand_lambda(
     auto scoped_params = add_scope(list.elem[1], scope, ctx.arena);
 
     auto bind = [&](SExprLocRef p) {
-        if (ctx.arena.at(p).holds_alternative<LispIdent>()) {
+        if (ctx.arena.at(p).isa<LispIdent>()) {
             auto id = ctx.arena.at(p).get_unchecked<LispIdent>();
             ctx.env.add_binding(id, Binding(VarBinding { id }));
         }
     };
     const auto& p_expr = ctx.arena.at(scoped_params);
-    if (p_expr.holds_alternative<SExprList>()) {
+    if (p_expr.isa<SExprList>()) {
         for (const auto& p : p_expr.get_unchecked<SExprList>().elem)
             bind(p);
-    } else if (p_expr.holds_alternative<LispIdent>()) {
+    } else if (p_expr.isa<LispIdent>()) {
         bind(scoped_params);
     }
 
@@ -254,7 +255,7 @@ static SExprLocRef expand_define(
 
     auto var = list.elem[1];
 
-    if (ctx.arena.at(var).holds_alternative<SExprList>()) {
+    if (ctx.arena.at(var).isa<SExprList>()) {
         const auto& var_list
             = ctx.arena.at(var).get_unchecked<SExprList>().elem;
         if (var_list.empty())
@@ -265,7 +266,7 @@ static SExprLocRef expand_define(
         std::vector<SExprLocRef> params;
         std::size_t var_logical = var_list.size();
         if (!var_list.empty()
-            && ctx.arena.at(var_list.back()).holds_alternative<LispNil>())
+            && ctx.arena.at(var_list.back()).isa<LispNil>())
             var_logical--;
         for (std::size_t i = 1; i < var_logical; ++i)
             params.push_back(var_list[i]);
@@ -294,7 +295,7 @@ static SExprLocRef expand_define(
     }
 
     // (define var expr)
-    if (ctx.arena.at(var).holds_alternative<LispIdent>()) {
+    if (ctx.arena.at(var).isa<LispIdent>()) {
         ctx.env.add_binding(ctx.arena.at(var).get_unchecked<LispIdent>(),
             Binding(
                 VarBinding { ctx.arena.at(var).get_unchecked<LispIdent>() }));
@@ -353,7 +354,7 @@ static void report_syntax_error(
 [[nodiscard]] static std::optional<std::shared_ptr<Transformer>>
 parse_syntax_rules(SExprLocRef transformer_spec, ExpCtx& ctx,
     std::string_view form_prefix = "define-syntax") {
-    if (!ctx.arena.at(transformer_spec).holds_alternative<SExprList>()) {
+    if (!ctx.arena.at(transformer_spec).isa<SExprList>()) {
         report_syntax_error(
             std::string(form_prefix) + ": expected (syntax-rules ...)",
             transformer_spec, ctx);
@@ -367,7 +368,7 @@ parse_syntax_rules(SExprLocRef transformer_spec, ExpCtx& ctx,
             transformer_spec, ctx);
         return std::nullopt;
     }
-    if (!ctx.arena.at(spec_list[0]).holds_alternative<LispIdent>()) {
+    if (!ctx.arena.at(spec_list[0]).isa<LispIdent>()) {
         report_syntax_error(
             std::string(form_prefix) + ": expected syntax-rules keyword",
             spec_list[0], ctx);
@@ -382,13 +383,13 @@ parse_syntax_rules(SExprLocRef transformer_spec, ExpCtx& ctx,
     }
     std::vector<std::string> literals;
     if (spec_list.size() >= 2) {
-        if (ctx.arena.at(spec_list[1]).holds_alternative<SExprList>()) {
+        if (ctx.arena.at(spec_list[1]).isa<SExprList>()) {
             const auto& lit_list
                 = ctx.arena.at(spec_list[1]).get_unchecked<SExprList>().elem;
             for (const auto& lit : lit_list) {
-                if (ctx.arena.at(lit).holds_alternative<LispNil>())
+                if (ctx.arena.at(lit).isa<LispNil>())
                     continue;
-                if (ctx.arena.at(lit).holds_alternative<LispIdent>()) {
+                if (ctx.arena.at(lit).isa<LispIdent>()) {
                     literals.push_back(
                         ctx.arena.at(lit).get_unchecked<LispIdent>().name);
                 } else {
@@ -406,8 +407,8 @@ parse_syntax_rules(SExprLocRef transformer_spec, ExpCtx& ctx,
     }
     std::vector<Transformer::SyntaxRule> rules;
     for (std::size_t i = 2; i < spec_list.size(); ++i) {
-        if (!ctx.arena.at(spec_list[i]).holds_alternative<SExprList>()) {
-            if (i == spec_list.size() - 1 && ctx.arena.at(spec_list[i]).holds_alternative<LispNil>())
+        if (!ctx.arena.at(spec_list[i]).isa<SExprList>()) {
+            if (i == spec_list.size() - 1 && ctx.arena.at(spec_list[i]).isa<LispNil>())
                 continue;
             report_syntax_error(
                 std::string(form_prefix) + ": Invalid syntax-rule: not a list",
@@ -416,7 +417,7 @@ parse_syntax_rules(SExprLocRef transformer_spec, ExpCtx& ctx,
         }
         const auto& rule_parts
             = ctx.arena.at(spec_list[i]).get_unchecked<SExprList>().elem;
-        if (rule_parts.size() == 3 && ctx.arena.at(rule_parts[2]).holds_alternative<LispNil>())
+        if (rule_parts.size() == 3 && ctx.arena.at(rule_parts[2]).isa<LispNil>())
             rules.push_back({ rule_parts[0], rule_parts[1] });
         else
             report_syntax_error(std::string(form_prefix)
@@ -446,7 +447,7 @@ static SExprLocRef expand_define_syntax(
     auto name_ex = list.elem[1];
     auto transformer_spec = list.elem[2];
 
-    if (!ctx.arena.at(name_ex).holds_alternative<LispIdent>()) {
+    if (!ctx.arena.at(name_ex).isa<LispIdent>()) {
         report_syntax_error(
             "define-syntax: expected identifier for macro name", name_ex, ctx);
         return root;
@@ -477,7 +478,7 @@ static SExprLocRef expand_let_letrec_syntax(
     }
 
     const auto& bindings_expr = ctx.arena.at(list.elem[1]);
-    if (!bindings_expr.holds_alternative<SExprList>()) {
+    if (!bindings_expr.isa<SExprList>()) {
         report_syntax_error(
             let_syntax_name + ": expected list of bindings", list.elem[1], ctx);
         return root;
@@ -488,9 +489,9 @@ static SExprLocRef expand_let_letrec_syntax(
 
     for (const auto& binding : bindings) {
         const auto& binding_expr = ctx.arena.at(binding);
-        if (binding_expr.holds_alternative<LispNil>())
+        if (binding_expr.isa<LispNil>())
             continue;
-        if (!binding_expr.holds_alternative<SExprList>()) {
+        if (!binding_expr.isa<SExprList>()) {
             report_syntax_error(let_syntax_name
                     + ": expected (name transformer) for each binding",
                 binding, ctx);
@@ -505,7 +506,7 @@ static SExprLocRef expand_let_letrec_syntax(
         }
 
         auto name_ex = pair[0];
-        if (!ctx.arena.at(name_ex).holds_alternative<LispIdent>()) {
+        if (!ctx.arena.at(name_ex).isa<LispIdent>()) {
             report_syntax_error(
                 "let-syntax: expected identifier for macro name", name_ex, ctx);
             return root;
@@ -597,7 +598,7 @@ static SExprLocRef expand_macro(
 
     const auto& sexpr = ctx.arena.at(root);
 
-    if (sexpr.holds_alternative<LispIdent>()) {
+    if (sexpr.isa<LispIdent>()) {
         const auto& ident = sexpr.get_unchecked<LispIdent>();
         auto binding = ctx.env.find_binding(
             ident, ctx.output_excluded_scope);
@@ -606,24 +607,24 @@ static SExprLocRef expand_macro(
             clean.scopes.clear();
             return ctx.arena.emplace(root.loc_ref(), std::move(clean));
         }
-        if (binding->holds_alternative<VarBinding>())
+        if (binding->isa<VarBinding>())
             return ctx.arena.emplace(
                 root.loc_ref(), binding->get_unchecked<VarBinding>().id);
         return root;
     }
 
-    if (sexpr.holds_alternative<SExprList>()) {
+    if (sexpr.isa<SExprList>()) {
         auto list = sexpr.get_unchecked<SExprList>();
         if (list.elem.empty())
             return root;
 
         const auto& head_expr = ctx.arena.at(list.elem[0]);
-        if (head_expr.holds_alternative<LispIdent>()) {
+        if (head_expr.isa<LispIdent>()) {
             auto head_id = head_expr.get_unchecked<LispIdent>();
             auto binding = ctx.env.find_binding(
                 head_id, ctx.output_excluded_scope);
 
-            if (binding && binding->holds_alternative<CoreBinding>()) {
+            if (binding && binding->isa<CoreBinding>()) {
                 const auto& name = head_id.name;
                 if (name == "lambda")
                     return expand_lambda(list, root, ctx);
@@ -645,7 +646,7 @@ static SExprLocRef expand_macro(
                     std::string msg;
                     if (list.elem.size() >= 3) {
                         auto msg_expr = ctx.arena.at(list.elem[2]);
-                        if (msg_expr.holds_alternative<LispString>()) {
+                        if (msg_expr.isa<LispString>()) {
                             msg = msg_expr.get_unchecked<LispString>();
                         }
                     }
@@ -655,7 +656,7 @@ static SExprLocRef expand_macro(
                 }
             }
 
-            if (binding && binding->holds_alternative<MacroBinding>()) {
+            if (binding && binding->isa<MacroBinding>()) {
                 bool is_core = binding->get_unchecked<MacroBinding>().is_core;
                 ExpStackRef frame = ctx.stack.push(root, is_core, ctx.parent);
                 auto macro_ctx = ctx;
@@ -696,7 +697,7 @@ void ExpandPass::load_core(SExprArena& /* user_arena */) {
     _core_arena = std::make_unique<SExprArena>(std::move(parser.arena()));
 
     const auto& root_expr = _core_arena->at(core_root);
-    if (root_expr.holds_alternative<SExprList>()) {
+    if (root_expr.isa<SExprList>()) {
         bool dummy_error = false;
         for (const auto& form : root_expr.get_unchecked<SExprList>().elem) {
             ExpCtx ctx {
@@ -734,7 +735,7 @@ void ExpandPass::load_core(SExprArena& /* user_arena */) {
         .output_excluded_scope = std::nullopt,
     };
 
-    if (arena.at(root).holds_alternative<SExprList>()) {
+    if (arena.at(root).isa<SExprList>()) {
         const auto& list = arena.at(root).get_unchecked<SExprList>();
         std::vector<SExprLocRef> out;
         out.reserve(list.elem.size());
