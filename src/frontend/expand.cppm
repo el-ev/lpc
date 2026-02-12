@@ -95,7 +95,8 @@ public:
             if (exclude_scope && entry.scopes.contains(*exclude_scope))
                 continue;
             if (std::ranges::includes(id.scopes, entry.scopes)) {
-                if (best == nullptr || entry.scopes.size() > best_size) {
+                // If the scopes are the same size, we prefer the newer binding
+                if (best == nullptr || entry.scopes.size() >= best_size) {
                     best = &entry;
                     best_size = entry.scopes.size();
                 }

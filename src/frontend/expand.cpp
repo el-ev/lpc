@@ -359,6 +359,16 @@ static std::vector<SExprLocRef> expand_define(
 
         auto func_name = var_list[0];
 
+        if (!ctx.arena.at(func_name).isa<LispIdent>()) {
+            report_error(func_name, ctx, "define: expected identifier for function name");
+            return { SExprLocRef::invalid() };
+        }
+        auto func_name_id = ctx.arena.at(func_name).get_unchecked<LispIdent>();
+        std::println(std::cerr, "define: adding binding for {}", func_name_id.name);
+        ctx.env.add_binding(func_name_id,
+            Binding(
+                VarBinding { func_name_id }));
+
         std::vector<SExprLocRef> params;
         std::size_t var_logical = var_list.size();
         if (!var_list.empty() && ctx.arena.at(var_list.back()).isa<LispNil>())
