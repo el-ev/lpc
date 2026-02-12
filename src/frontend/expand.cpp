@@ -500,19 +500,6 @@ static SExprLocRef expand_macro(
         if (binding->holds_alternative<VarBinding>())
             return ctx.arena.emplace(
                 root.loc_ref(), binding->get_unchecked<VarBinding>().id);
-        if (binding->holds_alternative<CoreBinding>()) {
-            auto clean = ident;
-            clean.scopes.clear();
-            return ctx.arena.emplace(root.loc_ref(), std::move(clean));
-        }
-        if (binding->holds_alternative<MacroBinding>()) {
-            bool is_stdlib = binding->get_unchecked<MacroBinding>().is_stdlib;
-            ExpStackRef frame = ctx.stack.push(root, is_stdlib, ctx.parent);
-            auto macro_ctx = ctx;
-            macro_ctx.parent = frame;
-            return expand_macro(
-                root, binding->get_unchecked<MacroBinding>(), macro_ctx);
-        }
         return root;
     }
 
@@ -699,6 +686,24 @@ static constexpr std::string_view STDLIB_SOURCE = R"STDLIB(
       ()
       ((_ x)
        (syntax-error "unquote-splicing outside of quasiquote"))))
+
+(define-syntax delay
+  (syntax-rules ()
+    ((delay expr)
+     (__memo (lambda () expr)))))
+
+(define (force promise)
+  (promise))
+
+(define (__memo proc)
+  (let ((run_once? #f)
+        (result #f))
+    (lambda ()
+      (if (not run_once?)
+          (begin (set! result (proc))
+                 (set! run_once? #t)
+                 result)
+          result))))
 
 )STDLIB";
 
