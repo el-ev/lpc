@@ -82,6 +82,12 @@ const SExpr& SExprArena::at(SExprLocRef ref) const& {
     return Arena::at(ref.expr_ref());
 }
 
+SExprLocRef SExprArena::nil(LocRef loc) noexcept {
+    if (!_nil_node.is_valid())
+        _nil_node = Arena::emplace(LispNil());
+    return SExprLocRef(_nil_node, loc);
+}
+
 SExprLocRef SExprArena::get_boolean(LocRef loc, bool value) noexcept {
     if (value) {
         if (!_boolean_nodes.first.is_valid())

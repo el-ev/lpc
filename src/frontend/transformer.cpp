@@ -47,7 +47,7 @@ static SExprLocRef get_tail(
             && !arena.at(list.elem.back()).isa<LispNil>()) {
             return list.elem.back();
         }
-        return arena.emplace(SExprLocRef::invalid().loc_ref(), LispNil());
+        return arena.nil(SExprLocRef::invalid().loc_ref());
     }
 
     bool is_improper = !list.elem.empty()
@@ -323,7 +323,7 @@ static SExprLocRef instantiate(SExprLocRef element, SExprArena& tmpl_arena,
     }
 
     if (expr.isa<LispNil>())
-        return output_arena.emplace(loc, LispNil());
+        return output_arena.nil(loc);
     if (expr.isa<LispNumber>()) {
         auto v = expr.get_unchecked<LispNumber>();
         return output_arena.emplace(loc, v);

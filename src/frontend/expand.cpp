@@ -22,6 +22,8 @@ struct ExpCtx {
     std::optional<ScopeID> output_excluded_scope;
 };
 
+//FIXME: They should return std::vector<SExprLocRef>
+
 [[nodiscard]] static SExprLocRef add_scope(
     SExprLocRef expr, ScopeID scope, SExprArena& arena) {
     if (!expr.is_valid())
@@ -220,7 +222,7 @@ static void report_error(
 
 static SExprLocRef expand_lambda(
     const SExprList& list, SExprLocRef root, ExpCtx ctx) {
-    // (lambda (params…) body…)   or   (lambda rest-arg body…)
+    // (lambda formals body...)
     if (!check_arity(root, ctx, 2, 0))
         return SExprLocRef::invalid();
 
@@ -235,10 +237,20 @@ static SExprLocRef expand_lambda(
     };
     const auto& p_expr = ctx.arena.at(scoped_params);
     if (p_expr.isa<SExprList>()) {
+        // FIXME: check for
+        // 1) duplicate parameters
+        // 2) All indents, last one is Nil or parameter
         for (const auto& p : p_expr.get_unchecked<SExprList>().elem)
             bind(p);
     } else if (p_expr.isa<LispIdent>()) {
         bind(scoped_params);
+        // canonicalize to list of identifiers
+        // TODO is this correct?
+        scoped_params = ctx.arena.emplace(scoped_params.loc_ref(),
+            SExprList({ scoped_params }));
+    } else {
+        report_error(scoped_params, ctx, "lambda: expected list of identifier");
+        return SExprLocRef::invalid();
     }
 
     std::vector<SExprLocRef> out;
@@ -262,7 +274,7 @@ static SExprLocRef expand_quote(
     std::vector<SExprLocRef> out;
     out.push_back(make_canonical(list.elem[0].loc_ref(), "quote", ctx.arena));
     out.push_back(list.elem[1]);
-    out.push_back(ctx.arena.emplace(root.loc_ref(), LispNil()));
+    out.push_back(ctx.arena.nil(root.loc_ref()));
     return ctx.arena.emplace(root.loc_ref(), SExprList(std::move(out)));
 }
 
@@ -324,7 +336,7 @@ static SExprLocRef expand_define(
             var_logical--;
         for (std::size_t i = 1; i < var_logical; ++i)
             params.push_back(var_list[i]);
-        params.push_back(ctx.arena.emplace(var.loc_ref(), LispNil()));
+        params.push_back(ctx.arena.nil(var.loc_ref()));
         auto params_node
             = ctx.arena.emplace(var.loc_ref(), SExprList(std::move(params)));
 
@@ -342,7 +354,7 @@ static SExprLocRef expand_define(
             make_canonical(list.elem[0].loc_ref(), "define", ctx.arena));
         def.push_back(func_name);
         def.push_back(lam_node);
-        def.push_back(ctx.arena.emplace(root.loc_ref(), LispNil()));
+        def.push_back(ctx.arena.nil(root.loc_ref()));
         auto desugared
             = ctx.arena.emplace(root.loc_ref(), SExprList(std::move(def)));
         return expand(desugared, ctx);
@@ -477,8 +489,7 @@ static SExprLocRef expand_define_syntax(
         Binding(MacroBinding { .transformer = std::move(*transformer),
             .is_core = ctx.is_core,
             .output_excluded_scope = std::nullopt }));
-    // FIXME: cleanup nils
-    return ctx.arena.emplace(root.loc_ref(), LispNil());
+    return ctx.arena.nil(root.loc_ref());
 }
 
 static SExprLocRef expand_let_letrec_syntax(

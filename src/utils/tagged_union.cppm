@@ -69,6 +69,7 @@ private:
     }
 
     template <std::size_t... Is>
+    requires(std::equality_comparable<Types> && ...)
     void copy_construct(
         const TaggedUnion& other, std::index_sequence<Is...> /* indices */) {
         ((other.index_ == Is ? (new (storage_as<type_at<Is>>()) type_at<Is>(
@@ -112,7 +113,8 @@ public:
     }
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-member-init, hicpp-member-init)
-    [[nodiscard]] TaggedUnion(const TaggedUnion& other) {
+    [[nodiscard]] TaggedUnion(const TaggedUnion& other)
+        requires(std::equality_comparable<Types> && ...) {
         copy_construct(other, std::make_index_sequence<sizeof...(Types)> {});
     }
 
@@ -122,7 +124,8 @@ public:
             std::move(other), std::make_index_sequence<sizeof...(Types)> {});
     }
 
-    TaggedUnion& operator=(const TaggedUnion& other) {
+    TaggedUnion& operator=(const TaggedUnion& other)
+        requires(std::equality_comparable<Types> && ...) {
         if (this != &other) {
             destroy();
             copy_construct(

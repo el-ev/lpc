@@ -247,7 +247,7 @@ ParseResult CreateVector<R>::operator()(Cursor& cursor) const noexcept {
 }
 
 ParseResult CreateNil::operator()(Cursor& cursor) const noexcept {
-    SExprLocRef node = cursor.arena().emplace(cursor.loc(), LispNil());
+    SExprLocRef node = cursor.arena().nil(cursor.loc());
     return std::vector<SExprLocRef> { node };
 }
 

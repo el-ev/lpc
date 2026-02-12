@@ -151,6 +151,7 @@ public:
     [[nodiscard]] const SExpr& at(SExprRef ref) const&;
     [[nodiscard]] const SExpr& at(SExprLocRef ref) const&;
 
+    [[nodiscard]] SExprLocRef nil(LocRef loc) noexcept;
     [[nodiscard]] SExprLocRef get_boolean(LocRef loc, bool value) noexcept;
     [[nodiscard]] SExprLocRef get_variable(
         LocRef loc, std::string&& name) noexcept;
@@ -159,6 +160,7 @@ public:
     [[nodiscard]] std::string dump(SExprRef ref) const;
 
 private:
+    SExprRef _nil_node;
     std::unordered_map<std::string, SExprRef> _variables;
     std::pair<SExprRef, SExprRef> _boolean_nodes;
 };
