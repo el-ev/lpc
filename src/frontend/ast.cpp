@@ -24,13 +24,11 @@ std::string SExprArena::dump_root(SExprRef root) const {
 std::string SExprArena::dump(SExprRef ref) const {
     return at(ref).visit(SExprVisitor { [](const LispIdent& id) {
                                            std::string res = id.name;
-                                        //    The indentifer is resolved in ExpandPass
-                                        //    if (!id.scopes.empty()) {
-                                        //        for (auto s : id.scopes) {
-                                        //            res += "_"
-                                        //                + std::to_string(s);
-                                        //        }
-                                        //    }
+                                           //    The indentifer is resolved in
+                                           //    ExpandPass. If we don't dump
+                                           //    extensively there, omitting
+                                           //    scopes is fine.
+
                                            return res;
                                        },
         [](const LispString& str) { return "\"" + str + "\""; },

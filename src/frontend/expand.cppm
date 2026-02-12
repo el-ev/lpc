@@ -19,14 +19,14 @@ struct VarBinding {
 struct CoreBinding { };
 struct MacroBinding {
     std::shared_ptr<Transformer> transformer;
-    bool is_stdlib = false;
+    bool is_core = false;
 };
 
 using Binding = TaggedUnion<VarBinding, CoreBinding, MacroBinding>;
 
 export struct ExpansionFrame {
     SExprLocRef expr;
-    bool is_stdlib;
+    bool is_core;
     std::uint32_t parent;
 };
 
@@ -41,9 +41,9 @@ public:
     ExpansionStack() = default;
 
     [[nodiscard]] std::uint32_t push(
-        SExprLocRef expr, bool is_stdlib, std::uint32_t parent) {
+        SExprLocRef expr, bool is_core, std::uint32_t parent) {
         auto idx = static_cast<std::uint32_t>(_frames.size());
-        _frames.push_back({ expr, is_stdlib, parent });
+        _frames.push_back({ expr, is_core, parent });
         return idx;
     }
 
@@ -113,28 +113,28 @@ private:
 
 export class ExpandPass final : public Pass {
 private:
-    std::unique_ptr<SExprArena> _stdlib_arena;
+    std::unique_ptr<SExprArena> _core_arena;
     LexEnv _env;
     ExpansionStack _exp_stack;
-    bool _stdlib_loaded = false;
-    bool _show_stdlib_expansion = false;
+    bool _core_loaded = false;
+    bool _show_core_expansion = false;
     bool _had_error = false;
 
-    void load_stdlib(SExprArena& user_arena);
+    void load_core(SExprArena& user_arena);
 
 public:
     [[nodiscard]] std::string name() const noexcept final {
         return "expand";
     }
 
-    void set_show_stdlib_expansion(bool v) noexcept {
-        _show_stdlib_expansion = v;
+    void set_show_core_expansion(bool v) noexcept {
+        _show_core_expansion = v;
     }
 
     [[nodiscard]] SExprLocRef run(
         SExprLocRef root, SExprArena& arena) noexcept final;
 
-    explicit ExpandPass(bool show_stdlib_expansion) noexcept;
+    explicit ExpandPass(bool show_core_expansion) noexcept;
     ~ExpandPass() final = default;
 };
 

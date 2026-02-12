@@ -14,8 +14,8 @@ struct ExpCtx {
     SExprArena& arena;
     ExpansionStack& stack;
     ExpStackRef parent;
-    bool is_stdlib;
-    bool show_stdlib;
+    bool is_core;
+    bool show_core;
     bool is_top_level;
     bool& had_error;
 };
@@ -326,25 +326,25 @@ static void report_syntax_error(
         std::println(std::cerr, "  at {}", loc.source_location());
     }
 
-    int stdlib_omitted = 0;
+    int core_omitted = 0;
     while (cur != ExpansionStack::INVALID) {
         const auto& f = ctx.stack.at(cur);
-        if (f.is_stdlib && !ctx.show_stdlib) {
-            stdlib_omitted++;
+        if (f.is_core && !ctx.show_core) {
+            core_omitted++;
             cur = f.parent;
             continue;
         }
-        if (stdlib_omitted > 0) {
-            std::println(std::cerr, "  ({} frames omitted)", stdlib_omitted);
-            stdlib_omitted = 0;
+        if (core_omitted > 0) {
+            std::println(std::cerr, "  ({} frames omitted)", core_omitted);
+            core_omitted = 0;
         }
         auto r = resolve_names(f.expr, ctx.arena);
         std::println(
             std::cerr, "  in expansion of: {}", ctx.arena.dump(r.expr_ref()));
         cur = f.parent;
     }
-    if (stdlib_omitted > 0)
-        std::println(std::cerr, "  ({} frames omitted)", stdlib_omitted);
+    if (core_omitted > 0)
+        std::println(std::cerr, "  ({} frames omitted)", core_omitted);
 }
 
 static SExprLocRef expand_define_syntax(
@@ -427,13 +427,13 @@ static SExprLocRef expand_define_syntax(
         std::move(rules), std::move(literals), ctx.arena);
     ctx.env.add_binding(macro_name,
         Binding(MacroBinding {
-            .transformer = transformer, .is_stdlib = ctx.is_stdlib }));
+            .transformer = transformer, .is_core = ctx.is_core }));
     return ctx.arena.emplace(root.loc_ref(), LispNil());
 }
 
 static void report_expansion_error(SExprLocRef failed_expr,
     ExpansionStack& stack, ExpStackRef frame, SExprArena& arena,
-    bool show_stdlib, bool& had_error,
+    bool show_core, bool& had_error,
     std::string_view msg = "no syntax-rules pattern matched") {
     had_error = true;
 
@@ -444,25 +444,25 @@ static void report_expansion_error(SExprLocRef failed_expr,
     std::println(std::cerr, "  for: {}", failed_str);
 
     auto cur = frame;
-    int stdlib_omitted = 0;
+    int core_omitted = 0;
     while (cur != ExpansionStack::INVALID) {
         const auto& f = stack.at(cur);
-        if (f.is_stdlib && !show_stdlib) {
-            stdlib_omitted++;
+        if (f.is_core && !show_core) {
+            core_omitted++;
             cur = f.parent;
             continue;
         }
-        if (stdlib_omitted > 0) {
-            std::println(std::cerr, "  ({} frames omitted)", stdlib_omitted);
-            stdlib_omitted = 0;
+        if (core_omitted > 0) {
+            std::println(std::cerr, "  ({} frames omitted)", core_omitted);
+            core_omitted = 0;
         }
         auto r = resolve_names(f.expr, arena);
         std::println(
             std::cerr, "  in expansion of: {}", arena.dump(r.expr_ref()));
         cur = f.parent;
     }
-    if (stdlib_omitted > 0)
-        std::println(std::cerr, "  ({} frames omitted)", stdlib_omitted);
+    if (core_omitted > 0)
+        std::println(std::cerr, "  ({} frames omitted)", core_omitted);
 
     auto loc = arena.location(failed_expr.loc_ref());
     std::println(std::cerr, "  at {}", loc.source_location());
@@ -475,11 +475,11 @@ static SExprLocRef expand_macro(
     auto result = macro.transformer->transcribe(scoped_in, ctx.arena);
     if (!result.is_valid()) {
         report_expansion_error(root, ctx.stack, ctx.parent, ctx.arena,
-            ctx.show_stdlib, ctx.had_error);
+            ctx.show_core, ctx.had_error);
         return root;
     }
     auto new_ctx = ctx;
-    new_ctx.is_stdlib = macro.is_stdlib;
+    new_ctx.is_core = macro.is_core;
     return expand(add_scope(result, intro, ctx.arena), new_ctx);
 }
 
@@ -536,14 +536,14 @@ static SExprLocRef expand_macro(
                         }
                     }
                     report_expansion_error(root, ctx.stack, ctx.parent,
-                        ctx.arena, ctx.show_stdlib, ctx.had_error, msg);
+                        ctx.arena, ctx.show_core, ctx.had_error, msg);
                     return root;
                 }
             }
 
             if (binding && binding->holds_alternative<MacroBinding>()) {
-                bool is_stdlib = binding->get_unchecked<MacroBinding>().is_stdlib;
-                ExpStackRef frame = ctx.stack.push(root, is_stdlib, ctx.parent);
+                bool is_core = binding->get_unchecked<MacroBinding>().is_core;
+                ExpStackRef frame = ctx.stack.push(root, is_core, ctx.parent);
                 auto macro_ctx = ctx;
                 macro_ctx.parent = frame;
                 return expand_macro(
@@ -567,7 +567,7 @@ static SExprLocRef expand_macro(
     return root;
 }
 
-static constexpr std::string_view STDLIB_SOURCE = R"STDLIB(
+static constexpr std::string_view CORE_SOURCE = R"CORE(
 
 (define-syntax and
   (syntax-rules ()
@@ -705,10 +705,10 @@ static constexpr std::string_view STDLIB_SOURCE = R"STDLIB(
                  result)
           result))))
 
-)STDLIB";
+)CORE";
 
-void ExpandPass::load_stdlib(SExprArena& /* user_arena */) {
-    Lexer lexer("<stdlib>", STDLIB_SOURCE);
+void ExpandPass::load_core(SExprArena& /* user_arena */) {
+    Lexer lexer("<core>", CORE_SOURCE);
     if (lexer.is_failed())
         return;
 
@@ -716,34 +716,34 @@ void ExpandPass::load_stdlib(SExprArena& /* user_arena */) {
     if (parser.is_failed())
         return;
 
-    auto stdlib_root = parser.root();
-    _stdlib_arena = std::make_unique<SExprArena>(std::move(parser.arena()));
+    auto core_root = parser.root();
+    _core_arena = std::make_unique<SExprArena>(std::move(parser.arena()));
 
-    const auto& root_expr = _stdlib_arena->at(stdlib_root);
+    const auto& root_expr = _core_arena->at(core_root);
     if (root_expr.holds_alternative<SExprList>()) {
         bool dummy_error = false;
         for (const auto& form : root_expr.get_unchecked<SExprList>().elem) {
             ExpCtx ctx {
                 .env = _env,
-                .arena = *_stdlib_arena,
+                .arena = *_core_arena,
                 .stack = _exp_stack,
                 .parent = ExpansionStack::INVALID,
-                .is_stdlib = true,
-                .show_stdlib = _show_stdlib_expansion,
+                .is_core = true,
+                .show_core = _show_core_expansion,
                 .is_top_level = true,
                 .had_error = dummy_error,
             };
             (void)expand(form, ctx);
         }
     }
-    _stdlib_loaded = true;
+    _core_loaded = true;
 }
 
 // FIXME missing let-syntax,letrec_syntax
 [[nodiscard]] SExprLocRef ExpandPass::run(
     SExprLocRef root, SExprArena& arena) noexcept {
-    if (!_stdlib_loaded)
-        load_stdlib(arena);
+    if (!_core_loaded)
+        load_core(arena);
 
     _had_error = false;
     ExpCtx ctx {
@@ -751,8 +751,8 @@ void ExpandPass::load_stdlib(SExprArena& /* user_arena */) {
         .arena = arena,
         .stack = _exp_stack,
         .parent = ExpansionStack::INVALID,
-        .is_stdlib = false,
-        .show_stdlib = _show_stdlib_expansion,
+        .is_core = false,
+        .show_core = _show_core_expansion,
         .is_top_level = true,
         .had_error = _had_error,
     };
@@ -778,8 +778,8 @@ void ExpandPass::load_stdlib(SExprArena& /* user_arena */) {
     __builtin_unreachable();
 }
 
-ExpandPass::ExpandPass(bool show_stdlib_expansion) noexcept
-    : _show_stdlib_expansion(show_stdlib_expansion) {
+ExpandPass::ExpandPass(bool show_core_expansion) noexcept
+    : _show_core_expansion(show_core_expansion) {
     _env.define_core_syntax("lambda");
     _env.define_core_syntax("quote");
     _env.define_core_syntax("if");

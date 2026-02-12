@@ -10,7 +10,7 @@ private:
     std::vector<std::string> _input_file_paths;
     std::vector<std::string> _print_passes;
     std::string _backend;
-    bool _show_stdlib_expansion = false;
+    bool _show_core_expansion = false;
 
 public:
     explicit Session() = default;
@@ -48,8 +48,8 @@ public:
         return true;
     }
 
-    void set_show_stdlib_expansion(bool v) noexcept {
-        _show_stdlib_expansion = v;
+    void set_show_core_expansion(bool v) noexcept {
+        _show_core_expansion = v;
     }
 
     [[nodiscard]] int run() noexcept;

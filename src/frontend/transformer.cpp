@@ -83,7 +83,7 @@ static bool match(SExprLocRef pattern, SExprArena& pattern_arena,
             const auto& i_expr = input_arena.at(input);
             if (!i_expr.holds_alternative<LispIdent>())
                 return false;
-                return i_expr.get_unchecked<LispIdent>().name == name;
+            return i_expr.get_unchecked<LispIdent>().name == name;
         }
 
         bindings[name] = BindingValue::single(input);
@@ -253,8 +253,7 @@ static bool match(SExprLocRef pattern, SExprArena& pattern_arena,
 }
 
 static SExprLocRef instantiate(SExprLocRef element, SExprArena& tmpl_arena,
-    SExprArena& output_arena, const Bindings& bindings,
-    LocRef call_site_loc) {
+    SExprArena& output_arena, const Bindings& bindings, LocRef call_site_loc) {
     if (!element.is_valid())
         return element;
 
@@ -285,24 +284,24 @@ static SExprLocRef instantiate(SExprLocRef element, SExprArena& tmpl_arena,
         for (std::size_t i = 0; i < elems.size(); ++i) {
             if (i + 1 < tmpl_logical && is_ellipsis(elems[i + 1], tmpl_arena)) {
                 auto repeat_tmpl = elems[i];
-            std::set<std::string> tmpl_vars;
-            collect_pattern_vars(repeat_tmpl, tmpl_arena, tmpl_vars);
+                std::set<std::string> tmpl_vars;
+                collect_pattern_vars(repeat_tmpl, tmpl_arena, tmpl_vars);
 
-            std::size_t repeat_count = 0;
-            bool found_list = false;
-            for (const auto& var : tmpl_vars) {
-                auto it = bindings.find(var);
-                if (it != bindings.end() && it->second.is_list) {
-                    repeat_count = it->second.values.size();
-                    found_list = true;
-                    break;
+                std::size_t repeat_count = 0;
+                bool found_list = false;
+                for (const auto& var : tmpl_vars) {
+                    auto it = bindings.find(var);
+                    if (it != bindings.end() && it->second.is_list) {
+                        repeat_count = it->second.values.size();
+                        found_list = true;
+                        break;
+                    }
                 }
-            }
 
-            if (found_list) {
+                if (found_list) {
                     for (std::size_t j = 0; j < repeat_count; ++j) {
-                    Bindings temp = bindings;
-                    for (auto& [name, val] : temp)
+                        Bindings temp = bindings;
+                        for (auto& [name, val] : temp)
                             if (val.is_list && j < val.values.size())
                                 val = BindingValue::single(val.values[j]);
                         out.push_back(instantiate(repeat_tmpl, tmpl_arena,

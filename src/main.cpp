@@ -33,9 +33,9 @@ auto main(int argc, char* argv[]) noexcept -> int {
                 if (!session.set_backend(backend))
                     std::quick_exit(1);
             })
-        .add_option("show-stdlib-expansion", NO_SHORT_NAME,
-            "Show stdlib expansion frames in error stack traces.",
-            [&](auto) { session.set_show_stdlib_expansion(true); })
+        .add_option("show-core-expansion", NO_SHORT_NAME,
+            "Show core expansion frames in error stack traces.",
+            [&](auto) { session.set_show_core_expansion(true); })
         .build()
         .parse({ argv + 1, argv + argc });
 
