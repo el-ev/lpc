@@ -2,9 +2,9 @@
 ; Scheme uses ; for comments, that's good.
 
 ; Top level case handled in expand()
-(define-syntax begin
+(define-syntax __begin
   (syntax-rules ()
-    ((begin exp ...)
+    ((__begin exp ...)
      ((lambda () exp ...)))))
 
 (define-syntax and
