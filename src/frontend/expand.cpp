@@ -218,10 +218,6 @@ static SExprLocRef expand_simple(const std::string& kw, const SExprList& list,
     out.push_back(make_canonical(list.elem[0].loc_ref(), kw, ctx.arena));
     for (std::size_t i = 1; i < list.elem.size(); ++i) {
         auto sub_ctx = ctx;
-        if (kw != "begin")
-            sub_ctx.is_top_level = false;
-        // else: begin at top-level stays top-level (simplification)
-
         auto r = expand(list.elem[i], sub_ctx);
         if (!r.is_valid())
             return r;
@@ -265,8 +261,7 @@ static SExprLocRef expand_define(
 
         std::vector<SExprLocRef> params;
         std::size_t var_logical = var_list.size();
-        if (!var_list.empty()
-            && ctx.arena.at(var_list.back()).isa<LispNil>())
+        if (!var_list.empty() && ctx.arena.at(var_list.back()).isa<LispNil>())
             var_logical--;
         for (std::size_t i = 1; i < var_logical; ++i)
             params.push_back(var_list[i]);
@@ -408,7 +403,8 @@ parse_syntax_rules(SExprLocRef transformer_spec, ExpCtx& ctx,
     std::vector<Transformer::SyntaxRule> rules;
     for (std::size_t i = 2; i < spec_list.size(); ++i) {
         if (!ctx.arena.at(spec_list[i]).isa<SExprList>()) {
-            if (i == spec_list.size() - 1 && ctx.arena.at(spec_list[i]).isa<LispNil>())
+            if (i == spec_list.size() - 1
+                && ctx.arena.at(spec_list[i]).isa<LispNil>())
                 continue;
             report_syntax_error(
                 std::string(form_prefix) + ": Invalid syntax-rule: not a list",
@@ -417,7 +413,8 @@ parse_syntax_rules(SExprLocRef transformer_spec, ExpCtx& ctx,
         }
         const auto& rule_parts
             = ctx.arena.at(spec_list[i]).get_unchecked<SExprList>().elem;
-        if (rule_parts.size() == 3 && ctx.arena.at(rule_parts[2]).isa<LispNil>())
+        if (rule_parts.size() == 3
+            && ctx.arena.at(rule_parts[2]).isa<LispNil>())
             rules.push_back({ rule_parts[0], rule_parts[1] });
         else
             report_syntax_error(std::string(form_prefix)
@@ -458,8 +455,7 @@ static SExprLocRef expand_define_syntax(
     if (!transformer)
         return root;
     ctx.env.add_binding(macro_name,
-        Binding(MacroBinding {
-            .transformer = *transformer,
+        Binding(MacroBinding { .transformer = *transformer,
             .is_core = ctx.is_core,
             .output_excluded_scope = std::nullopt }));
     // FIXME: cleanup nils
@@ -520,11 +516,10 @@ static SExprLocRef expand_let_letrec_syntax(
             return root;
 
         ctx.env.add_binding(macro_ident,
-            Binding(MacroBinding {
-                .transformer = *transformer,
+            Binding(MacroBinding { .transformer = *transformer,
                 .is_core = ctx.is_core,
-                .output_excluded_scope = is_letrec ? std::nullopt
-                                                 : std::optional(scope) }));
+                .output_excluded_scope
+                = is_letrec ? std::nullopt : std::optional(scope) }));
     }
 
     std::vector<SExprLocRef> out;
@@ -600,8 +595,7 @@ static SExprLocRef expand_macro(
 
     if (sexpr.isa<LispIdent>()) {
         const auto& ident = sexpr.get_unchecked<LispIdent>();
-        auto binding = ctx.env.find_binding(
-            ident, ctx.output_excluded_scope);
+        auto binding = ctx.env.find_binding(ident, ctx.output_excluded_scope);
         if (!binding) {
             auto clean = ident;
             clean.scopes.clear();
@@ -621,8 +615,8 @@ static SExprLocRef expand_macro(
         const auto& head_expr = ctx.arena.at(list.elem[0]);
         if (head_expr.isa<LispIdent>()) {
             auto head_id = head_expr.get_unchecked<LispIdent>();
-            auto binding = ctx.env.find_binding(
-                head_id, ctx.output_excluded_scope);
+            auto binding
+                = ctx.env.find_binding(head_id, ctx.output_excluded_scope);
 
             if (binding && binding->isa<CoreBinding>()) {
                 const auto& name = head_id.name;
@@ -630,7 +624,7 @@ static SExprLocRef expand_macro(
                     return expand_lambda(list, root, ctx);
                 if (name == "quote")
                     return expand_quote(list, root, ctx.arena);
-                if (name == "if" || name == "begin")
+                if (name == "if")
                     return expand_simple(name, list, root, ctx);
                 if (name == "set!")
                     return expand_set(list, root, ctx);
@@ -737,9 +731,44 @@ void ExpandPass::load_core(SExprArena& /* user_arena */) {
 
     if (arena.at(root).isa<SExprList>()) {
         const auto& list = arena.at(root).get_unchecked<SExprList>();
+        std::vector<SExprLocRef> begin_flattened;
+        auto is_begin = [&](SExprLocRef el) {
+            if (auto list = arena[el].get<SExprList>())
+                if (list->get().elem.size() > 0)
+                // FIXME: begin could be overrided somewhere
+                 if (auto first = arena[list->get().elem[0]].get<LispIdent>())
+                    if (first->get().name == "begin")
+                        return true;
+            return false;
+        };
+
+        const std::function<void(SExprLocRef, std::vector<SExprLocRef>&)>
+            expand_begin
+            = [&](SExprLocRef el, std::vector<SExprLocRef>& out) {
+            auto list = arena[el].get_unchecked<SExprList>();
+            auto list_it = list.elem.begin() + 1;
+            // FIXME: should check for improper list here
+            auto list_end = list.elem.end() - 1;
+            while (list_it != list_end) {
+                if (is_begin(*list_it)) {
+                    expand_begin(*list_it, out);
+                } else
+                    out.push_back(*list_it);
+                ++list_it;
+            }
+        };
+
+        for (auto el : list.elem) {
+            if (is_begin(el)) {
+                expand_begin(el, begin_flattened);
+            } else {
+                begin_flattened.push_back(el);
+            }
+        }
+
         std::vector<SExprLocRef> out;
-        out.reserve(list.elem.size());
-        for (const auto& el : list.elem) {
+        out.reserve(begin_flattened.size());
+        for (const auto& el : begin_flattened) {
             auto r = expand(el, ctx);
             if (!r.is_valid()) {
                 _had_error = true;
@@ -762,7 +791,7 @@ ExpandPass::ExpandPass(bool show_core_expansion) noexcept
     _env.define_core_syntax("quote");
     _env.define_core_syntax("if");
     _env.define_core_syntax("set!");
-    _env.define_core_syntax("begin");
+    // _env.define_core_syntax("begin");
     _env.define_core_syntax("define");
     _env.define_core_syntax("define-syntax");
     _env.define_core_syntax("let-syntax");

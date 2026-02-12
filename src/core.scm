@@ -1,5 +1,12 @@
 ;static constexpr std::string_view CORE_SOURCE = R"CORE(
 ; Scheme uses ; for comments, that's good.
+
+; Top level case handled in expand()
+(define-syntax begin
+  (syntax-rules ()
+    ((begin exp ...)
+     ((lambda () exp ...)))))
+
 (define-syntax and
   (syntax-rules ()
     ((and) #t)
