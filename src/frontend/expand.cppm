@@ -18,7 +18,7 @@ struct VarBinding {
 
 struct CoreBinding { };
 struct MacroBinding {
-    std::shared_ptr<Transformer> transformer;
+    std::unique_ptr<Transformer> transformer;
     bool is_core = false;
     std::optional<ScopeID> output_excluded_scope;
 };
@@ -81,7 +81,7 @@ public:
             .scopes = id.scopes, .binding = std::move(binding) });
     }
 
-    [[nodiscard]] std::optional<Binding> find_binding(const LispIdent& id,
+    [[nodiscard]] std::optional<std::reference_wrapper<const Binding>> find_binding(const LispIdent& id,
         std::optional<ScopeID> exclude_scope = std::nullopt) const noexcept {
 
         auto it = _bindings.find(id.name);
@@ -103,7 +103,7 @@ public:
         }
 
         if (best != nullptr)
-            return best->binding;
+            return std::cref(best->binding);
         return std::nullopt;
     }
 
