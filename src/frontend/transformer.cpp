@@ -297,34 +297,11 @@ static SExprLocRef instantiate(SExprLocRef element, SExprArena& tmpl_arena,
             && tmpl_arena.at(elems.back()).holds_alternative<LispNil>())
             tmpl_logical--;
 
-        int ellipsis_pos = -1;
-        for (std::size_t i = 0; i < tmpl_logical; ++i) {
-            if (is_ellipsis(elems[i], tmpl_arena)) {
-                ellipsis_pos = static_cast<int>(i);
-                break;
-            }
-        }
-
         std::vector<SExprLocRef> out;
 
-        if (ellipsis_pos < 0) {
-            for (const auto& el : elems)
-                out.push_back(
-                    instantiate(el, tmpl_arena, output_arena, bindings,
-                        call_site_loc));
-        } else if (ellipsis_pos == 0) {
-            for (const auto& el : elems)
-                out.push_back(
-                    instantiate(el, tmpl_arena, output_arena, bindings,
-                        call_site_loc));
-        } else {
-            for (int i = 0; i < ellipsis_pos - 1; ++i)
-                out.push_back(
-                    instantiate(elems[i], tmpl_arena, output_arena, bindings,
-                        call_site_loc));
-
-            auto repeat_tmpl = elems[ellipsis_pos - 1];
-
+        for (std::size_t i = 0; i < elems.size(); ++i) {
+            if (i + 1 < tmpl_logical && is_ellipsis(elems[i + 1], tmpl_arena)) {
+                auto repeat_tmpl = elems[i];
             std::set<std::string> tmpl_vars;
             collect_pattern_vars(repeat_tmpl, tmpl_arena, tmpl_vars);
 
@@ -340,25 +317,24 @@ static SExprLocRef instantiate(SExprLocRef element, SExprArena& tmpl_arena,
             }
 
             if (found_list) {
-                for (std::size_t i = 0; i < repeat_count; ++i) {
+                    for (std::size_t j = 0; j < repeat_count; ++j) {
                     Bindings temp = bindings;
                     for (auto& [name, val] : temp)
-                        if (val.is_list && i < val.values.size())
-                            val = BindingValue::single(val.values[i]);
-                    out.push_back(instantiate(
-                        repeat_tmpl, tmpl_arena, output_arena, temp,
-                        call_site_loc));
+                            if (val.is_list && j < val.values.size())
+                                val = BindingValue::single(val.values[j]);
+                        out.push_back(instantiate(repeat_tmpl, tmpl_arena,
+                            output_arena, temp, call_site_loc));
+                    }
+                } else {
+                    out.push_back(instantiate(repeat_tmpl, tmpl_arena,
+                        output_arena, bindings, call_site_loc));
                 }
+                ++i;
+            } else if (is_ellipsis(elems[i], tmpl_arena)) {
             } else {
-                out.push_back(instantiate(
-                    repeat_tmpl, tmpl_arena, output_arena, bindings,
-                    call_site_loc));
+                out.push_back(instantiate(elems[i], tmpl_arena, output_arena,
+                    bindings, call_site_loc));
             }
-
-            for (std::size_t i = ellipsis_pos + 1; i < elems.size(); ++i)
-                out.push_back(
-                    instantiate(elems[i], tmpl_arena, output_arena, bindings,
-                        call_site_loc));
         }
 
         return output_arena.emplace(loc, SExprList(std::move(out)));
