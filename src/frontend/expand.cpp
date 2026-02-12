@@ -675,12 +675,12 @@ static std::vector<SExprLocRef> expand_macro(
                 if (name == "syntax-error") {
                     std::string msg;
                     if (list.elem.size() >= 3) {
-                        auto msg_expr = ctx.arena.at(list.elem[2]);
+                        auto msg_expr = ctx.arena.at(list.elem[1]);
                         if (msg_expr.isa<LispString>()) {
                             msg = msg_expr.get_unchecked<LispString>();
                         }
                     }
-                    report_error(root, ctx, "syntax-error: " + msg);
+                    report_error(root, ctx, std::format("syntax-error: {}", msg));
                     return { SExprLocRef::invalid() };
                 }
             }
