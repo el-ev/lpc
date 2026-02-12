@@ -428,6 +428,7 @@ static SExprLocRef expand_define_syntax(
     ctx.env.add_binding(macro_name,
         Binding(MacroBinding {
             .transformer = transformer, .is_core = ctx.is_core }));
+    // FIXME: cleanup nils
     return ctx.arena.emplace(root.loc_ref(), LispNil());
 }
 
@@ -567,8 +568,8 @@ static SExprLocRef expand_macro(
     return root;
 }
 
+// TODO move to a separate file
 static constexpr std::string_view CORE_SOURCE = R"CORE(
-
 (define-syntax and
   (syntax-rules ()
     ((and) #t)
@@ -619,7 +620,42 @@ static constexpr std::string_view CORE_SOURCE = R"CORE(
          (begin result1 result2 ...)
          (cond clause1 clause2 ...)))))
 
-; TODO missing begin letrec
+(define-syntax __undefined
+(syntax-rules ()
+  ((__undefined)
+   (if #f #f))))
+
+(define-syntax letrec
+(syntax-rules ()
+  ((_ ((v1 e1) ...) body ...)
+   (letrec "gen"
+      (v1 ...)
+      ()
+      ((v1 e1) ...)
+      body ...))
+
+  ((_ "gen"
+      ()
+      (t1 ...)
+      ((v1 e1) ...)
+      body ...)
+    (let ((v1 (__undefined)) ...)
+      (let ((t1 e1) ...)
+        (set! v1 t1)
+        ...
+        (let () 
+          body ...))))
+
+  ((_ "gen"
+      (x y ...)
+      (t ...)
+      ((v1 e1) ...)
+      body ...)
+   (letrec "gen"
+      (y ...)
+      (nt t ...)
+      ((v1 e1) ...)
+      body ...))))
 
 (define-syntax quasiquote
   (syntax-rules 
@@ -784,7 +820,6 @@ ExpandPass::ExpandPass(bool show_core_expansion) noexcept
     _env.define_core_syntax("quote");
     _env.define_core_syntax("if");
     _env.define_core_syntax("set!");
-    // TODO: begin could be derived
     _env.define_core_syntax("begin");
     _env.define_core_syntax("define");
     _env.define_core_syntax("define-syntax");
