@@ -101,7 +101,7 @@ class TestChecker:
         stderr_match = self.comparator.compare_stderr(expected_stderr, actual_stderr, scm_file)
         
         if self.verbose:
-            self._print_comparison_results(stdout_match, stderr_match, expected_stderr, actual_stderr)
+            self._print_comparison_results(stdout_match, stderr_match, expected_stderr, actual_stderr, expected_stdout, actual_stdout)
         
         return TestResult(stdout_match, stderr_match)
             
@@ -114,7 +114,7 @@ class TestChecker:
         ]
 
     def _print_comparison_results(self, stdout_match: bool, stderr_match: bool, 
-                                expected_stderr: str, actual_stderr: str):
+                                expected_stderr: str, actual_stderr: str, expected_stdout: str, actual_stdout: str):
         if not stderr_match:
             expected_lines = expected_stderr.splitlines()
             actual_lines = self._extract_error_lines(actual_stderr)
@@ -126,6 +126,19 @@ class TestChecker:
                 for i, (actual_line, expected_line) in enumerate(zip(actual_lines, expected_lines)):
                     if actual_line != expected_line:
                         print(f"✗ stderr line {i+1} differs")
+                        print(f"Expected: '{expected_line}'")
+                        print(f"Actual: '{actual_line}'")
+        if not stdout_match:
+            expected_lines = expected_stdout.splitlines()
+            actual_lines = actual_stdout.splitlines()
+
+            if len(actual_lines) != len(expected_lines):
+                print("✗ stdout differs in number of lines")
+                print(f"Expected {len(expected_lines)} lines, got {len(actual_lines)} lines")
+            else:
+                for i, (actual_line, expected_line) in enumerate(zip(actual_lines, expected_lines)):
+                    if actual_line != expected_line:
+                        print(f"✗ stdout line {i+1} differs")
                         print(f"Expected: '{expected_line}'")
                         print(f"Actual: '{actual_line}'")
 
