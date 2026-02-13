@@ -63,7 +63,12 @@ bool Lexer::advance() noexcept {
         return false;
     if (_cursor[0] == '#')
         return read_sharp();
-    return read_operator() || read_ident() || read_string() || read_number(0);
+    if (read_operator() || read_ident() || read_string() || read_number(0))
+        return true;
+
+    Error("Unrecognized token starting with '{}' at {}", _cursor[0], loc_string());
+    _failed = true;
+    return false;
 }
 
 bool Lexer::read_ident() noexcept {
@@ -310,11 +315,8 @@ bool Lexer::read_string() noexcept {
 
     while (search_start < content_view.length()) {
         std::size_t current_find = content_view.find('"', search_start);
-        if (current_find == std::string_view::npos) {
-            Error("Unterminated string literal at {}", loc_string());
-            _failed = true;
-            return false;
-        }
+        if (current_find == std::string_view::npos)
+            break;
         std::size_t backslashes = 0;
         for (std::size_t j = current_find;
             j > search_start && content_view[j - 1] == '\\'; --j) {
@@ -330,7 +332,8 @@ bool Lexer::read_string() noexcept {
     if (end == std::string_view::npos) {
         Error("Unterminated string literal at {}", loc_string());
         _failed = true;
-        return false;
+        _cursor.remove_prefix(_cursor.size());
+        return true;
     }
 
     std::string_view unescaped_value = content_view.substr(0, end);
