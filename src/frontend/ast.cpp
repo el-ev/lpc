@@ -3,10 +3,12 @@ import std;
 
 namespace lpc::frontend {
 
+namespace {
 template <typename... Ts>
 struct SExprVisitor : Ts... {
     using Ts::operator()...;
 };
+} // namespace
 
 std::string SExprArena::dump_root(SExprRef root) const {
     if (!root.is_valid())

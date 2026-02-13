@@ -23,32 +23,47 @@ struct ExpCtx {
 };
 
 [[nodiscard]] static SExprLocRef add_scope(
-    SExprLocRef expr, ScopeID scope, SExprArena& arena) {
+    SExprLocRef expr, ScopeID scope, SExprArena& arena);
+
+template <typename F>
+SExprLocRef transform_sexpr(SExprLocRef expr, SExprArena& arena, F&& f) {
     if (!expr.is_valid())
         return expr;
+
     const auto& sexpr = arena.at(expr);
-    if (sexpr.isa<LispIdent>()) {
-        auto ident = sexpr.get_unchecked<LispIdent>();
-        ident.scopes.insert(scope);
-        return arena.emplace(expr.loc_ref(), std::move(ident));
-    }
+
+    SExprLocRef new_expr = expr;
+
     if (sexpr.isa<SExprList>()) {
         auto elems = sexpr.get_unchecked<SExprList>().elem; // copy
         std::vector<SExprLocRef> v;
         v.reserve(elems.size());
         for (const auto& el : elems)
-            v.push_back(add_scope(el, scope, arena));
-        return arena.emplace(expr.loc_ref(), SExprList(std::move(v)));
-    }
-    if (sexpr.isa<SExprVector>()) {
+            v.push_back(transform_sexpr(el, arena, std::forward<F>(f)));
+        new_expr = arena.emplace(expr.loc_ref(), SExprList(std::move(v)));
+    } else if (sexpr.isa<SExprVector>()) {
         auto elems = sexpr.get_unchecked<SExprVector>().elem; // copy
         std::vector<SExprLocRef> v;
         v.reserve(elems.size());
         for (const auto& el : elems)
-            v.push_back(add_scope(el, scope, arena));
-        return arena.emplace(expr.loc_ref(), SExprVector(std::move(v)));
+            v.push_back(transform_sexpr(el, arena, std::forward<F>(f)));
+        new_expr = arena.emplace(expr.loc_ref(), SExprVector(std::move(v)));
     }
-    return expr;
+
+    return std::forward<F>(f)(new_expr, arena);
+}
+
+[[nodiscard]] static SExprLocRef add_scope(
+    SExprLocRef expr, ScopeID scope, SExprArena& arena) {
+    return transform_sexpr(expr, arena, [scope](SExprLocRef e, SExprArena& a) {
+        const auto& sexpr = a.at(e);
+        if (sexpr.isa<LispIdent>()) {
+            auto ident = sexpr.get_unchecked<LispIdent>();
+            ident.scopes.insert(scope);
+            return a.emplace(e.loc_ref(), std::move(ident));
+        }
+        return e;
+    });
 }
 
 struct ScopeKey {
@@ -76,34 +91,18 @@ static void collect_idents(SExprLocRef root, SExprArena& arena,
 
 static SExprLocRef apply_names(SExprLocRef root, SExprArena& arena,
     const std::map<ScopeKey, std::string>& name_map) {
-    if (!root.is_valid())
-        return root;
-    const auto& expr = arena.at(root);
+    return transform_sexpr(root, arena,
+        [&](SExprLocRef e, SExprArena& a) {
+            const auto& expr = a.at(e);
     if (expr.isa<LispIdent>()) {
         const auto& id = expr.get_unchecked<LispIdent>();
-        auto it
-            = name_map.find(ScopeKey { .name = id.name, .scopes = id.scopes });
+                auto it = name_map.find(
+                    ScopeKey { .name = id.name, .scopes = id.scopes });
         if (it != name_map.end())
-            return arena.emplace(root.loc_ref(), LispIdent(it->second));
-        return root;
-    }
-    if (expr.isa<SExprList>()) {
-        const auto& list = expr.get_unchecked<SExprList>();
-        std::vector<SExprLocRef> v;
-        v.reserve(list.elem.size());
-        for (const auto& el : list.elem)
-            v.push_back(apply_names(el, arena, name_map));
-        return arena.emplace(root.loc_ref(), SExprList(std::move(v)));
-    }
-    if (expr.isa<SExprVector>()) {
-        const auto& vec = expr.get_unchecked<SExprVector>();
-        std::vector<SExprLocRef> v;
-        v.reserve(vec.elem.size());
-        for (const auto& el : vec.elem)
-            v.push_back(apply_names(el, arena, name_map));
-        return arena.emplace(root.loc_ref(), SExprVector(std::move(v)));
-    }
-    return root;
+                    return a.emplace(e.loc_ref(), LispIdent(it->second));
+            }
+            return e;
+        });
 }
 
 // The callsites are inefficient

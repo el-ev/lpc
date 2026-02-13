@@ -10,8 +10,6 @@ namespace lpc::frontend {
 
 using lpc::utils::TaggedUnion;
 
-using ScopeID = lpc::frontend::ScopeID;
-
 struct VarBinding {
     LispIdent id;
 };
@@ -76,6 +74,7 @@ public:
         return _next++;
     }
 
+    // TODO: signal error when shadowing causes ambiguity
     void add_binding(const LispIdent& id, Binding binding) {
         _bindings[id.name].push_back(BindingEntry {
             .scopes = id.scopes, .binding = std::move(binding) });
