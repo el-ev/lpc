@@ -4,6 +4,7 @@ import std;
 export import lpc.frontend.token;
 import lpc.utils.arena;
 import lpc.utils.tagged_union;
+import lpc.utils.logging;
 
 namespace lpc::frontend {
 
@@ -205,7 +206,12 @@ public:
     }
 
     void fail() noexcept {
-        _failed = true;
+        if (!_failed) {
+            auto loc = _arena.location(this->loc());
+            lpc::utils::Error("Unexpected token \"{}\" at {}",
+                loc.lexeme(), loc.source_location());
+            _failed = true;
+        }
     }
 
     [[nodiscard]] inline constexpr bool is_failed() const noexcept {

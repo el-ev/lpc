@@ -32,7 +32,7 @@ chain(
         )
       , CreateNil()
     )
-  , OneToken<TokenType::RPAREN>()
+  , Must(OneToken<TokenType::RPAREN>())
 );
 }
 };
@@ -48,7 +48,7 @@ any(
         chain(
             OneToken<TokenType::SHELL_LPAREN>()
           , Many<Def<Datum>>()
-          , OneToken<TokenType::RPAREN>()
+          , Must(OneToken<TokenType::RPAREN>())
         )
     )
   , CreateList(

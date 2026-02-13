@@ -120,6 +120,22 @@ struct Many {
 };
 
 template <ParserRule R>
+struct Must {
+    using manages_rollback = std::true_type;
+
+    explicit constexpr Must() noexcept = default;
+    explicit constexpr Must(R /* r */) noexcept { };
+
+    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept {
+        auto res = R()(cursor);
+        if (!res) {
+            cursor.fail();
+        }
+        return res;
+    }
+};
+
+template <ParserRule R>
 using Some = Then<R, Many<R>>;
 
 template <template <typename, typename> class Rewrite, ParserRule... Rules>
