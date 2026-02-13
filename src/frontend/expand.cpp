@@ -154,6 +154,41 @@ static void report_error(
 [[nodiscard]] static std::vector<SExprLocRef> expand(
     SExprLocRef root, ExpCtx ctx);
 
+static bool is_identifier_active(const LispIdent& id, const LexEnv& env,
+    ExpStackRef parent, const ExpansionStack& stack, SExprArena& arena) {
+    auto id_binding = env.find_binding(id);
+    if (!id_binding)
+        return false;
+
+    auto matches = [&](SExprLocRef k) {
+        if (!k.is_valid())
+            return false;
+        const auto& k_expr = arena.at(k);
+        if (k_expr.isa<SExprList>()) {
+            const auto& list = k_expr.get_unchecked<SExprList>();
+            if (!list.elem.empty()) {
+                const auto& head = arena.at(list.elem[0]);
+                if (head.isa<LispIdent>()) {
+                    auto head_binding = env.find_binding(head.get_unchecked<LispIdent>());
+                    if (!head_binding)
+                        return false;
+                    return &head_binding->get() == &id_binding->get();
+                }
+            }
+        }
+        return false;
+    };
+
+    auto cur = parent;
+    while (cur != ExpansionStack::INVALID) {
+        const auto& frame = stack.at(cur);
+        if (matches(frame.expr))
+            return true;
+        cur = frame.parent;
+    }
+    return false;
+}
+
 static std::vector<SExprLocRef> expand_lambda(
     const SExprList& list, SExprLocRef root, ExpCtx ctx) {
     // (lambda formals body...)
@@ -347,10 +382,15 @@ static std::vector<SExprLocRef> expand_define(
     // (define var expr)
     if (ctx.arena.at(var).isa<LispIdent>()) {
         auto id = ctx.arena.at(var).get_unchecked<LispIdent>();
-        const auto existing = ctx.env.find_exact_binding(id);
-        if (existing && existing->get().isa<VarBinding>()) {
+        if (is_identifier_active(id, ctx.env, ctx.parent, ctx.stack, ctx.arena)) {
+            report_error(root, ctx, "define: invalid context for definition");
+            return { SExprLocRef::invalid() };
+        }
+
+        const auto exact = ctx.env.find_exact_binding(id);
+        if (exact && exact->get().isa<VarBinding>()) {
             var = ctx.arena.emplace(
-                var.loc_ref(), existing->get().get_unchecked<VarBinding>().id);
+                var.loc_ref(), exact->get().get_unchecked<VarBinding>().id);
         } else {
             auto resolved = ctx.env.unique_name(id.name);
             auto resolved_id = LispIdent(resolved);
@@ -447,7 +487,6 @@ parse_syntax_rules(SExprLocRef transformer_spec, ExpCtx& ctx,
                 std::format("{}: invalid syntax-rule: unexpected rule format",
                     form_prefix));
     }
-    // FIXME: transformer validity not checked
     return std::make_unique<Transformer>(
         std::move(rules), std::move(literals), ctx.arena);
 }
@@ -474,6 +513,11 @@ static std::vector<SExprLocRef> expand_define_syntax(
         return { SExprLocRef::invalid() };
     }
     auto macro_name = ctx.arena.at(name_ex).get<LispIdent>()->get();
+
+    if (is_identifier_active(macro_name, ctx.env, ctx.parent, ctx.stack, ctx.arena)) {
+        report_error(root, ctx, "define-syntax: invalid context for definition");
+        return { SExprLocRef::invalid() };
+    }
 
     auto transformer = parse_syntax_rules(transformer_spec, ctx);
     if (!transformer)
@@ -608,24 +652,29 @@ static std::vector<SExprLocRef> expand_macro(
 
             if (binding && binding->get().isa<CoreBinding>()) {
                 const auto& name = head_id.name;
+
+                ExpStackRef frame = ctx.stack.push(root, true, ctx.parent);
+                auto core_ctx = ctx;
+                core_ctx.parent = frame;
+
                 if (name == "lambda")
-                    return expand_lambda(list, root, ctx);
+                    return expand_lambda(list, root, core_ctx);
                 if (name == "quote")
-                    return expand_quote(list, root, ctx);
+                    return expand_quote(list, root, core_ctx);
                 if (name == "if")
-                    return expand_if(list, root, ctx);
+                    return expand_if(list, root, core_ctx);
                 if (name == "begin")
-                    return expand_begin(list, root, ctx);
+                    return expand_begin(list, root, core_ctx);
                 if (name == "set!")
-                    return expand_set(list, root, ctx);
+                    return expand_set(list, root, core_ctx);
                 if (name == "define")
-                    return expand_define(list, root, ctx);
+                    return expand_define(list, root, core_ctx);
                 if (name == "define-syntax")
-                    return expand_define_syntax(list, root, ctx);
+                    return expand_define_syntax(list, root, core_ctx);
                 if (name == "let-syntax")
-                    return expand_let_letrec_syntax(list, root, ctx, false);
+                    return expand_let_letrec_syntax(list, root, core_ctx, false);
                 if (name == "letrec-syntax")
-                    return expand_let_letrec_syntax(list, root, ctx, true);
+                    return expand_let_letrec_syntax(list, root, core_ctx, true);
                 if (name == "syntax-error") {
                     std::string msg;
                     if (list.elem.size() >= 3) {
@@ -634,7 +683,7 @@ static std::vector<SExprLocRef> expand_macro(
                             msg = msg_expr.get_unchecked<LispString>();
                         }
                     }
-                    report_error(root, ctx, std::format("syntax-error: {}", msg));
+                    report_error(root, core_ctx, std::format("syntax-error: {}", msg));
                     return { SExprLocRef::invalid() };
                 }
             }
