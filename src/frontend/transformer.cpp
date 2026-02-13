@@ -349,6 +349,24 @@ SExprLocRef Transformer::transcribe(
 
     for (const auto& rule : _rules) {
         Bindings bindings;
+        const auto& p_expr = _def_arena.at(rule.pattern);
+        const auto& i_expr = input_arena.at(input);
+
+        if (p_expr.isa<SExprList>() && i_expr.isa<SExprList>()) {
+            const auto& p_list = p_expr.get_unchecked<SExprList>();
+            const auto& i_list = i_expr.get_unchecked<SExprList>();
+            if (!p_list.elem.empty() && !i_list.elem.empty()) {
+                // Skip the macro name
+                if (match(get_tail(p_list, 1, _def_arena), _def_arena,
+                        get_tail(i_list, 1, input_arena), input_arena, bindings,
+                        _literals)) {
+                    return instantiate(rule.template_, _def_arena, input_arena,
+                        bindings, input.loc_ref());
+                }
+                continue;
+            }
+        }
+
         if (match(rule.pattern, _def_arena, input, input_arena, bindings,
                 _literals)) {
             return instantiate(rule.template_, _def_arena, input_arena,

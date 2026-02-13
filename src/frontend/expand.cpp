@@ -651,7 +651,12 @@ static std::vector<SExprLocRef> expand_let_letrec_syntax(
         auto scoped_name = add_scope(name_ex, scope, ctx.arena);
         auto macro_ident = ctx.arena.at(scoped_name).get_unchecked<LispIdent>();
 
-        auto transformer = parse_syntax_rules(pair[1], ctx, is_letrec? "letrec-syntax" : "let-syntax");
+        auto transformer_spec = pair[1];
+        if (is_letrec) {
+            transformer_spec = add_scope(transformer_spec, scope, ctx.arena);
+        }
+
+        auto transformer = parse_syntax_rules(transformer_spec, ctx, is_letrec? "letrec-syntax" : "let-syntax");
         if (!transformer)
             return { SExprLocRef::invalid() };
 
@@ -684,7 +689,8 @@ static std::vector<SExprLocRef> expand_macro(
     }
     auto new_ctx = ctx;
     new_ctx.is_core = macro.is_core;
-    new_ctx.output_excluded_scope = macro.output_excluded_scope;
+    if (macro.output_excluded_scope)
+        new_ctx.output_excluded_scope = macro.output_excluded_scope;
     auto r =  expand(add_scope(result, intro, ctx.arena), new_ctx);
     return r;
 }
