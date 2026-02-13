@@ -617,7 +617,7 @@ static std::vector<SExprLocRef> expand_let_letrec_syntax(
     }
 
     ScopeID scope = ctx.env.new_scope();
-    const auto& bindings = bindings_expr.get_unchecked<SExprList>().elem;
+    auto bindings = bindings_expr.get_unchecked<SExprList>().elem;
 
     for (const auto& binding : bindings) {
         const auto& binding_expr = ctx.arena.at(binding);
@@ -629,7 +629,7 @@ static std::vector<SExprLocRef> expand_let_letrec_syntax(
                     let_syntax_name));
             return { SExprLocRef::invalid() };
         }
-        const auto& pair = binding_expr.get_unchecked<SExprList>().elem;
+        auto pair = binding_expr.get_unchecked<SExprList>().elem;
         if (pair.size() < 2) {
             report_error(binding, ctx,
                 std::format("{}: expected (name transformer) for each binding",
