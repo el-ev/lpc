@@ -65,6 +65,7 @@ private:
     };
 
     std::unordered_map<std::string, std::vector<BindingEntry>> _bindings;
+    std::unordered_map<std::string, std::uint32_t> _name_counts;
     ScopeID _next = 0;
 
 public:
@@ -74,10 +75,26 @@ public:
         return _next++;
     }
 
+    std::string unique_name(const std::string& name) {
+        auto& count = _name_counts[name];
+        return name + "." + std::to_string(count++);
+    }
+
     // TODO: signal error when shadowing causes ambiguity
     void add_binding(const LispIdent& id, Binding binding) {
         _bindings[id.name].push_back(BindingEntry {
             .scopes = id.scopes, .binding = std::move(binding) });
+    }
+
+    [[nodiscard]] std::optional<std::reference_wrapper<const Binding>> find_exact_binding(const LispIdent& id) const noexcept {
+        auto it = _bindings.find(id.name);
+        if (it == _bindings.end())
+            return std::nullopt;
+        for (const auto& entry : it->second) {
+            if (entry.scopes == id.scopes)
+                return std::cref(entry.binding);
+        }
+        return std::nullopt;
     }
 
     [[nodiscard]] std::optional<std::reference_wrapper<const Binding>> find_binding(const LispIdent& id,

@@ -19,6 +19,7 @@ struct ExpCtx {
     bool is_top_level;
     bool& had_error;
     // FIXME: this is just stupid
+    // TODO: get rid of this
     std::optional<ScopeID> output_excluded_scope;
 };
 
@@ -72,70 +73,6 @@ struct ScopeKey {
     auto operator<=>(const ScopeKey&) const = default;
 };
 
-static void collect_idents(SExprLocRef root, SExprArena& arena,
-    std::map<std::string, std::set<std::set<ScopeID>>>& groups) {
-    if (!root.is_valid())
-        return;
-    const auto& expr = arena.at(root);
-    if (expr.isa<LispIdent>()) {
-        const auto& id = expr.get_unchecked<LispIdent>();
-        groups[id.name].insert(id.scopes);
-    } else if (expr.isa<SExprList>()) {
-        for (const auto& el : expr.get_unchecked<SExprList>().elem)
-            collect_idents(el, arena, groups);
-    } else if (expr.isa<SExprVector>()) {
-        for (const auto& el : expr.get_unchecked<SExprVector>().elem)
-            collect_idents(el, arena, groups);
-    }
-}
-
-static SExprLocRef apply_names(SExprLocRef root, SExprArena& arena,
-    const std::map<ScopeKey, std::string>& name_map) {
-    return transform_sexpr(root, arena,
-        [&](SExprLocRef e, SExprArena& a) {
-            const auto& expr = a.at(e);
-    if (expr.isa<LispIdent>()) {
-        const auto& id = expr.get_unchecked<LispIdent>();
-                auto it = name_map.find(
-                    ScopeKey { .name = id.name, .scopes = id.scopes });
-        if (it != name_map.end())
-                    return a.emplace(e.loc_ref(), LispIdent(it->second));
-            }
-            return e;
-        });
-}
-
-// The callsites are inefficient
-[[nodiscard]] static SExprLocRef resolve_names(
-    SExprLocRef root, SExprArena& arena) {
-    std::map<std::string, std::set<std::set<ScopeID>>> groups;
-    collect_idents(root, arena, groups);
-
-    std::map<ScopeKey, std::string> name_map;
-    for (const auto& [name, scope_sets] : groups) {
-        if (scope_sets.size() == 1) {
-            name_map[{ name, *scope_sets.begin() }] = name;
-            continue;
-        }
-        bool bare_assigned = false;
-        int suffix = 0;
-        for (const auto& scopes : scope_sets) {
-            if (scopes.empty() && !bare_assigned) {
-                name_map[{ name, scopes }] = name;
-                bare_assigned = true;
-            } else {
-                name_map[{ name, scopes }]
-                    = name + "." + std::to_string(suffix++);
-            }
-        }
-        if (!bare_assigned) {
-            auto first_it = scope_sets.begin();
-            name_map[{ name, *first_it }] = name;
-        }
-    }
-    return apply_names(root, arena, name_map);
-}
-
 [[nodiscard]] static SExprLocRef make_canonical(
     LocRef loc, const std::string& name, SExprArena& arena) {
     return arena.emplace(loc, LispIdent(name));
@@ -145,8 +82,7 @@ static void report_error(
     SExprLocRef failed_expr, ExpCtx ctx, std::string_view msg) {
     ctx.had_error = true;
 
-    auto resolved = resolve_names(failed_expr, ctx.arena);
-    auto failed_str = ctx.arena.dump(resolved.expr_ref());
+    auto failed_str = ctx.arena.dump(failed_expr.expr_ref());
 
     Error("{}", msg);
     std::println(std::cerr, "  for: {}", failed_str);
@@ -164,9 +100,8 @@ static void report_error(
             std::println(std::cerr, "  ({} frames omitted)", core_omitted);
             core_omitted = 0;
         }
-        auto r = resolve_names(f.expr, ctx.arena);
         std::println(
-            std::cerr, "  in expansion of: {}", ctx.arena.dump(r.expr_ref()));
+            std::cerr, "  in expansion of: {}", ctx.arena.dump(f.expr.expr_ref()));
         cur = f.parent;
     }
     if (core_omitted > 0)
@@ -228,12 +163,21 @@ static std::vector<SExprLocRef> expand_lambda(
     ScopeID scope = ctx.env.new_scope();
     auto scoped_params = add_scope(list.elem[1], scope, ctx.arena);
 
+    std::vector<SExprLocRef> params;
     auto bind = [&](SExprLocRef p) {
         if (ctx.arena.at(p).isa<LispIdent>()) {
             auto id = ctx.arena.at(p).get_unchecked<LispIdent>();
-            ctx.env.add_binding(id, Binding(VarBinding { id }));
+            auto resolved = ctx.env.unique_name(id.name);
+            auto resolved_id = LispIdent(resolved);
+            ctx.env.add_binding(
+                id, Binding(VarBinding(resolved_id)));
+            params.push_back(
+                ctx.arena.emplace(p.loc_ref(), std::move(resolved_id)));
+        } else if (ctx.arena.at(p).isa<LispNil>()) {
+            params.push_back(p);
         }
     };
+
     const auto& p_expr = ctx.arena.at(scoped_params);
     if (p_expr.isa<SExprList>()) {
         // FIXME: check for
@@ -245,16 +189,16 @@ static std::vector<SExprLocRef> expand_lambda(
         bind(scoped_params);
         // canonicalize to list of identifiers
         // TODO is this correct?
-        scoped_params = ctx.arena.emplace(
-            scoped_params.loc_ref(), SExprList({ scoped_params }));
     } else {
         report_error(scoped_params, ctx, "lambda: expected list of identifier");
         return { SExprLocRef::invalid() };
     }
+    auto final_params = ctx.arena.emplace(
+        scoped_params.loc_ref(), SExprList(std::move(params)));
 
     std::vector<SExprLocRef> out;
     out.push_back(make_canonical(list.elem[0].loc_ref(), "lambda", ctx.arena));
-    out.push_back(scoped_params);
+    out.push_back(final_params);
     for (std::size_t i = 2; i < list.elem.size(); ++i) {
         auto body_ctx = ctx;
         body_ctx.is_top_level = false;
@@ -363,10 +307,12 @@ static std::vector<SExprLocRef> expand_define(
             return { SExprLocRef::invalid() };
         }
         auto func_name_id = ctx.arena.at(func_name).get_unchecked<LispIdent>();
-        std::println(std::cerr, "define: adding binding for {}", func_name_id.name);
+        auto resolved = ctx.env.unique_name(func_name_id.name);
+        auto resolved_id = LispIdent(resolved);
         ctx.env.add_binding(func_name_id,
             Binding(
-                VarBinding { func_name_id }));
+                VarBinding(resolved_id)));
+        auto resolved_func_name = ctx.arena.emplace(func_name.loc_ref(), std::move(resolved_id));
 
         std::vector<SExprLocRef> params;
         std::size_t var_logical = var_list.size();
@@ -390,7 +336,7 @@ static std::vector<SExprLocRef> expand_define(
         std::vector<SExprLocRef> def;
         def.push_back(
             make_canonical(list.elem[0].loc_ref(), "define", ctx.arena));
-        def.push_back(func_name);
+        def.push_back(resolved_func_name);
         def.push_back(lam_node);
         def.push_back(ctx.arena.nil(root.loc_ref()));
         auto desugared
@@ -400,9 +346,18 @@ static std::vector<SExprLocRef> expand_define(
 
     // (define var expr)
     if (ctx.arena.at(var).isa<LispIdent>()) {
-        ctx.env.add_binding(ctx.arena.at(var).get_unchecked<LispIdent>(),
-            Binding(
-                VarBinding { ctx.arena.at(var).get_unchecked<LispIdent>() }));
+        auto id = ctx.arena.at(var).get_unchecked<LispIdent>();
+        const auto existing = ctx.env.find_exact_binding(id);
+        if (existing && existing->get().isa<VarBinding>()) {
+            var = ctx.arena.emplace(
+                var.loc_ref(), existing->get().get_unchecked<VarBinding>().id);
+        } else {
+            auto resolved = ctx.env.unique_name(id.name);
+            auto resolved_id = LispIdent(resolved);
+            ctx.env.add_binding(
+                id, Binding(VarBinding(resolved_id)));
+            var = ctx.arena.emplace(var.loc_ref(), std::move(resolved_id));
+        }
     }
 
     std::vector<SExprLocRef> out;
@@ -786,7 +741,7 @@ void ExpandPass::load_core(SExprArena& /* user_arena */) {
             = arena.emplace(root.loc_ref(), SExprList(std::move(out)));
         if (_had_error)
             return SExprLocRef::invalid();
-        return resolve_names(expanded, arena);
+        return expanded;
     }
     __builtin_unreachable();
 }
