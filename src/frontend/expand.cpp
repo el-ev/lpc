@@ -18,6 +18,8 @@ struct ExpCtx {
     bool show_core;
     bool is_top_level;
     bool& had_error;
+    std::uint32_t max_depth;
+    std::uint32_t current_depth;
     // FIXME: this is just stupid
     // TODO: get rid of this
     std::optional<ScopeID> output_excluded_scope;
@@ -78,6 +80,60 @@ struct ScopeKey {
     return arena.emplace(loc, LispIdent(name));
 }
 
+// TODO: better?
+[[nodiscard]] static std::pair<std::size_t, std::size_t> find_cycle_suffix(
+    std::span<const std::string> seq) {
+    const auto n = seq.size();
+    if (n < 2)
+        return { 0, 0 };
+    for (std::size_t L = 1; L <= n / 2; ++L) {
+        const auto pattern = std::span(seq).last(L);
+        std::size_t k = 1;
+        for (std::size_t j = 1; j * L < n; ++j) {
+            const auto start = n - ((j + 1) * L);
+            if (start + L > n)
+                break;
+            if (!std::equal(seq.begin() + (std::size_t)start,
+                    seq.begin() + (std::size_t)start + L, pattern.begin(),
+                    pattern.end()))
+                break;
+            k = j + 1;
+        }
+        if (k >= 2)
+            return { L, k };
+    }
+    return { 0, 0 };
+}
+
+static void flush_expansion_segment(std::vector<std::string>& segment) {
+    if (segment.empty())
+        return;
+    const auto [cycle_len, num_reps] = find_cycle_suffix(segment);
+    const std::size_t cycle_start = cycle_len > 0 && num_reps >= 2
+        ? segment.size() - (cycle_len * num_reps)
+        : segment.size();
+    for (std::size_t i = 0; i < cycle_start;) {
+        std::size_t run = 1;
+        while (i + run < cycle_start && segment[i + run] == segment[i])
+            ++run;
+        std::println(std::cerr, "  in expansion of: {}", segment[i]);
+        if (run > 1)
+            std::println(std::cerr, "  ({} identical frames omitted)", run - 1);
+        i += run;
+    }
+    if (cycle_len > 0 && num_reps >= 2) {
+        for (std::size_t i = 0; i < cycle_len; ++i)
+            std::println(
+                std::cerr, "  in expansion of: {}", segment[cycle_start + i]);
+        const auto to_omit = (num_reps - 1) * cycle_len;
+        if (cycle_len == 1)
+            std::println(std::cerr, "  ({} identical frames omitted)", to_omit);
+        else
+            std::println(std::cerr, "  ({} similar frames omitted)", to_omit);
+    }
+    segment.clear();
+}
+
 static void report_error(
     SExprLocRef failed_expr, ExpCtx ctx, std::string_view msg) {
     ctx.had_error = true;
@@ -87,8 +143,14 @@ static void report_error(
     Error("{}", msg);
     std::println(std::cerr, "  for: {}", failed_str);
 
-    auto cur = ctx.parent;
+    struct Frame {
+        int core_omitted;
+        std::string dump;
+    };
+    std::vector<Frame> frames;
+    frames.reserve(64);
     int core_omitted = 0;
+    auto cur = ctx.parent;
     while (cur != ExpansionStack::INVALID) {
         const auto& f = ctx.stack.at(cur);
         if (f.is_core && !ctx.show_core) {
@@ -96,16 +158,22 @@ static void report_error(
             cur = f.parent;
             continue;
         }
-        if (core_omitted > 0) {
-            std::println(std::cerr, "  ({} frames omitted)", core_omitted);
-            core_omitted = 0;
-        }
-        std::println(
-            std::cerr, "  in expansion of: {}", ctx.arena.dump(f.expr.expr_ref()));
+        frames.push_back({ core_omitted, ctx.arena.dump(f.expr.expr_ref()) });
+        core_omitted = 0;
         cur = f.parent;
     }
     if (core_omitted > 0)
         std::println(std::cerr, "  ({} frames omitted)", core_omitted);
+
+    std::vector<std::string> segment;
+    for (const auto& [core, dump] : frames) {
+        if (core > 0) {
+            flush_expansion_segment(segment);
+            std::println(std::cerr, "  ({} frames omitted)", core);
+        }
+        segment.push_back(dump);
+    }
+    flush_expansion_segment(segment);
 
     auto loc = ctx.arena.location(failed_expr.loc_ref());
     std::println(std::cerr, "  at {}", loc.source_location());
@@ -169,7 +237,8 @@ static bool is_identifier_active(const LispIdent& id, const LexEnv& env,
             if (!list.elem.empty()) {
                 const auto& head = arena.at(list.elem[0]);
                 if (head.isa<LispIdent>()) {
-                    auto head_binding = env.find_binding(head.get_unchecked<LispIdent>());
+                    auto head_binding
+                        = env.find_binding(head.get_unchecked<LispIdent>());
                     if (!head_binding)
                         return false;
                     return &head_binding->get() == &id_binding->get();
@@ -204,8 +273,7 @@ static std::vector<SExprLocRef> expand_lambda(
             auto id = ctx.arena.at(p).get_unchecked<LispIdent>();
             auto resolved = ctx.env.unique_name(id.name);
             auto resolved_id = LispIdent(resolved);
-            ctx.env.add_binding(
-                id, Binding(VarBinding(resolved_id)));
+            ctx.env.add_binding(id, Binding(VarBinding(resolved_id)));
             params.push_back(
                 ctx.arena.emplace(p.loc_ref(), std::move(resolved_id)));
         } else if (ctx.arena.at(p).isa<LispNil>()) {
@@ -338,16 +406,16 @@ static std::vector<SExprLocRef> expand_define(
         auto func_name = var_list[0];
 
         if (!ctx.arena.at(func_name).isa<LispIdent>()) {
-            report_error(func_name, ctx, "define: expected identifier for function name");
+            report_error(func_name, ctx,
+                "define: expected identifier for function name");
             return { SExprLocRef::invalid() };
         }
         auto func_name_id = ctx.arena.at(func_name).get_unchecked<LispIdent>();
         auto resolved = ctx.env.unique_name(func_name_id.name);
         auto resolved_id = LispIdent(resolved);
-        ctx.env.add_binding(func_name_id,
-            Binding(
-                VarBinding(resolved_id)));
-        auto resolved_func_name = ctx.arena.emplace(func_name.loc_ref(), std::move(resolved_id));
+        ctx.env.add_binding(func_name_id, Binding(VarBinding(resolved_id)));
+        auto resolved_func_name
+            = ctx.arena.emplace(func_name.loc_ref(), std::move(resolved_id));
 
         std::vector<SExprLocRef> params;
         std::size_t var_logical = var_list.size();
@@ -382,7 +450,8 @@ static std::vector<SExprLocRef> expand_define(
     // (define var expr)
     if (ctx.arena.at(var).isa<LispIdent>()) {
         auto id = ctx.arena.at(var).get_unchecked<LispIdent>();
-        if (is_identifier_active(id, ctx.env, ctx.parent, ctx.stack, ctx.arena)) {
+        if (is_identifier_active(
+                id, ctx.env, ctx.parent, ctx.stack, ctx.arena)) {
             report_error(root, ctx, "define: invalid context for definition");
             return { SExprLocRef::invalid() };
         }
@@ -394,8 +463,7 @@ static std::vector<SExprLocRef> expand_define(
         } else {
             auto resolved = ctx.env.unique_name(id.name);
             auto resolved_id = LispIdent(resolved);
-            ctx.env.add_binding(
-                id, Binding(VarBinding(resolved_id)));
+            ctx.env.add_binding(id, Binding(VarBinding(resolved_id)));
             var = ctx.arena.emplace(var.loc_ref(), std::move(resolved_id));
         }
     }
@@ -514,8 +582,10 @@ static std::vector<SExprLocRef> expand_define_syntax(
     }
     auto macro_name = ctx.arena.at(name_ex).get<LispIdent>()->get();
 
-    if (is_identifier_active(macro_name, ctx.env, ctx.parent, ctx.stack, ctx.arena)) {
-        report_error(root, ctx, "define-syntax: invalid context for definition");
+    if (is_identifier_active(
+            macro_name, ctx.env, ctx.parent, ctx.stack, ctx.arena)) {
+        report_error(
+            root, ctx, "define-syntax: invalid context for definition");
         return { SExprLocRef::invalid() };
     }
 
@@ -623,6 +693,13 @@ static std::vector<SExprLocRef> expand_macro(
     if (!root.is_valid())
         return { SExprLocRef::invalid() };
 
+    if (ctx.current_depth > ctx.max_depth) {
+        report_error(root, ctx,
+            "expand: maximum macro expansion depth exceeded (possible infinite "
+            "recursion)");
+        return { SExprLocRef::invalid() };
+    }
+
     const auto& sexpr = ctx.arena.at(root);
 
     if (sexpr.isa<LispIdent>()) {
@@ -672,7 +749,8 @@ static std::vector<SExprLocRef> expand_macro(
                 if (name == "define-syntax")
                     return expand_define_syntax(list, root, core_ctx);
                 if (name == "let-syntax")
-                    return expand_let_letrec_syntax(list, root, core_ctx, false);
+                    return expand_let_letrec_syntax(
+                        list, root, core_ctx, false);
                 if (name == "letrec-syntax")
                     return expand_let_letrec_syntax(list, root, core_ctx, true);
                 if (name == "syntax-error") {
@@ -683,7 +761,8 @@ static std::vector<SExprLocRef> expand_macro(
                             msg = msg_expr.get_unchecked<LispString>();
                         }
                     }
-                    report_error(root, core_ctx, std::format("syntax-error: {}", msg));
+                    report_error(
+                        root, core_ctx, std::format("syntax-error: {}", msg));
                     return { SExprLocRef::invalid() };
                 }
             }
@@ -694,6 +773,7 @@ static std::vector<SExprLocRef> expand_macro(
                 ExpStackRef frame = ctx.stack.push(root, is_core, ctx.parent);
                 auto macro_ctx = ctx;
                 macro_ctx.parent = frame;
+                macro_ctx.current_depth++;
                 return expand_macro(
                     root, binding->get().get<MacroBinding>()->get(), macro_ctx);
             }
@@ -745,6 +825,8 @@ void ExpandPass::load_core(SExprArena& /* user_arena */) {
                 .show_core = _show_core_expansion,
                 .is_top_level = true,
                 .had_error = dummy_error,
+                .max_depth = _max_expansion_depth,
+                .current_depth = 0,
                 .output_excluded_scope = std::nullopt,
             };
             (void)expand(form, ctx);
@@ -768,6 +850,8 @@ void ExpandPass::load_core(SExprArena& /* user_arena */) {
         .show_core = _show_core_expansion,
         .is_top_level = true,
         .had_error = _had_error,
+        .max_depth = _max_expansion_depth,
+        .current_depth = 0,
         .output_excluded_scope = std::nullopt,
     };
 
@@ -795,8 +879,10 @@ void ExpandPass::load_core(SExprArena& /* user_arena */) {
     __builtin_unreachable();
 }
 
-ExpandPass::ExpandPass(bool show_core_expansion) noexcept
-    : _show_core_expansion(show_core_expansion) {
+ExpandPass::ExpandPass(
+    bool show_core_expansion, std::uint32_t max_expansion_depth) noexcept
+    : _show_core_expansion(show_core_expansion)
+    , _max_expansion_depth(max_expansion_depth) {
     _env.define_core_syntax("lambda");
     _env.define_core_syntax("quote");
     _env.define_core_syntax("if");

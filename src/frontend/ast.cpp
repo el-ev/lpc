@@ -47,7 +47,6 @@ std::string SExprArena::dump(SExprRef ref) const {
         },
         [](const LispBool& b) { return b ? "#t" : "#f"; },
         [this](const SExprList& list) {
-            // FIXME: misleading(but technically vaild?) when they are shadowed
             if (list.elem.size() == 3 && at(list.elem.back()).isa<LispNil>()
                 && at(list.elem[0]).isa<LispIdent>()) {
                 const auto& id = at(list.elem[0]).get_unchecked<LispIdent>();

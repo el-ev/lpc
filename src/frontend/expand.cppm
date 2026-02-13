@@ -108,7 +108,8 @@ public:
         std::size_t best_size = 0;
 
         for (const auto& entry : it->second) {
-            if (exclude_scope && entry.scopes.contains(*exclude_scope))
+            if (exclude_scope && entry.scopes.contains(*exclude_scope)
+                && entry.binding.isa<MacroBinding>())
                 continue;
             if (std::ranges::includes(id.scopes, entry.scopes)) {
                 // If the scopes are the same size, we prefer the newer binding
@@ -138,6 +139,7 @@ private:
     ExpansionStack _exp_stack;
     bool _core_loaded = false;
     bool _show_core_expansion = false;
+    std::uint32_t _max_expansion_depth = 1000;
     bool _had_error = false;
 
     void load_core(SExprArena& user_arena);
@@ -151,10 +153,15 @@ public:
         _show_core_expansion = v;
     }
 
+    void set_max_expansion_depth(std::uint32_t v) noexcept {
+        _max_expansion_depth = v;
+    }
+
     [[nodiscard]] SExprLocRef run(
         SExprLocRef root, SExprArena& arena) noexcept final;
 
-    explicit ExpandPass(bool show_core_expansion) noexcept;
+    explicit ExpandPass(
+        bool show_core_expansion, std::uint32_t max_expansion_depth) noexcept;
     ~ExpandPass() final = default;
 };
 

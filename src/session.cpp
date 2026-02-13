@@ -58,7 +58,8 @@ int Session::run() noexcept {
         std::print("{}", node_arena.dump_root(root.expr_ref()));
 
     PassManager pass_manager;
-    pass_manager.add_pass<frontend::ExpandPass>(_show_core_expansion);
+    pass_manager.add_pass<frontend::ExpandPass>(
+        _show_core_expansion, _max_expansion_depth);
     root = pass_manager.run_all(root, node_arena, _print_passes);
     if (!root.is_valid())
         return 1;

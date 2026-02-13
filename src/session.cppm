@@ -11,6 +11,7 @@ private:
     std::vector<std::string> _print_passes;
     std::string _backend;
     bool _show_core_expansion = false;
+    std::uint32_t _max_expansion_depth = 1000;
 
 public:
     explicit Session() = default;
@@ -50,6 +51,10 @@ public:
 
     void set_show_core_expansion(bool v) noexcept {
         _show_core_expansion = v;
+    }
+
+    void set_max_expansion_depth(std::uint32_t v) noexcept {
+        _max_expansion_depth = v;
     }
 
     [[nodiscard]] int run() noexcept;

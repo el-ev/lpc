@@ -36,6 +36,17 @@ auto main(int argc, char* argv[]) noexcept -> int {
         .add_option("show-core-expansion", NO_SHORT_NAME,
             "Show core expansion frames in error stack traces.",
             [&](auto) { session.set_show_core_expansion(true); })
+        .add_option("max-expansion-depth", NO_SHORT_NAME,
+            "Maximum macro expansion depth.", "1000",
+            [&](auto depth) {
+                try {
+                    session.set_max_expansion_depth(
+                        std::stoul(std::string(depth)));
+                } catch (...) {
+                    std::println(std::cerr, "Invalid depth: {}", depth);
+                    std::quick_exit(1);
+                }
+            })
         .build()
         .parse({ argv + 1, argv + argc });
 
