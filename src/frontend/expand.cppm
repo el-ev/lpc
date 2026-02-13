@@ -105,17 +105,22 @@ public:
             return std::nullopt;
 
         const BindingEntry* best = nullptr;
-        std::size_t best_size = 0;
 
         for (const auto& entry : it->second) {
             if (exclude_scope && entry.scopes.contains(*exclude_scope)
                 && entry.binding.isa<MacroBinding>())
                 continue;
+
             if (std::ranges::includes(id.scopes, entry.scopes)) {
-                // If the scopes are the same size, we prefer the newer binding
-                if (best == nullptr || entry.scopes.size() >= best_size) {
+                if (best == nullptr) {
                     best = &entry;
-                    best_size = entry.scopes.size();
+                } else if (std::ranges::includes(entry.scopes, best->scopes)) {
+                    // prefer later bindings over earlier ones
+                    best = &entry;
+                } else if (std::ranges::includes(best->scopes, entry.scopes)) {
+                    // best is a superset of entry, so best is already better
+                } else {
+                    // ambiguous reference
                 }
             }
         }

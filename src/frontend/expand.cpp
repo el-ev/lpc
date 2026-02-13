@@ -62,7 +62,11 @@ SExprLocRef transform_sexpr(SExprLocRef expr, SExprArena& arena, F&& f) {
         const auto& sexpr = a.at(e);
         if (sexpr.isa<LispIdent>()) {
             auto ident = sexpr.get_unchecked<LispIdent>();
-            ident.scopes.insert(scope);
+            if (ident.scopes.contains(scope)) {
+                ident.scopes.erase(scope);
+            } else {
+                ident.scopes.insert(scope);
+            }
             return a.emplace(e.loc_ref(), std::move(ident));
         }
         return e;
@@ -647,7 +651,7 @@ static std::vector<SExprLocRef> expand_let_letrec_syntax(
         auto scoped_name = add_scope(name_ex, scope, ctx.arena);
         auto macro_ident = ctx.arena.at(scoped_name).get_unchecked<LispIdent>();
 
-        auto transformer = parse_syntax_rules(pair[1], ctx, "let-syntax");
+        auto transformer = parse_syntax_rules(pair[1], ctx, is_letrec? "letrec-syntax" : "let-syntax");
         if (!transformer)
             return { SExprLocRef::invalid() };
 
@@ -661,15 +665,11 @@ static std::vector<SExprLocRef> expand_let_letrec_syntax(
     std::vector<SExprLocRef> out;
     out.push_back(make_canonical(list.elem[0].loc_ref(), "begin", ctx.arena));
     for (std::size_t i = 2; i < list.elem.size(); ++i) {
-        auto body_ctx = ctx;
-        // TODO: shouldn't set?
-        // body_ctx.is_top_level = false;
-        auto r = expand(add_scope(list.elem[i], scope, ctx.arena), body_ctx);
-        if (r.size() != 1 || !r[0].is_valid())
-            return { SExprLocRef::invalid() };
-        out.push_back(r[0]);
+        out.push_back(list.elem[i]);
     }
-    return { ctx.arena.emplace(root.loc_ref(), SExprList(std::move(out))) };
+    auto new_ctx = ctx;
+    auto new_out = ctx.arena.emplace(list.elem[0].loc_ref(), SExprList(std::move(out)));
+    return expand(add_scope(new_out, scope, ctx.arena), new_ctx);
 }
 
 static std::vector<SExprLocRef> expand_macro(
@@ -685,7 +685,8 @@ static std::vector<SExprLocRef> expand_macro(
     auto new_ctx = ctx;
     new_ctx.is_core = macro.is_core;
     new_ctx.output_excluded_scope = macro.output_excluded_scope;
-    return expand(add_scope(result, intro, ctx.arena), new_ctx);
+    auto r =  expand(add_scope(result, intro, ctx.arena), new_ctx);
+    return r;
 }
 
 [[nodiscard]] static std::vector<SExprLocRef> expand(
