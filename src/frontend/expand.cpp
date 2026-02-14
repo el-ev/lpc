@@ -268,10 +268,8 @@ std::vector<SExprLocRef> Expander::expand_lambda(
             bind(p);
     } else if (p_expr.isa<LispIdent>()) {
         bind(scoped_params);
-        // canonicalize to list of identifiers
-        // TODO is this correct?
     } else {
-        report_error(scoped_params, "lambda: expected list of identifier");
+        report_error(scoped_params, "lambda: expected one identifier or a list of identifiers");
         return { SExprLocRef::invalid() };
     }
     auto final_params = _arena.emplace(
@@ -382,12 +380,6 @@ std::vector<SExprLocRef> Expander::expand_define(
                 "define: expected identifier for function name");
             return { SExprLocRef::invalid() };
         }
-        auto func_name_id = _arena.at(func_name).get_unchecked<LispIdent>();
-        auto resolved = _env.unique_name(func_name_id.name);
-        auto resolved_id = LispIdent(resolved);
-        _env.add_binding(func_name_id, Binding(VarBinding(resolved_id)));
-        auto resolved_func_name
-            = _arena.emplace(func_name.loc_ref(), std::move(resolved_id));
 
         std::vector<SExprLocRef> params;
         std::size_t var_logical = var_list.size();
@@ -411,7 +403,7 @@ std::vector<SExprLocRef> Expander::expand_define(
         std::vector<SExprLocRef> def;
         def.push_back(
             make_canonical(list.elem[0].loc_ref(), "define", _arena));
-        def.push_back(resolved_func_name);
+        def.push_back(func_name);
         def.push_back(lam_node);
         def.push_back(_arena.nil(root.loc_ref()));
         auto desugared
