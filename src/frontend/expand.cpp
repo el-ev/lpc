@@ -19,14 +19,14 @@ SExprLocRef transform_sexpr(SExprLocRef expr, SExprArena& arena, F&& f) {
     SExprLocRef new_expr = expr;
 
     if (sexpr.isa<SExprList>()) {
-        auto elems = sexpr.get_unchecked<SExprList>().elem; // copy
+        auto elems = sexpr.get_unchecked<SExprList>().elem;
         std::vector<SExprLocRef> v;
         v.reserve(elems.size());
         for (const auto& el : elems)
             v.push_back(transform_sexpr(el, arena, std::forward<F>(f)));
         new_expr = arena.emplace(expr.loc_ref(), SExprList(std::move(v)));
     } else if (sexpr.isa<SExprVector>()) {
-        auto elems = sexpr.get_unchecked<SExprVector>().elem; // copy
+        auto elems = sexpr.get_unchecked<SExprVector>().elem;
         std::vector<SExprLocRef> v;
         v.reserve(elems.size());
         for (const auto& el : elems)
@@ -246,6 +246,7 @@ std::vector<SExprLocRef> Expander::expand_lambda(
     auto scoped_params = add_scope(list.elem[1], scope);
 
     std::vector<SExprLocRef> params;
+    bool bind_error = false;
     auto bind = [&](SExprLocRef p) {
         if (_arena.at(p).isa<LispIdent>()) {
             auto id = _arena.at(p).get_unchecked<LispIdent>();
@@ -256,6 +257,9 @@ std::vector<SExprLocRef> Expander::expand_lambda(
                 _arena.emplace(p.loc_ref(), std::move(resolved_id)));
         } else if (_arena.at(p).isa<LispNil>()) {
             params.push_back(p);
+        } else {
+            report_error(p, "lambda: expected identifier in parameter list");
+            bind_error = true;
         }
     };
 
@@ -266,14 +270,17 @@ std::vector<SExprLocRef> Expander::expand_lambda(
         // 2) All indents, last one is Nil or parameter
         for (const auto& p : p_expr.get_unchecked<SExprList>().elem)
             bind(p);
+        if (bind_error)
+            return { SExprLocRef::invalid() };
     } else if (p_expr.isa<LispIdent>()) {
         bind(scoped_params);
     } else {
-        report_error(scoped_params, "lambda: expected one identifier or a list of identifiers");
+        report_error(scoped_params,
+            "lambda: expected one identifier or a list of identifiers");
         return { SExprLocRef::invalid() };
     }
-    auto final_params = _arena.emplace(
-        scoped_params.loc_ref(), SExprList(std::move(params)));
+    auto final_params
+        = _arena.emplace(scoped_params.loc_ref(), SExprList(std::move(params)));
 
     std::vector<SExprLocRef> out;
     out.push_back(make_canonical(list.elem[0].loc_ref(), "lambda", _arena));
@@ -348,9 +355,19 @@ std::vector<SExprLocRef> Expander::expand_set(
     if (!check_arity(root, 3, 3))
         return { SExprLocRef::invalid() };
 
+    auto var_ref = list.elem[1];
+    auto var_expanded = as_sub_expression().expand(var_ref);
+    if (var_expanded.size() != 1 || !var_expanded[0].is_valid())
+        return { SExprLocRef::invalid() };
+    if (!_arena.at(var_expanded[0]).isa<LispIdent>()) {
+        report_error(var_ref, "set!: expected identifier for variable");
+        return { SExprLocRef::invalid() };
+    }
+
     std::vector<SExprLocRef> out;
     out.push_back(make_canonical(list.elem[0].loc_ref(), "set!", _arena));
-    for (std::size_t i = 1; i < list.elem.size(); ++i) {
+    out.push_back(var_expanded[0]);
+    for (std::size_t i = 2; i < list.elem.size(); ++i) {
         auto r = as_sub_expression().expand(list.elem[i]);
         if (r.size() != 1 || !r[0].is_valid())
             return { SExprLocRef::invalid() };
@@ -368,16 +385,15 @@ std::vector<SExprLocRef> Expander::expand_define(
 
     // TODO canonicalize to lambda form
     if (_arena.at(var).isa<SExprList>()) {
-        const auto& var_list
-            = _arena.at(var).get_unchecked<SExprList>().elem;
+        const auto& var_list = _arena.at(var).get_unchecked<SExprList>().elem;
         if (var_list.empty())
             return { SExprLocRef::invalid() };
 
         auto func_name = var_list[0];
 
         if (!_arena.at(func_name).isa<LispIdent>()) {
-            report_error(func_name,
-                "define: expected identifier for function name");
+            report_error(
+                func_name, "define: expected identifier for function name");
             return { SExprLocRef::invalid() };
         }
 
@@ -392,8 +408,7 @@ std::vector<SExprLocRef> Expander::expand_define(
             = _arena.emplace(var.loc_ref(), SExprList(std::move(params)));
 
         std::vector<SExprLocRef> lam;
-        lam.push_back(
-            make_canonical(list.elem[0].loc_ref(), "lambda", _arena));
+        lam.push_back(make_canonical(list.elem[0].loc_ref(), "lambda", _arena));
         lam.push_back(params_node);
         for (std::size_t i = 2; i < list.elem.size(); ++i)
             lam.push_back(list.elem[i]);
@@ -401,8 +416,7 @@ std::vector<SExprLocRef> Expander::expand_define(
             = _arena.emplace(var.loc_ref(), SExprList(std::move(lam)));
 
         std::vector<SExprLocRef> def;
-        def.push_back(
-            make_canonical(list.elem[0].loc_ref(), "define", _arena));
+        def.push_back(make_canonical(list.elem[0].loc_ref(), "define", _arena));
         def.push_back(func_name);
         def.push_back(lam_node);
         def.push_back(_arena.nil(root.loc_ref()));
@@ -429,6 +443,9 @@ std::vector<SExprLocRef> Expander::expand_define(
             _env.add_binding(id, Binding(VarBinding(resolved_id)));
             var = _arena.emplace(var.loc_ref(), std::move(resolved_id));
         }
+    } else {
+        report_error(var, "define: expected identifier or list");
+        return { SExprLocRef::invalid() };
     }
 
     std::vector<SExprLocRef> out;
@@ -507,8 +524,7 @@ std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
         }
         const auto& rule_parts
             = _arena.at(spec_list[i]).get_unchecked<SExprList>().elem;
-        if (rule_parts.size() == 3
-            && _arena.at(rule_parts[2]).isa<LispNil>())
+        if (rule_parts.size() == 3 && _arena.at(rule_parts[2]).isa<LispNil>())
             rules.push_back({ rule_parts[0], rule_parts[1] });
         else
             report_error(transformer_spec,
@@ -527,8 +543,7 @@ std::vector<SExprLocRef> Expander::expand_define_syntax(
         return { SExprLocRef::invalid() };
     }
     if (list.elem.size() < 3) {
-        report_error(
-            root, "define-syntax: missing name or transformer path");
+        report_error(root, "define-syntax: missing name or transformer path");
         return { SExprLocRef::invalid() };
     }
 
@@ -543,8 +558,7 @@ std::vector<SExprLocRef> Expander::expand_define_syntax(
     auto macro_name = _arena.at(name_ex).get<LispIdent>()->get();
 
     if (is_identifier_active(macro_name)) {
-        report_error(
-            root, "define-syntax: invalid context for definition");
+        report_error(root, "define-syntax: invalid context for definition");
         return { SExprLocRef::invalid() };
     }
 
@@ -563,8 +577,8 @@ std::vector<SExprLocRef> Expander::expand_let_letrec_syntax(
     std::string let_syntax_name = is_letrec ? "letrec-syntax" : "let-syntax";
     // (let-syntax ((name transformer) ...) body ...)
     if (list.elem.size() < 3) {
-        report_error(root,
-            std::format("{}: missing bindings or body", let_syntax_name));
+        report_error(
+            root, std::format("{}: missing bindings or body", let_syntax_name));
         return { SExprLocRef::invalid() };
     }
 
@@ -610,7 +624,8 @@ std::vector<SExprLocRef> Expander::expand_let_letrec_syntax(
             transformer_spec = add_scope(transformer_spec, scope);
         }
 
-        auto transformer = parse_syntax_rules(transformer_spec, is_letrec? "letrec-syntax" : "let-syntax");
+        auto transformer = parse_syntax_rules(
+            transformer_spec, is_letrec ? "letrec-syntax" : "let-syntax");
         if (!transformer)
             return { SExprLocRef::invalid() };
 
@@ -626,7 +641,8 @@ std::vector<SExprLocRef> Expander::expand_let_letrec_syntax(
     for (std::size_t i = 2; i < list.elem.size(); ++i) {
         out.push_back(list.elem[i]);
     }
-    auto new_out = _arena.emplace(list.elem[0].loc_ref(), SExprList(std::move(out)));
+    auto new_out
+        = _arena.emplace(list.elem[0].loc_ref(), SExprList(std::move(out)));
     return expand(add_scope(new_out, scope));
 }
 
@@ -636,8 +652,8 @@ std::vector<SExprLocRef> Expander::expand_macro(
     auto scoped_in = add_scope(root, intro);
     auto result = macro.transformer->transcribe(scoped_in, _arena);
     if (!result.is_valid()) {
-        report_error(root,
-            "macro expansion failed: no syntax-rules pattern matched");
+        report_error(
+            root, "macro expansion failed: no syntax-rules pattern matched");
         return { SExprLocRef::invalid() };
     }
 
@@ -681,8 +697,7 @@ std::vector<SExprLocRef> Expander::expand(SExprLocRef root) {
         const auto& head_expr = _arena.at(list.elem[0]);
         if (head_expr.isa<LispIdent>()) {
             auto head_id = head_expr.get_unchecked<LispIdent>();
-            auto binding
-                = _env.find_binding(head_id, _output_excluded_scope);
+            auto binding = _env.find_binding(head_id, _output_excluded_scope);
 
             if (binding && binding->get().isa<CoreBinding>()) {
                 const auto& name = head_id.name;
@@ -708,7 +723,8 @@ std::vector<SExprLocRef> Expander::expand(SExprLocRef root) {
                     return core_expander.expand_let_letrec_syntax(
                         list, root, false);
                 if (name == "letrec-syntax")
-                    return core_expander.expand_let_letrec_syntax(list, root, true);
+                    return core_expander.expand_let_letrec_syntax(
+                        list, root, true);
                 if (name == "syntax-error") {
                     std::string msg;
                     if (list.elem.size() >= 3) {
@@ -728,7 +744,8 @@ std::vector<SExprLocRef> Expander::expand(SExprLocRef root) {
                 ExpStackRef frame = _stack.push(root, is_core, _parent);
                 return with_parent(frame, is_core)
                     .with_depth(_current_depth + 1)
-                    .expand_macro(root, binding->get().get<MacroBinding>()->get());
+                    .expand_macro(
+                        root, binding->get().get<MacroBinding>()->get());
             }
         }
 
@@ -738,7 +755,6 @@ std::vector<SExprLocRef> Expander::expand(SExprLocRef root) {
             auto r = expand(el);
             if (std::ranges::any_of(
                     r, [](const auto& r) { return !r.is_valid(); })) {
-                // return { SExprLocRef::invalid() };
                 _had_error = true;
                 continue;
             }
@@ -794,8 +810,6 @@ void ExpandPass::load_core(SExprArena& /* user_arena */) {
             if (std::ranges::any_of(
                     r, [](const auto& r) { return !r.is_valid(); })) {
                 _had_error = true;
-                // We try to report all errors here
-                // return { SExprLocRef::invalid() };
                 continue;
             }
             out.insert(out.end(), r.begin(), r.end());
