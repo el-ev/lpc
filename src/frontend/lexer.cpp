@@ -407,7 +407,7 @@ SExprLocRef Cursor::get_ident() const noexcept {
     if (type() != TokenType::IDENT)
         return SExprLocRef::invalid();
     std::string name = value().get_unchecked<std::string>();
-    return arena().get_variable(loc(), std::move(name));
+    return arena().emplace(loc(), LispIdent(std::move(name)));
 }
 
 SExprLocRef Cursor::get_constant() const noexcept {

@@ -95,15 +95,12 @@ public:
 
     [[nodiscard]] SExprLocRef nil(LocRef loc) noexcept;
     [[nodiscard]] SExprLocRef get_boolean(LocRef loc, bool value) noexcept;
-    [[nodiscard]] SExprLocRef get_variable(
-        LocRef loc, std::string&& name) noexcept;
 
     [[nodiscard]] std::string dump_root(SExprRef root) const;
     [[nodiscard]] std::string dump(SExprRef ref) const;
 
 private:
     SExprRef _nil_node;
-    std::unordered_map<std::string, SExprRef> _variables;
     std::pair<SExprRef, SExprRef> _boolean_nodes;
 };
 

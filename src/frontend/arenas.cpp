@@ -123,11 +123,4 @@ SExprLocRef SExprArena::get_boolean(LocRef loc, bool value) noexcept {
     return SExprLocRef(_boolean_nodes.second, loc);
 }
 
-SExprLocRef SExprArena::get_variable(LocRef loc, std::string&& name) noexcept {
-    auto [it, inserted] = _variables.try_emplace(name, SExprRef::invalid());
-    if (inserted)
-        it->second = Arena::emplace(LispIdent(std::move(name)));
-    return SExprLocRef(it->second, loc);
-}
-
 } // namespace lpc::frontend
