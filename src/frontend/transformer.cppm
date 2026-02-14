@@ -44,14 +44,14 @@ public:
               std::make_move_iterator(literals.end())) {
     }
 
-    [[nodiscard]] SpanRef transcribe(SpanRef input) const;
+    [[nodiscard]] SpanRef transcribe(SpanRef input, SpanRef parent) const;
 
 private:
     [[nodiscard]] bool match(
         SpanRef pattern, SpanRef input, Bindings& bindings) const;
 
     [[nodiscard]] SpanRef instantiate(SpanRef element,
-        const Bindings& bindings, LocRef call_site_loc) const;
+        const Bindings& bindings, LocRef call_site_loc, SpanRef parent) const;
 };
 
 } // namespace lpc::frontend

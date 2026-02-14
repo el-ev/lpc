@@ -25,35 +25,6 @@ struct MacroBinding {
 
 using Binding = TaggedUnion<VarBinding, CoreBinding, MacroBinding>;
 
-export struct ExpansionFrame {
-    SpanRef expr;
-    std::uint32_t parent;
-};
-
-export class ExpansionStack {
-private:
-    std::vector<ExpansionFrame> _frames;
-
-public:
-    static constexpr std::uint32_t INVALID
-        = std::numeric_limits<std::uint32_t>::max();
-
-    ExpansionStack() = default;
-
-    [[nodiscard]] std::uint32_t push(
-        SpanRef expr, std::uint32_t parent) {
-        auto idx = static_cast<std::uint32_t>(_frames.size());
-        _frames.push_back({ expr, parent });
-        return idx;
-    }
-
-    [[nodiscard]] const ExpansionFrame& at(std::uint32_t idx) const {
-        return _frames[idx];
-    }
-};
-
-using ExpStackRef = std::uint32_t;
-
 class LexEnv {
 private:
     struct BindingEntry {
@@ -118,6 +89,7 @@ public:
                     // best is a superset of entry, so best is already better
                 } else {
                     // ambiguous reference
+                    // todo do something?
                 }
             }
         }
@@ -136,11 +108,10 @@ private:
 
 class Expander {
 public:
-    Expander(LexEnv& env, SpanArena& arena, ExpansionStack& stack,
+    Expander(LexEnv& env, SpanArena& arena,
         bool& had_error, bool show_core, std::uint32_t max_depth)
         : _env(env)
         , _arena(arena)
-        , _stack(stack)
         , _had_error(had_error)
         , _show_core(show_core)
         , _max_depth(max_depth) {
@@ -151,10 +122,9 @@ public:
 private:
     LexEnv& _env;
     SpanArena& _arena;
-    ExpansionStack& _stack;
     bool& _had_error;
 
-    ExpStackRef _parent = ExpansionStack::INVALID;
+    SpanRef _parent = SpanRef::invalid();
     bool _show_core = false;
     bool _is_top_level = true;
     std::uint32_t _max_depth = 1000;
@@ -184,7 +154,7 @@ private:
         std::string_view form_prefix = "define-syntax");
 
 public:
-    [[nodiscard]] Expander with_parent(ExpStackRef parent) const {
+    [[nodiscard]] Expander with_parent(SpanRef parent) const {
         Expander next = *this;
         next._parent = parent;
         return next;
@@ -213,7 +183,6 @@ public:
 export class ExpandPass final : public Pass {
 private:
     LexEnv _env;
-    ExpansionStack _exp_stack;
     bool _core_loaded = false;
     bool _show_core_expansion = false;
     std::uint32_t _max_expansion_depth = 1000;

@@ -34,13 +34,12 @@ static void collect_pattern_vars(
 }
 
 static SpanRef get_tail(
-    const SExprList& list, std::size_t start, SpanArena& arena) {
+    const SExprList& list, std::size_t start, SpanArena& arena, SpanRef parent) {
     bool is_improper = !list.elem.empty() && !arena.is_nil(list.elem.back());
     if (start >= list.elem.size()) {
         if (is_improper)
             return list.elem.back();
-        // FIXME Parent is lost
-        return arena.nil(arena.loc_ref(list.elem.back()), SpanRef::invalid());
+        return arena.nil(arena.loc_ref(list.elem.back()), parent);
     }
 
     if (is_improper && start == list.elem.size() - 1)
@@ -52,7 +51,7 @@ static SpanRef get_tail(
         subset.push_back(list.elem[i]);
 
     return arena.expand(arena[list.elem.back()].loc(),
-        SExpr(SExprList(std::move(subset))), SpanRef::invalid());
+        SExpr(SExprList(std::move(subset))), parent);
 }
 
 bool Transformer::match(
@@ -168,7 +167,7 @@ bool Transformer::match(
                 if (!match(p_list->elem[i], i_list->elem[i], bindings))
                     return false;
             return match(
-                tail_pattern, get_tail(*i_list, head_count, _arena), bindings);
+                tail_pattern, get_tail(*i_list, head_count, _arena, SpanRef::invalid()), bindings);
         }
         if (ellipsis_pos == 0)
             return false;
@@ -207,14 +206,14 @@ bool Transformer::match(
                 return false;
 
         return match(
-            tail_pattern, get_tail(*i_list, i_element_count, _arena), bindings);
+            tail_pattern, get_tail(*i_list, i_element_count, _arena, SpanRef::invalid()), bindings);
     }
 
     return p_expr == i_expr;
 }
 
 SpanRef Transformer::instantiate(
-    SpanRef element, const Bindings& bindings, LocRef call_site_loc) const {
+    SpanRef element, const Bindings& bindings, LocRef call_site_loc, SpanRef parent) const {
     if (!element.is_valid())
         return element;
 
@@ -259,34 +258,34 @@ SpanRef Transformer::instantiate(
                             if (val.is_list && j < val.values.size())
                                 val = BindingValue::single(val.values[j]);
                         out.push_back(
-                            instantiate(repeat_tmpl, temp, call_site_loc));
+                            instantiate(repeat_tmpl, temp, call_site_loc, parent));
                     }
                 } else {
                     out.push_back(
-                        instantiate(repeat_tmpl, bindings, call_site_loc));
+                        instantiate(repeat_tmpl, bindings, call_site_loc, parent));
                 }
                 ++i;
             } else if (is_ellipsis(elems[i], _arena)) {
             } else {
-                out.push_back(instantiate(elems[i], bindings, call_site_loc));
+                out.push_back(instantiate(elems[i], bindings, call_site_loc, parent));
             }
         }
 
-        return _arena.expand(call_site_loc, SExpr(SExprList(std::move(out))), SpanRef::invalid());
+        return _arena.expand(call_site_loc, SExpr(SExprList(std::move(out))), parent);
     }
 
     return element;
 }
 
-SpanRef Transformer::transcribe(SpanRef input) const {
+SpanRef Transformer::transcribe(SpanRef input, SpanRef parent) const {
     const auto* i_list = _arena.get<SExprList>(input);
     if (i_list == nullptr || i_list->elem.empty())
         return SpanRef::invalid();
-    auto i_tail = get_tail(*i_list, 1, _arena);
+    auto i_tail = get_tail(*i_list, 1, _arena, parent);
     for (const auto& rule : _rules) {
         Bindings bindings;
         if (match(rule.pattern_tail, i_tail, bindings)) {
-            return instantiate(rule.template_, bindings, _arena.loc_ref(input));
+            return instantiate(rule.template_, bindings, _arena.loc_ref(input), parent);
         }
     }
     return SpanRef::invalid();

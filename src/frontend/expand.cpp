@@ -11,7 +11,7 @@ namespace lpc::frontend {
 using lpc::utils::Error;
 
 template <typename F>
-SpanRef transform_sexpr(SpanRef expr, SpanArena& arena, F&& f) {
+SpanRef transform_sexpr(SpanRef expr, SpanArena& arena, SpanRef parent, F&& f) {
     if (!expr.is_valid())
         return expr;
 
@@ -26,24 +26,24 @@ SpanRef transform_sexpr(SpanRef expr, SpanArena& arena, F&& f) {
         std::vector<SpanRef> v;
         v.reserve(elem.size());
         for (const auto& el : elem)
-            v.push_back(transform_sexpr(el, arena, std::forward<F>(f)));
+            v.push_back(transform_sexpr(el, arena, parent, std::forward<F>(f)));
         new_expr = arena.expand(arena[expr].loc(),
-            SExpr(SExprList(std::move(v))), SpanRef::invalid());
+            SExpr(SExprList(std::move(v))), parent);
     } else if (const auto* vec = sexpr.get<SExprVector>()) {
         auto elems = vec->elem;
         std::vector<SpanRef> v;
         v.reserve(elems.size());
         for (const auto& el : elems)
-            v.push_back(transform_sexpr(el, arena, std::forward<F>(f)));
+            v.push_back(transform_sexpr(el, arena, parent, std::forward<F>(f)));
         new_expr = arena.expand(arena[expr].loc(),
-            SExpr(SExprVector(std::move(v))), SpanRef::invalid());
+            SExpr(SExprVector(std::move(v))), parent);
     }
 
     return std::forward<F>(f)(new_expr, arena);
 }
 
 SpanRef Expander::add_scope(SpanRef expr, ScopeID scope) {
-    return transform_sexpr(expr, _arena, [&, scope](SpanRef e, SpanArena& a) {
+    return transform_sexpr(expr, _arena, _parent, [&, scope](SpanRef e, SpanArena& a) {
         const auto& sexpr = a.expr(e);
 
         if (const auto* id = sexpr.get<LispIdent>()) {
@@ -54,7 +54,7 @@ SpanRef Expander::add_scope(SpanRef expr, ScopeID scope) {
                 new_id.scopes.insert(scope);
             }
             return a.expand(
-                _arena[e].loc(), SExpr(std::move(new_id)), SpanRef::invalid());
+                _arena[e].loc(), SExpr(std::move(new_id)), _parent);
         }
         return e;
     });
@@ -62,8 +62,8 @@ SpanRef Expander::add_scope(SpanRef expr, ScopeID scope) {
 
 // FIXME: redundant params
 [[nodiscard]] static SpanRef make_canonical(
-    LocRef loc, const std::string& name, SpanArena& arena) {
-    return arena.expand(loc, SExpr(LispIdent(name)), SpanRef::invalid());
+    LocRef loc, const std::string& name, SpanArena& arena, SpanRef parent) {
+    return arena.expand(loc, SExpr(LispIdent(name)), parent);
 }
 
 // TODO: better?
@@ -136,16 +136,15 @@ void Expander::report_error(SpanRef failed_expr, std::string_view msg) {
     frames.reserve(64);
     int core_omitted = 0;
     auto cur = _parent;
-    while (cur != ExpansionStack::INVALID) {
-        const auto& f = _stack.at(cur);
-        if (_arena.is_core_binding(f.expr) && !_show_core) {
+    while (cur.is_valid()) {
+        if (_arena.is_core_binding(cur) && !_show_core) {
             core_omitted++;
-            cur = f.parent;
+            cur = _arena.at(cur).parent();
             continue;
         }
-        frames.push_back({ core_omitted, _arena.dump(f.expr) });
+        frames.push_back({ core_omitted, _arena.dump(cur) });
         core_omitted = 0;
-        cur = f.parent;
+        cur = _arena.at(cur).parent();
     }
     if (core_omitted > 0)
         std::println(std::cerr, "  ({} frames omitted)", core_omitted);
@@ -222,11 +221,10 @@ bool Expander::is_identifier_active(const LispIdent& id) {
     };
 
     auto cur = _parent;
-    while (cur != ExpansionStack::INVALID) {
-        const auto& frame = _stack.at(cur);
-        if (matches(frame.expr))
+    while (cur.is_valid()) {
+        if (matches(cur))
             return true;
-        cur = frame.parent;
+        cur = _arena.at(cur).parent();
     }
     return false;
 }
@@ -248,7 +246,7 @@ std::vector<SpanRef> Expander::expand_lambda(
             auto resolved_id = LispIdent(resolved);
             _env.add_binding(*id, Binding(VarBinding(resolved_id)));
             params.push_back(_arena.expand(_arena.loc_ref(p),
-                SExpr(std::move(resolved_id)), SpanRef::invalid()));
+                SExpr(std::move(resolved_id)), _parent));
         } else if (_arena.is_nil(p)) {
             params.push_back(p);
         } else {
@@ -273,11 +271,11 @@ std::vector<SpanRef> Expander::expand_lambda(
         return { SpanRef::invalid() };
     }
     auto final_params = _arena.expand(_arena.loc_ref(scoped_params),
-        SExpr(SExprList(std::move(params))), SpanRef::invalid());
+        SExpr(SExprList(std::move(params))), _parent);
 
     std::vector<SpanRef> out;
     out.push_back(
-        make_canonical(_arena.loc_ref(list.elem[0]), "lambda", _arena));
+        make_canonical(_arena.loc_ref(list.elem[0]), "lambda", _arena, _parent));
     out.push_back(final_params);
     for (std::size_t i = 2; i < list.elem.size(); ++i) {
         auto r = as_sub_expression().expand(add_scope(list.elem[i], scope));
@@ -286,7 +284,7 @@ std::vector<SpanRef> Expander::expand_lambda(
         out.insert(out.end(), r.begin(), r.end());
     }
     return { _arena.expand(_arena.loc_ref(root),
-        SExpr(SExprList(std::move(out))), SpanRef::invalid()) };
+        SExpr(SExprList(std::move(out))), _parent) };
 }
 
 std::vector<SpanRef> Expander::expand_quote(
@@ -295,11 +293,11 @@ std::vector<SpanRef> Expander::expand_quote(
         return { SpanRef::invalid() };
     std::vector<SpanRef> out;
     out.push_back(
-        make_canonical(_arena.loc_ref(list.elem[0]), "quote", _arena));
+        make_canonical(_arena.loc_ref(list.elem[0]), "quote", _arena, _parent));
     out.push_back(list.elem[1]);
-    out.push_back(_arena.nil(_arena.loc_ref(root)));
+    out.push_back(_arena.nil(_arena.loc_ref(root), _parent));
     return { _arena.expand(_arena.loc_ref(root),
-        SExpr(SExprList(std::move(out))), SpanRef::invalid()) };
+        SExpr(SExprList(std::move(out))), _parent) };
 }
 
 std::vector<SpanRef> Expander::expand_if(const SExprList& list, SpanRef root) {
@@ -308,7 +306,7 @@ std::vector<SpanRef> Expander::expand_if(const SExprList& list, SpanRef root) {
         return { SpanRef::invalid() };
 
     std::vector<SpanRef> out;
-    out.push_back(make_canonical(_arena.loc_ref(list.elem[0]), "if", _arena));
+    out.push_back(make_canonical(_arena.loc_ref(list.elem[0]), "if", _arena, _parent));
     for (std::size_t i = 1; i < list.elem.size(); ++i) {
         auto r = as_sub_expression().expand(list.elem[i]);
         if (r.size() != 1 || !r[0].is_valid())
@@ -316,7 +314,7 @@ std::vector<SpanRef> Expander::expand_if(const SExprList& list, SpanRef root) {
         out.push_back(r[0]);
     }
     return { _arena.expand(_arena.loc_ref(root),
-        SExpr(SExprList(std::move(out))), SpanRef::invalid()) };
+        SExpr(SExprList(std::move(out))), _parent) };
 }
 
 std::vector<SpanRef> Expander::expand_begin(
@@ -328,9 +326,9 @@ std::vector<SpanRef> Expander::expand_begin(
         // call macro __begin
         auto new_list = list;
         new_list.elem[0]
-            = make_canonical(_arena.loc_ref(list.elem[0]), "__begin", _arena);
+            = make_canonical(_arena.loc_ref(list.elem[0]), "__begin", _arena, _parent);
         auto ref = _arena.expand(_arena.loc_ref(root),
-            SExpr(SExprList(std::move(new_list))), SpanRef::invalid());
+            SExpr(SExprList(std::move(new_list))), _parent);
         auto r = expand(ref);
         if (r.size() != 1 || !r[0].is_valid())
             return { SpanRef::invalid() };
@@ -362,7 +360,7 @@ std::vector<SpanRef> Expander::expand_set(const SExprList& list, SpanRef root) {
     }
 
     std::vector<SpanRef> out;
-    out.push_back(make_canonical(_arena.loc_ref(list.elem[0]), "set!", _arena));
+    out.push_back(make_canonical(_arena.loc_ref(list.elem[0]), "set!", _arena, _parent));
     out.push_back(var_expanded[0]);
     for (std::size_t i = 2; i < list.elem.size(); ++i) {
         auto r = as_sub_expression().expand(list.elem[i]);
@@ -371,7 +369,7 @@ std::vector<SpanRef> Expander::expand_set(const SExprList& list, SpanRef root) {
         out.push_back(r[0]);
     }
     return { _arena.expand(_arena.loc_ref(root),
-        SExpr(SExprList(std::move(out))), SpanRef::invalid()) };
+        SExpr(SExprList(std::move(out))), _parent) };
 }
 
 std::vector<SpanRef> Expander::expand_define(
@@ -381,8 +379,6 @@ std::vector<SpanRef> Expander::expand_define(
 
     auto var = list.elem[1];
 
-    // if (_arena.isa<SExprList>(var)) {
-    //     const auto& var_list = _arena.get<SExprList>(var)->elem;
     if (const auto* var_list = _arena.get<SExprList>(var)) {
         auto elems = var_list->elem;
         if (elems.empty())
@@ -402,27 +398,27 @@ std::vector<SpanRef> Expander::expand_define(
             var_logical--;
         for (std::size_t i = 1; i < var_logical; ++i)
             params.push_back(elems[i]);
-        params.push_back(_arena.nil(_arena.loc_ref(var)));
+        params.push_back(_arena.nil(_arena.loc_ref(var), _parent));
         auto params_node = _arena.expand(_arena.loc_ref(var),
-            SExpr(SExprList(std::move(params))), SpanRef::invalid());
+            SExpr(SExprList(std::move(params))), _parent);
 
         std::vector<SpanRef> lam;
         lam.push_back(
-            make_canonical(_arena.loc_ref(list.elem[0]), "lambda", _arena));
+            make_canonical(_arena.loc_ref(list.elem[0]), "lambda", _arena, _parent));
         lam.push_back(params_node);
         for (std::size_t i = 2; i < list.elem.size(); ++i)
             lam.push_back(list.elem[i]);
         auto lam_node = _arena.expand(_arena.loc_ref(var),
-            SExpr(SExprList(std::move(lam))), SpanRef::invalid());
+            SExpr(SExprList(std::move(lam))), _parent);
 
         std::vector<SpanRef> def;
         def.push_back(
-            make_canonical(_arena.loc_ref(list.elem[0]), "define", _arena));
+            make_canonical(_arena.loc_ref(list.elem[0]), "define", _arena, _parent));
         def.push_back(func_name);
         def.push_back(lam_node);
-        def.push_back(_arena.nil(_arena.loc_ref(root)));
+        def.push_back(_arena.nil(_arena.loc_ref(root), _parent));
         auto desugared = _arena.expand(_arena.loc_ref(root),
-            SExpr(SExprList(std::move(def))), SpanRef::invalid());
+            SExpr(SExprList(std::move(def))), _parent);
         return { expand(desugared) };
     }
 
@@ -437,13 +433,13 @@ std::vector<SpanRef> Expander::expand_define(
         if (exact != nullptr && exact->isa<VarBinding>()) {
             var = _arena.expand(_arena.loc_ref(var),
                 SExpr(exact->get_unchecked<VarBinding>()->id),
-                SpanRef::invalid());
+                _parent);
         } else {
             auto resolved = _env.unique_name(id->name);
             auto resolved_id = LispIdent(resolved);
             _env.add_binding(*id, Binding(VarBinding(resolved_id)));
             var = _arena.expand(_arena.loc_ref(var),
-                SExpr(std::move(resolved_id)), SpanRef::invalid());
+                SExpr(std::move(resolved_id)), _parent);
         }
     } else {
         report_error(var, "define: expected identifier or list");
@@ -452,7 +448,7 @@ std::vector<SpanRef> Expander::expand_define(
 
     std::vector<SpanRef> out;
     out.push_back(
-        make_canonical(_arena.loc_ref(list.elem[0]), "define", _arena));
+        make_canonical(_arena.loc_ref(list.elem[0]), "define", _arena, _parent));
     out.push_back(var);
     for (std::size_t i = 2; i < list.elem.size(); ++i) {
         auto r = as_sub_expression().expand(list.elem[i]);
@@ -461,7 +457,7 @@ std::vector<SpanRef> Expander::expand_define(
         out.push_back(r[0]);
     }
     return { _arena.expand(_arena.loc_ref(root),
-        SExpr(SExprList(std::move(out))), SpanRef::invalid()) };
+        SExpr(SExprList(std::move(out))), _parent) };
 }
 
 std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
@@ -549,7 +545,7 @@ std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
                 pattern_tail_list.push_back(pattern_list[i]);
             auto pattern_tail = _arena.expand(_arena.loc_ref(rule_parts[0]),
                 SExpr(SExprList(std::move(pattern_tail_list))),
-                SpanRef::invalid());
+                _parent);
             rules.push_back({ pattern_tail, rule_parts[1] });
         } else
             report_error(transformer_spec,
@@ -660,12 +656,12 @@ std::vector<SpanRef> Expander::expand_let_letrec_syntax(
 
     std::vector<SpanRef> out;
     out.push_back(
-        make_canonical(_arena.loc_ref(list.elem[0]), "begin", _arena));
+        make_canonical(_arena.loc_ref(list.elem[0]), "begin", _arena, _parent));
     for (std::size_t i = 2; i < list.elem.size(); ++i) {
         out.push_back(list.elem[i]);
     }
     auto new_out = _arena.expand(_arena.loc_ref(list.elem[0]),
-        SExpr(SExprList(std::move(out))), SpanRef::invalid());
+        SExpr(SExprList(std::move(out))), _parent);
     return expand(add_scope(new_out, scope));
 }
 
@@ -673,14 +669,15 @@ std::vector<SpanRef> Expander::expand_macro(
     SpanRef root, const MacroBinding& macro) {
     ScopeID intro = _env.new_scope();
     auto scoped_in = add_scope(root, intro);
-    auto result = macro.transformer->transcribe(scoped_in);
+    auto result = macro.transformer->transcribe(scoped_in, root);
     if (!result.is_valid()) {
         report_error(
             root, "macro expansion failed: no syntax-rules pattern matched");
         return { SpanRef::invalid() };
     }
 
-    return with_excluded_scope(macro.output_excluded_scope)
+    return with_parent(root)
+        .with_excluded_scope(macro.output_excluded_scope)
         .expand(add_scope(result, intro));
 }
 
@@ -696,17 +693,17 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
     }
 
     if (const auto* ident = _arena.get<LispIdent>(root)) {
-        auto binding = _env.find_binding(*ident, _output_excluded_scope);
-        if (!binding) {
+        const auto* binding = _env.find_binding(*ident, _output_excluded_scope);
+        if (binding == nullptr) {
             auto clean = *ident;
             clean.scopes.clear();
             return { _arena.expand(_arena.loc_ref(root),
-                SExpr(std::move(clean)), SpanRef::invalid()) };
+                SExpr(std::move(clean)), _parent) };
         }
         if (binding->isa<VarBinding>())
             return { _arena.expand(_arena.loc_ref(root),
                 SExpr(binding->get_unchecked<VarBinding>()->id),
-                SpanRef::invalid()) };
+                _parent) };
         return { root };
     }
 
@@ -717,13 +714,13 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
 
         if (const auto* ident_ptr = _arena.get<LispIdent>(list.elem[0])) {
             const auto ident = *ident_ptr;
-            auto binding = _env.find_binding(ident, _output_excluded_scope);
+            const auto* binding = _env.find_binding(ident, _output_excluded_scope);
 
-            if (binding && binding->isa<CoreBinding>()) {
+            if (binding != nullptr && binding->isa<CoreBinding>()) {
                 const auto& name = ident.name;
 
-                ExpStackRef frame = _stack.push(root, _parent);
-                auto core_expander = with_parent(frame);
+                root = _arena.expand(_arena.loc_ref(root), SExpr(list), _parent);
+                auto core_expander = with_parent(root);
 
                 if (name == "lambda")
                     return core_expander.expand_lambda(list, root);
@@ -764,8 +761,8 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
             }
 
             if (binding != nullptr && binding->isa<MacroBinding>()) {
-                ExpStackRef frame = _stack.push(root, _parent);
-                return with_parent(frame)
+                root = _arena.expand(_arena.loc_ref(root), SExpr(list), _parent);
+                return with_parent(root)
                     .with_depth(_current_depth + 1)
                     .expand_macro(root, *binding->get<MacroBinding>());
             }
@@ -782,7 +779,7 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
             }
             out.insert(out.end(), r.begin(), r.end());
         }
-        return { _arena.expand(_arena.loc_ref(root), SExpr(SExprList(std::move(out))), SpanRef::invalid()) };
+        return { _arena.expand(_arena.loc_ref(root), SExpr(SExprList(std::move(out))), _parent) };
     }
 
     return { root };
@@ -806,7 +803,7 @@ void ExpandPass::load_core(SpanArena& user_arena) {
         const auto list = *list_ptr;
         bool dummy_error = false;
         for (const auto& form : list.elem) {
-            Expander expander(_env, user_arena, _exp_stack, dummy_error,
+            Expander expander(_env, user_arena, dummy_error,
                 _show_core_expansion, _max_expansion_depth);
             (void)expander.expand(form);
         }
@@ -819,7 +816,7 @@ void ExpandPass::load_core(SpanArena& user_arena) {
         load_core(arena);
 
     _had_error = false;
-    Expander expander(_env, arena, _exp_stack, _had_error, _show_core_expansion,
+    Expander expander(_env, arena, _had_error, _show_core_expansion,
         _max_expansion_depth);
 
     if (const auto* list_ptr = arena.get<SExprList>(root)) {
