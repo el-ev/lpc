@@ -10,48 +10,35 @@ namespace lpc::frontend {
 
 using lpc::utils::Error;
 
-template <typename F>
-SpanRef transform_sexpr(SpanRef expr, SpanArena& arena, SpanRef parent, F&& f) {
+[[nodiscard]] SpanRef Expander::add_scope(SpanRef expr, ScopeID scope) {
     if (!expr.is_valid())
         return expr;
 
-    const auto& sexpr = arena.expr(expr);
-
-    SpanRef new_expr = expr;
-
+    auto scopes = _arena.scopes(expr);
+    if (scopes.contains(scope))
+        scopes.erase(scope);
+    else
+        scopes.insert(scope);
+    auto new_scopes_ref = _arena.scope_arena().intern(std::move(scopes));
+    const auto& sexpr = _arena.expr(expr);
     if (const auto* list = sexpr.get<SExprList>()) {
-        auto elem = list->elem;
         std::vector<SpanRef> v;
-        v.reserve(elem.size());
-        for (const auto& el : elem)
-            v.push_back(transform_sexpr(el, arena, parent, std::forward<F>(f)));
-        new_expr = arena.expand(arena[expr].loc(),
-            parent, ScopeSetRef::invalid(), SExprList(std::move(v)));
-    } else if (const auto* vec = sexpr.get<SExprVector>()) {
-        auto elems = vec->elem;
-        std::vector<SpanRef> v;
-        v.reserve(elems.size());
-        for (const auto& el : elems)
-            v.push_back(transform_sexpr(el, arena, parent, std::forward<F>(f)));
-        new_expr = arena.expand(arena[expr].loc(),
-            parent, ScopeSetRef::invalid(), SExprVector(std::move(v)));
+        v.reserve(list->elem.size());
+        for (const auto& el : list->elem)
+            v.push_back(add_scope(el, scope));
+        return _arena.expand(_arena.loc_ref(expr), _parent, new_scopes_ref,
+            SExprList(std::move(v)));
     }
-
-    return std::forward<F>(f)(new_expr, arena);
-}
-
-SpanRef Expander::add_scope(SpanRef expr, ScopeID scope) {
-    return transform_sexpr(
-        expr, _arena, _parent, [&, scope](SpanRef e, SpanArena& a) {
-            auto scopes = a.scopes(e);
-            if (scopes.contains(scope)) {
-                scopes.erase(scope);
-            } else {
-                scopes.insert(scope);
-            }
-            return a.expand(a[e].loc(), _parent,
-                a.scope_arena().intern(std::move(scopes)), a.expr(e));
-        });
+    if (const auto* vec = sexpr.get<SExprVector>()) {
+        std::vector<SpanRef> v;
+        v.reserve(vec->elem.size());
+        for (const auto& el : vec->elem)
+            v.push_back(add_scope(el, scope));
+        return _arena.expand(_arena.loc_ref(expr), _parent, new_scopes_ref,
+            SExprVector(std::move(v)));
+    }
+    return _arena.expand(
+        _arena.loc_ref(expr), _parent, new_scopes_ref, _arena.expr_ref(expr));
 }
 
 // FIXME: redundant params

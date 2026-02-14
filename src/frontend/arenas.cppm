@@ -5,7 +5,6 @@ import std;
 export import lpc.frontend.refs;
 import lpc.frontend.ast;
 import lpc.frontend.span;
-import lpc.frontend.span;
 import lpc.utils.arena;
 
 namespace lpc::frontend {
@@ -145,10 +144,13 @@ public:
     }
 
     template <typename... Args>
-    [[nodiscard]] SpanRef from_loc(LocRef loc, Args&&... args);
+    [[nodiscard]] inline SpanRef from_loc(LocRef loc, Args&&... args);
     template <typename... Args>
-    [[nodiscard]] SpanRef expand(
+    [[nodiscard]] inline SpanRef expand(
         LocRef loc, SpanRef parent, ScopeSetRef scopes, Args&&... args);
+
+    [[nodiscard]] inline SpanRef expand(
+        LocRef loc, SpanRef parent, ScopeSetRef scopes, SExprRef expr);
 
     [[nodiscard]] const Span& at(SpanRef ref) const&;
     [[nodiscard]] inline const Span& operator[](SpanRef ref) const& {
@@ -220,7 +222,12 @@ SpanRef SpanArena::expand(
         scopes = parent.is_valid() ? at(parent).scopes()
                                    : _scope_arena.empty_set();
     auto expr_ref = _expr_arena.emplace(SExpr(std::forward<Args>(args)...));
-    return emplace(loc, expr_ref, parent, scopes);
+    return expand(loc, parent, scopes, expr_ref);
+}
+
+SpanRef SpanArena::expand(
+    LocRef loc, SpanRef parent, ScopeSetRef scopes, SExprRef expr) {
+    return emplace(loc, expr, parent, scopes);
 }
 
 } // namespace lpc::frontend

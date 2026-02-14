@@ -128,15 +128,8 @@ std::string SpanArena::dump_root(SpanRef root) const {
 }
 
 std::string SpanArena::dump(SpanRef ref) const {
-    return expr(ref).visit(SExprVisitor { [](const LispIdent& id) {
-                                             std::string res = id.name;
-                                             //    The indentifer is resolved in
-                                             //    ExpandPass. If we don't dump
-                                             //    extensively there, omitting
-                                             //    scopes is fine.
-
-                                             return res;
-                                         },
+    return expr(ref).visit(SExprVisitor {
+        [](const LispIdent& id) { return id.name; },
         [](const LispString& str) { return "\"" + str + "\""; },
         [](const LispNumber& num) { return std::to_string(num); },
         [](const LispChar& c) -> std::string {
