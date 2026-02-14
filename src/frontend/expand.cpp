@@ -239,15 +239,33 @@ std::vector<SpanRef> Expander::expand_lambda(
     auto scoped_params = add_scope(list.elem[1], scope);
 
     std::vector<SpanRef> params;
+    std::set<std::string> seen_names;
     bool bind_error = false;
-    auto bind = [&](SpanRef p) {
+
+    auto bind = [&](SpanRef p, bool is_rest, bool is_last) {
         if (const auto* id = _arena.get<LispIdent>(p)) {
+            if (seen_names.contains(id->name)) {
+                report_error(p, std::format("lambda: duplicate parameter name: {}", id->name));
+                bind_error = true;
+                return;
+            }
+            seen_names.insert(id->name);
             auto resolved = _env.unique_name(id->name);
             auto resolved_id = LispIdent(resolved);
             _env.add_binding(*id, Binding(VarBinding(resolved_id)));
             params.push_back(_arena.expand(_arena.loc_ref(p),
                 SExpr(std::move(resolved_id)), _parent));
         } else if (_arena.is_nil(p)) {
+            if (is_rest) {
+                report_error(p, "lambda: expected identifier for rest parameter");
+                bind_error = true;
+                return;
+            }
+            if (!is_last) {
+                report_error(p, "lambda: invalid use of empty list in parameter list");
+                bind_error = true;
+                return;
+            }
             params.push_back(p);
         } else {
             report_error(p, "lambda: expected identifier in parameter list");
@@ -255,23 +273,29 @@ std::vector<SpanRef> Expander::expand_lambda(
         }
     };
 
+    SpanRef final_params;
     if (const auto* p_list = _arena.get<SExprList>(scoped_params)) {
-        // FIXME: check for
-        // 1) duplicate parameters
-        // 2) All indents, last one is Nil or parameter
-        for (const auto& p : p_list->elem)
-            bind(p);
+        for (std::size_t i = 0; i < p_list->elem.size(); ++i) {
+            bool is_last = (i == p_list->elem.size() - 1);
+            bool is_rest = is_last && !_arena.is_nil(p_list->elem[i]);
+            bind(p_list->elem[i], is_rest, is_last);
+        }
         if (bind_error)
             return { SpanRef::invalid() };
+        final_params = _arena.expand(_arena.loc_ref(scoped_params),
+            SExpr(SExprList(std::move(params))), _parent);
     } else if (_arena.isa<LispIdent>(scoped_params)) {
-        bind(scoped_params);
+        bind(scoped_params, true, true);
+        if (bind_error)
+            return { SpanRef::invalid() };
+        final_params = params[0];
+    } else if (_arena.is_nil(scoped_params)) {
+        final_params = scoped_params;
     } else {
         report_error(scoped_params,
             "lambda: expected one identifier or a list of identifiers");
         return { SpanRef::invalid() };
     }
-    auto final_params = _arena.expand(_arena.loc_ref(scoped_params),
-        SExpr(SExprList(std::move(params))), _parent);
 
     std::vector<SpanRef> out;
     out.push_back(
