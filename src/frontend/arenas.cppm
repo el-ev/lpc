@@ -49,10 +49,6 @@ public:
         auto [file_idx, line, column, lexeme] = Arena::at(ref);
         return Location(_files[file_idx], line, column, std::string(lexeme));
     }
-
-    [[nodiscard]] inline std::uint32_t file_idx(LocRef ref) const noexcept {
-        return std::get<0>(Arena::at(ref));
-    }
 };
 
 export class SExprArena : Arena<SExprTag, SExpr, std::uint32_t> {

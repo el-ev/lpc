@@ -138,7 +138,7 @@ void Expander::report_error(SpanRef failed_expr, std::string_view msg) {
     auto cur = _parent;
     while (cur != ExpansionStack::INVALID) {
         const auto& f = _stack.at(cur);
-        if (f.is_core && !_show_core) {
+        if (_arena.is_core_binding(f.expr) && !_show_core) {
             core_omitted++;
             cur = f.parent;
             continue;
@@ -593,7 +593,6 @@ std::vector<SpanRef> Expander::expand_define_syntax(
         return { SpanRef::invalid() };
     _env.add_binding(macro_name,
         Binding(MacroBinding { .transformer = std::move(*transformer),
-            .is_core = _is_core,
             .output_excluded_scope = std::nullopt }));
     return {};
 }
@@ -655,7 +654,6 @@ std::vector<SpanRef> Expander::expand_let_letrec_syntax(
 
         _env.add_binding(macro_ident,
             Binding(MacroBinding { .transformer = std::move(*transformer),
-                .is_core = _is_core,
                 .output_excluded_scope
                 = is_letrec ? std::nullopt : std::optional(scope) }));
     }
@@ -682,8 +680,7 @@ std::vector<SpanRef> Expander::expand_macro(
         return { SpanRef::invalid() };
     }
 
-    return with_core(macro.is_core)
-        .with_excluded_scope(macro.output_excluded_scope)
+    return with_excluded_scope(macro.output_excluded_scope)
         .expand(add_scope(result, intro));
 }
 
@@ -725,8 +722,8 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
             if (binding && binding->isa<CoreBinding>()) {
                 const auto& name = ident.name;
 
-                ExpStackRef frame = _stack.push(root, true, _parent);
-                auto core_expander = with_parent(frame, true);
+                ExpStackRef frame = _stack.push(root, _parent);
+                auto core_expander = with_parent(frame);
 
                 if (name == "lambda")
                     return core_expander.expand_lambda(list, root);
@@ -767,9 +764,8 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
             }
 
             if (binding != nullptr && binding->isa<MacroBinding>()) {
-                bool is_core = binding->get<MacroBinding>()->is_core;
-                ExpStackRef frame = _stack.push(root, is_core, _parent);
-                return with_parent(frame, is_core)
+                ExpStackRef frame = _stack.push(root, _parent);
+                return with_parent(frame)
                     .with_depth(_current_depth + 1)
                     .expand_macro(root, *binding->get<MacroBinding>());
             }
@@ -794,9 +790,9 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
 
 #include "../core.scm"
 
-// FIXME: Load core first
 void ExpandPass::load_core(SpanArena& user_arena) {
-    Lexer lexer(user_arena.location_arena(), "<core>", CORE_SOURCE);
+    // Add a leading space so it can't be a valid file name
+    Lexer lexer(user_arena.location_arena(), " <core> ", CORE_SOURCE);
     if (lexer.is_failed())
         return;
 
@@ -812,7 +808,7 @@ void ExpandPass::load_core(SpanArena& user_arena) {
         for (const auto& form : list.elem) {
             Expander expander(_env, user_arena, _exp_stack, dummy_error,
                 _show_core_expansion, _max_expansion_depth);
-            (void)expander.with_core(true).expand(form);
+            (void)expander.expand(form);
         }
     }
     _core_loaded = true;

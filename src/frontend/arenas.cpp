@@ -88,9 +88,8 @@ SpanRef SpanArena::get_bool(LocRef loc, bool value, SpanRef parent) noexcept {
     return emplace(loc, _expr_arena.get_bool(value), parent);
 }
 
-// FIXME
 bool SpanArena::is_core_binding(SpanRef ref) const noexcept {
-    return location_arena().file_idx(at(ref).loc()) == 1;
+    return loc(ref).file() == " <core> ";
 }
 
 std::string SpanArena::dump_root(SpanRef root) const {

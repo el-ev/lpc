@@ -20,7 +20,6 @@ struct VarBinding {
 struct CoreBinding { };
 struct MacroBinding {
     std::unique_ptr<Transformer> transformer;
-    bool is_core = false;
     std::optional<ScopeID> output_excluded_scope;
 };
 
@@ -28,7 +27,6 @@ using Binding = TaggedUnion<VarBinding, CoreBinding, MacroBinding>;
 
 export struct ExpansionFrame {
     SpanRef expr;
-    bool is_core;
     std::uint32_t parent;
 };
 
@@ -43,9 +41,9 @@ public:
     ExpansionStack() = default;
 
     [[nodiscard]] std::uint32_t push(
-        SpanRef expr, bool is_core, std::uint32_t parent) {
+        SpanRef expr, std::uint32_t parent) {
         auto idx = static_cast<std::uint32_t>(_frames.size());
-        _frames.push_back({ expr, is_core, parent });
+        _frames.push_back({ expr, parent });
         return idx;
     }
 
@@ -157,7 +155,6 @@ private:
     bool& _had_error;
 
     ExpStackRef _parent = ExpansionStack::INVALID;
-    bool _is_core = false;
     bool _show_core = false;
     bool _is_top_level = true;
     std::uint32_t _max_depth = 1000;
@@ -187,10 +184,9 @@ private:
         std::string_view form_prefix = "define-syntax");
 
 public:
-    [[nodiscard]] Expander with_parent(ExpStackRef parent, bool is_core) const {
+    [[nodiscard]] Expander with_parent(ExpStackRef parent) const {
         Expander next = *this;
         next._parent = parent;
-        next._is_core = is_core;
         return next;
     }
 
@@ -210,12 +206,6 @@ public:
         std::optional<ScopeID> scope) const {
         Expander next = *this;
         next._output_excluded_scope = scope;
-        return next;
-    }
-
-    [[nodiscard]] Expander with_core(bool is_core) const {
-        Expander next = *this;
-        next._is_core = is_core;
         return next;
     }
 };
