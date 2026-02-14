@@ -1,5 +1,8 @@
 module lpc.frontend.lexer;
 
+import std;
+
+import lpc.frontend.ast;
 import lpc.utils.logging;
 
 namespace lpc::frontend {
@@ -397,6 +400,43 @@ bool Lexer::read_operator() noexcept {
     default:
         return false;
     };
+}
+
+
+SExprLocRef Cursor::get_ident() const noexcept {
+    if (type() != TokenType::IDENT)
+        return SExprLocRef::invalid();
+    std::string name = value().get_unchecked<std::string>();
+    return arena().get_variable(loc(), std::move(name));
+}
+
+SExprLocRef Cursor::get_constant() const noexcept {
+    SExprLocRef ref;
+    switch (type()) {
+    case TokenType::NUMBER: {
+        LispNumber v = value().get_unchecked<LispNumber>();
+        ref = arena().emplace(loc(), v);
+        break;
+    }
+    case TokenType::BOOLEAN: {
+        bool v = value().get_unchecked<LispBool>();
+        ref = arena().get_boolean(loc(), v);
+        break;
+    }
+    case TokenType::CHARACTER: {
+        char v = value().get_unchecked<LispChar>();
+        ref = arena().emplace(loc(), v);
+        break;
+    }
+    case TokenType::STRING: {
+        auto v = value().get_unchecked<LispString>();
+        ref = arena().emplace(loc(), std::move(v));
+        break;
+    }
+    default:
+        break;
+    }
+    return ref;
 }
 
 } // namespace lpc::frontend

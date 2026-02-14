@@ -1,14 +1,18 @@
 module lpc.session;
 
-import lpc.utils.logging;
+import std;
+
+import lpc.backend.interp;
+import lpc.cps.lower;
+import lpc.frontend.arenas;
+import lpc.frontend.ast;
 import lpc.frontend.expand;
 import lpc.frontend.lexer;
+import lpc.frontend.span;
+import lpc.frontend.refs;
 import lpc.frontend.syntax;
-import lpc.frontend.location;
-import lpc.frontend.ast;
 import lpc.passes;
-import lpc.cps.lower;
-import lpc.backend.interp;
+import lpc.utils.logging;
 
 namespace lpc {
 

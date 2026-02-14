@@ -1,9 +1,12 @@
 export module lpc.frontend.expand;
 
 import std;
+
 import lpc.frontend.ast;
-import lpc.passes;
+import lpc.frontend.arenas;
+import lpc.frontend.refs;
 import lpc.frontend.transformer;
+import lpc.passes;
 import lpc.utils.tagged_union;
 
 namespace lpc::frontend {
@@ -110,9 +113,7 @@ public:
                 continue;
 
             if (std::ranges::includes(id.scopes, entry.scopes)) {
-                if (best == nullptr) {
-                    best = &entry;
-                } else if (std::ranges::includes(entry.scopes, best->scopes)) {
+                if (best == nullptr || std::ranges::includes(entry.scopes, best->scopes)) {
                     // prefer later bindings over earlier ones
                     best = &entry;
                 } else if (std::ranges::includes(best->scopes, entry.scopes)) {

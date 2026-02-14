@@ -1,7 +1,10 @@
 export module lpc.passes;
 
 import std;
+
 import lpc.frontend.ast;
+import lpc.frontend.arenas;
+import lpc.frontend.refs;
 
 namespace lpc {
 using namespace lpc::frontend;

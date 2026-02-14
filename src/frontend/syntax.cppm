@@ -1,7 +1,11 @@
 export module lpc.frontend.syntax;
 
 import std;
+
 import lpc.frontend.ast;
+import lpc.frontend.arenas;
+import lpc.frontend.lexer;
+import lpc.frontend.refs;
 
 namespace lpc::frontend {
 

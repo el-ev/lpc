@@ -1,13 +1,19 @@
-module lpc.frontend.ast;
+module lpc.frontend.arenas;
+
 import std;
+
+import lpc.frontend.ast;
+import lpc.frontend.span;
+import lpc.frontend.span;
+import lpc.utils.arena;
 
 namespace lpc::frontend {
 
 namespace {
-template <typename... Ts>
-struct SExprVisitor : Ts... {
-    using Ts::operator()...;
-};
+    template <typename... Ts>
+    struct SExprVisitor : Ts... {
+        using Ts::operator()...;
+    };
 } // namespace
 
 std::string SExprArena::dump_root(SExprRef root) const {
@@ -96,6 +102,10 @@ const SExpr& SExprArena::at(SExprLocRef ref) const& {
     return Arena::at(ref.expr_ref());
 }
 
+[[nodiscard]] std::size_t SExprArena::size() const noexcept {
+    return Arena::size();
+}
+
 SExprLocRef SExprArena::nil(LocRef loc) noexcept {
     if (!_nil_node.is_valid())
         _nil_node = Arena::emplace(LispNil());
@@ -118,42 +128,6 @@ SExprLocRef SExprArena::get_variable(LocRef loc, std::string&& name) noexcept {
     if (inserted)
         it->second = Arena::emplace(LispIdent(std::move(name)));
     return SExprLocRef(it->second, loc);
-}
-
-SExprLocRef Cursor::get_ident() const noexcept {
-    if (type() != TokenType::IDENT)
-        return SExprLocRef::invalid();
-    std::string name = value().get_unchecked<std::string>();
-    return arena().get_variable(loc(), std::move(name));
-}
-
-SExprLocRef Cursor::get_constant() const noexcept {
-    SExprLocRef ref;
-    switch (type()) {
-    case TokenType::NUMBER: {
-        LispNumber v = value().get_unchecked<LispNumber>();
-        ref = arena().emplace(loc(), v);
-        break;
-    }
-    case TokenType::BOOLEAN: {
-        bool v = value().get_unchecked<LispBool>();
-        ref = arena().get_boolean(loc(), v);
-        break;
-    }
-    case TokenType::CHARACTER: {
-        char v = value().get_unchecked<LispChar>();
-        ref = arena().emplace(loc(), v);
-        break;
-    }
-    case TokenType::STRING: {
-        auto v = value().get_unchecked<LispString>();
-        ref = arena().emplace(loc(), std::move(v));
-        break;
-    }
-    default:
-        break;
-    }
-    return ref;
 }
 
 } // namespace lpc::frontend

@@ -1,7 +1,8 @@
 import std;
+
+import lpc.session;
 import lpc.utils.logging;
 import lpc.utils.option;
-import lpc.session;
 
 using namespace lpc;
 

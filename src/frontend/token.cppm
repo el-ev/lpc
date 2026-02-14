@@ -1,9 +1,9 @@
 export module lpc.frontend.token;
 
-export import lpc.frontend.location;
-
 import std;
-import lpc.utils.arena;
+
+import lpc.frontend.span;
+import lpc.frontend.refs;
 import lpc.utils.tagged_union;
 
 namespace lpc::frontend {

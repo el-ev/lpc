@@ -1,9 +1,10 @@
 module lpc.frontend.expand;
 
 import std;
-import lpc.utils.logging;
+
 import lpc.frontend.lexer;
 import lpc.frontend.syntax;
+import lpc.utils.logging;
 
 namespace lpc::frontend {
 

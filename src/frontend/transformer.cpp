@@ -1,7 +1,8 @@
 module lpc.frontend.transformer;
 
-import lpc.frontend.ast;
 import std;
+
+import lpc.frontend.ast;
 
 namespace lpc::frontend {
 

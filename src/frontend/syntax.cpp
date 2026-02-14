@@ -1,5 +1,7 @@
 module lpc.frontend.syntax;
 
+import std;
+
 import lpc.frontend.combinators;
 import lpc.utils.logging;
 

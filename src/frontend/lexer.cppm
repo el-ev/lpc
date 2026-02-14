@@ -1,9 +1,14 @@
 export module lpc.frontend.lexer;
 
 import std;
+
+import lpc.frontend.arenas;
+import lpc.frontend.refs;
 import lpc.frontend.token;
+import lpc.utils.logging;
 
 namespace lpc::frontend {
+using lpc::utils::Error;
 
 export class Lexer {
 private:
@@ -74,5 +79,98 @@ private:
     [[nodiscard]] bool read_character() noexcept;
     [[nodiscard]] bool read_string() noexcept;
     [[nodiscard]] bool read_operator() noexcept;
+};
+
+export class Cursor {
+private:
+    const std::vector<Token>& _tokens;
+    bool _failed = false;
+    std::vector<Token>::const_iterator _token;
+    SExprArena& _arena;
+
+    struct SavePoint {
+    private:
+        std::vector<Token>::const_iterator _token;
+
+        explicit constexpr SavePoint(
+            std::vector<Token>::const_iterator token) noexcept
+            : _token(token) { };
+
+        friend class Cursor;
+    };
+
+public:
+    explicit constexpr Cursor(
+        const std::vector<Token>& tokens, SExprArena& arena) noexcept
+        : _tokens(tokens)
+        , _token(_tokens.begin())
+        , _arena(arena) { };
+
+    constexpr Cursor(const Cursor&) = delete;
+    constexpr Cursor& operator=(const Cursor&) = delete;
+
+    constexpr Cursor(Cursor&&) noexcept = default;
+
+    [[nodiscard]] inline constexpr const Token& operator*() const noexcept {
+        return *_token;
+    }
+
+    void advance() noexcept {
+        if (_token->type() != TokenType::EOF)
+            ++_token;
+    }
+
+    void fail() noexcept {
+        if (!_failed) {
+            auto loc = _arena.location(this->loc());
+            lpc::utils::Error("Unexpected token \"{}\" at {}",
+                loc.lexeme(), loc.source_location());
+            _failed = true;
+        }
+    }
+
+    [[nodiscard]] inline constexpr bool is_failed() const noexcept {
+        return _failed;
+    }
+
+    [[nodiscard]] inline constexpr bool is_eof() const noexcept {
+        return _token->type() == TokenType::EOF;
+    }
+
+    [[nodiscard]] inline constexpr SavePoint save() const noexcept {
+        return SavePoint(_token);
+    }
+
+    inline void set(SavePoint sp) noexcept {
+        _token = sp._token;
+    }
+
+    [[nodiscard]] inline constexpr TokenType type() const noexcept {
+        return _token->type();
+    }
+
+    [[nodiscard]] inline constexpr LocRef loc() const noexcept {
+        return _token->loc();
+    }
+
+    [[nodiscard]] inline constexpr auto value() const& noexcept {
+        return _token->value();
+    }
+
+    [[nodiscard]] inline constexpr SExprArena& arena() & noexcept {
+        return _arena;
+    }
+
+    [[nodiscard]] inline constexpr SExprArena& arena() const& noexcept {
+        return _arena;
+    }
+
+    template <TokenType T>
+    [[nodiscard]] constexpr bool is() const noexcept {
+        return type() == T;
+    }
+
+    [[nodiscard]] SExprLocRef get_ident() const noexcept;
+    [[nodiscard]] SExprLocRef get_constant() const noexcept;
 };
 } // namespace lpc::frontend

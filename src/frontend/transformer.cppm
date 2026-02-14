@@ -1,8 +1,10 @@
 export module lpc.frontend.transformer;
 
 import std;
+
 import lpc.frontend.ast;
-import lpc.utils.arena;
+import lpc.frontend.arenas;
+import lpc.frontend.refs;
 
 namespace lpc::frontend {
 

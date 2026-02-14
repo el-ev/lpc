@@ -1,5 +1,7 @@
 module lpc.passes;
 
+import std;
+
 import lpc.utils.logging;
 
 namespace lpc {

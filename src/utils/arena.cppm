@@ -4,48 +4,46 @@ import std;
 
 namespace lpc::utils {
 
-export template <typename T, typename IndexType = std::size_t>
+export template <typename Tag, typename IndexType = std::size_t>
+struct ElementReference {
+public:
+    static const IndexType invalid_ref = std::numeric_limits<IndexType>::max();
+
+    ElementReference() noexcept
+        : _index(invalid_ref) {
+    }
+    ElementReference(const ElementReference&) = default;
+    ElementReference& operator=(const ElementReference&) = default;
+
+    [[nodiscard]] inline static ElementReference invalid() noexcept {
+        return ElementReference(invalid_ref);
+    }
+
+    [[nodiscard]] inline bool operator==(
+        const ElementReference& other) const noexcept {
+        return _index == other._index;
+    }
+
+    [[nodiscard]] inline std::strong_ordering operator<=>(
+        const ElementReference& other) const noexcept {
+        return _index <=> other._index;
+    }
+
+    [[nodiscard]] inline bool is_valid() const noexcept {
+        return _index != invalid_ref;
+    }
+
+    explicit ElementReference(IndexType idx) noexcept
+        : _index(idx) { };
+    
+    IndexType _index;
+};
+
+export template <typename Tag, typename T, typename IndexType = std::size_t>
 class Arena {
 private:
     std::vector<T> _data;
     IndexType _next_index = 0;
-
-    struct ElementReference {
-    public:
-        static const IndexType invalid_ref
-            = std::numeric_limits<IndexType>::max();
-
-        ElementReference() noexcept
-            : _index(invalid_ref) {
-        }
-        ElementReference(const ElementReference&) = default;
-        ElementReference& operator=(const ElementReference&) = default;
-
-        [[nodiscard]] inline static ElementReference invalid() noexcept {
-            return ElementReference(invalid_ref);
-        }
-
-        [[nodiscard]] inline bool operator==(
-            const ElementReference& other) const noexcept {
-            return _index == other._index;
-        }
-
-        [[nodiscard]] inline std::strong_ordering operator<=>(
-            const ElementReference& other) const noexcept {
-            return _index <=> other._index;
-        }
-
-        [[nodiscard]] inline bool is_valid() const noexcept {
-            return _index != invalid_ref;
-        }
-
-    private:
-        IndexType _index;
-        explicit ElementReference(IndexType idx) noexcept
-            : _index(idx) { };
-
-        friend Arena<T, IndexType>;
-    };
 
 protected:
     explicit Arena() noexcept = default;
@@ -55,7 +53,7 @@ protected:
     }
 
 public:
-    using elem_ref = ElementReference;
+    using elem_ref = ElementReference<Tag, IndexType>;
 
     Arena(const Arena&) = delete;
     Arena& operator=(const Arena&) = delete;
@@ -119,51 +117,51 @@ public:
     }
 };
 
-template <typename T, typename IndexType>
-Arena<T, IndexType>::elem_ref Arena<T, IndexType>::insert(const T& value) {
+template <typename Tag, typename T, typename IndexType>
+Arena<Tag, T, IndexType>::elem_ref Arena<Tag, T, IndexType>::insert(const T& value) {
     _data.push_back(value);
-    return Arena<T, IndexType>::elem_ref(_next_index++);
+    return Arena<Tag, T, IndexType>::elem_ref(_next_index++);
 }
 
-template <typename T, typename IndexType>
+template <typename Tag, typename T, typename IndexType>
 template <typename... Args>
-Arena<T, IndexType>::elem_ref Arena<T, IndexType>::emplace(Args&&... args) {
+Arena<Tag, T, IndexType>::elem_ref Arena<Tag, T, IndexType>::emplace(Args&&... args) {
     _data.emplace_back(std::forward<Args>(args)...);
-    return Arena<T, IndexType>::elem_ref(_next_index++);
+    return Arena<Tag, T, IndexType>::elem_ref(_next_index++);
 }
 
-template <typename T, typename IndexType>
-Arena<T, IndexType>::elem_ref Arena<T, IndexType>::emplace(T&& value) {
+template <typename Tag, typename T, typename IndexType>
+Arena<Tag, T, IndexType>::elem_ref Arena<Tag, T, IndexType>::emplace(T&& value) {
     _data.push_back(std::move(value));
-    return Arena<T, IndexType>::elem_ref(_next_index++);
+    return Arena<Tag, T, IndexType>::elem_ref(_next_index++);
 }
 
-template <typename T, typename IndexType>
-constexpr T& Arena<T, IndexType>::at(Arena<T, IndexType>::elem_ref ref) {
+template <typename Tag, typename T, typename IndexType>
+constexpr T& Arena<Tag, T, IndexType>::at(Arena<Tag, T, IndexType>::elem_ref ref) {
     if (ref._index >= _data.size())
         throw std::out_of_range("Index out of range");
     return _data[ref._index];
 }
 
-template <typename T, typename IndexType>
-constexpr const T& Arena<T, IndexType>::at(
-    Arena<T, IndexType>::elem_ref ref) const {
+template <typename Tag, typename T, typename IndexType>
+constexpr const T& Arena<Tag, T, IndexType>::at(
+    Arena<Tag, T, IndexType>::elem_ref ref) const {
     if (ref._index >= _data.size())
         throw std::out_of_range("Index out of range");
     return _data[ref._index];
 }
 
-template <typename T, typename IndexType>
-constexpr T* Arena<T, IndexType>::get(
-    Arena<T, IndexType>::elem_ref ref) noexcept {
+template <typename Tag, typename T, typename IndexType>
+constexpr T* Arena<Tag, T, IndexType>::get(
+    Arena<Tag, T, IndexType>::elem_ref ref) noexcept {
     if (ref._index >= _data.size())
         return nullptr;
     return &_data[ref._index];
 }
 
-template <typename T, typename IndexType>
-constexpr const T* Arena<T, IndexType>::get(
-    Arena<T, IndexType>::elem_ref ref) const noexcept {
+template <typename Tag, typename T, typename IndexType>
+constexpr const T* Arena<Tag, T, IndexType>::get(
+    Arena<Tag, T, IndexType>::elem_ref ref) const noexcept {
     if (ref._index >= _data.size())
         return nullptr;
     return &_data[ref._index];
