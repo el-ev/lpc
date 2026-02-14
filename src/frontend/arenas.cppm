@@ -139,6 +139,14 @@ public:
         return expr(ref).isa<LispNil>();
     }
 
+    [[nodiscard]] inline bool is_ident(SpanRef ref) const noexcept {
+        return expr(ref).isa<LispIdent>();
+    }
+
+    [[nodiscard]] inline bool is_list(SpanRef ref) const noexcept {
+        return expr(ref).isa<SExprList>();
+    }
+
     template <typename T>
     [[nodiscard]] inline const T* get(SpanRef ref) const noexcept {
         return expr(ref).get<T>();

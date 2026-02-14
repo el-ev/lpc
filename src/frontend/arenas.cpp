@@ -98,7 +98,7 @@ std::string SpanArena::dump_root(SpanRef root) const {
     const auto* children = expr(root).get<SExprList>();
     std::string result;
     for (const auto& child : children->elem) {
-        if (isa<LispNil>(child))
+        if (is_nil(child))
             continue;
         result += dump(child) + "\n";
     }
@@ -129,8 +129,8 @@ std::string SpanArena::dump(SpanRef ref) const {
         },
         [](const LispBool& b) { return b ? "#t" : "#f"; },
         [this](const SExprList& list) {
-            if (list.elem.size() == 3 && isa<LispNil>(list.elem.back())
-                && expr(list.elem[0]).isa<LispIdent>()) {
+            if (list.elem.size() == 3 && is_nil(list.elem.back())
+                && is_ident(list.elem[0])) {
                 const auto& id = expr(list.elem[0]).get_unchecked<LispIdent>();
                 if (id->name == "quote")
                     return "'" + dump(list.elem[1]);
@@ -148,7 +148,7 @@ std::string SpanArena::dump(SpanRef ref) const {
                         result += " ";
                     result += dump(list.elem[i]);
                 }
-                if (!isa<LispNil>(list.elem.back())) {
+                if (!is_nil(list.elem.back())) {
                     if (list.elem.size() > 1)
                         result += " . ";
                     result += dump(list.elem.back());

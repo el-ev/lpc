@@ -19,8 +19,6 @@ SpanRef transform_sexpr(SpanRef expr, SpanArena& arena, SpanRef parent, F&& f) {
 
     SpanRef new_expr = expr;
 
-    // if (sexpr.isa<SExprList>()) {
-    //     auto elems = sexpr.get_unchecked<SExprList>().elem;
     if (const auto* list = sexpr.get<SExprList>()) {
         auto elem = list->elem;
         std::vector<SpanRef> v;
@@ -282,7 +280,7 @@ std::vector<SpanRef> Expander::expand_lambda(
             return { SpanRef::invalid() };
         final_params = _arena.expand(_arena.loc_ref(scoped_params),
             SExpr(SExprList(std::move(params))), _parent);
-    } else if (_arena.isa<LispIdent>(scoped_params)) {
+    } else if (_arena.is_ident(scoped_params)) {
         bind(scoped_params, true, true);
         if (bind_error)
             return { SpanRef::invalid() };
@@ -376,7 +374,7 @@ std::vector<SpanRef> Expander::expand_set(const SExprList& list, SpanRef root) {
     auto var_expanded = as_sub_expression().expand(var_ref);
     if (var_expanded.size() != 1 || !var_expanded[0].is_valid())
         return { SpanRef::invalid() };
-    if (!_arena.isa<LispIdent>(var_expanded[0])) {
+    if (!_arena.is_ident(var_expanded[0])) {
         report_error(var_ref, "set!: expected identifier for variable");
         return { SpanRef::invalid() };
     }
@@ -408,7 +406,7 @@ std::vector<SpanRef> Expander::expand_define(
 
         auto func_name = elems[0];
 
-        if (!_arena.isa<LispIdent>(func_name)) {
+        if (!_arena.is_ident(func_name)) {
             report_error(
                 func_name, "define: expected identifier for function name");
             return { SpanRef::invalid() };
@@ -451,7 +449,7 @@ std::vector<SpanRef> Expander::expand_define(
             return { SpanRef::invalid() };
         }
 
-        const auto exact = _env.find_exact_binding(*id);
+        const auto* exact = _env.find_exact_binding(*id);
         if (exact != nullptr && exact->isa<VarBinding>()) {
             var = _arena.expand(_arena.loc_ref(var),
                 SExpr(exact->get_unchecked<VarBinding>()->id),
@@ -484,7 +482,7 @@ std::vector<SpanRef> Expander::expand_define(
 
 std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
     SpanRef transformer_spec, std::string_view form_prefix) {
-    if (!_arena.isa<SExprList>(transformer_spec)) {
+    if (!_arena.is_list(transformer_spec)) {
         report_error(transformer_spec,
             std::format("{}: expected (syntax-rules ...)", form_prefix));
         return std::nullopt;
@@ -495,7 +493,7 @@ std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
             std::format("{}: expected (syntax-rules ...)", form_prefix));
         return std::nullopt;
     }
-    if (!_arena.isa<LispIdent>(spec_list[0])) {
+    if (!_arena.is_ident(spec_list[0])) {
         report_error(transformer_spec,
             std::format("{}: expected syntax-rules keyword", form_prefix));
         return std::nullopt;
@@ -507,12 +505,12 @@ std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
     }
     std::vector<std::string> literals;
     if (spec_list.size() >= 2) {
-        if (_arena.isa<SExprList>(spec_list[1])) {
+        if (_arena.is_list(spec_list[1])) {
             const auto lit_list = _arena.get<SExprList>(spec_list[1])->elem;
             for (const auto& lit : lit_list) {
                 if (_arena.is_nil(lit))
                     continue;
-                if (_arena.isa<LispIdent>(lit)) {
+                if (_arena.is_ident(lit)) {
                     literals.push_back(_arena.get<LispIdent>(lit)->name);
                 } else {
                     report_error(lit,
@@ -531,7 +529,7 @@ std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
     }
     std::vector<Transformer::SyntaxRule> rules;
     for (std::size_t i = 2; i < spec_list.size(); ++i) {
-        if (!_arena.isa<SExprList>(spec_list[i])) {
+        if (!_arena.is_list(spec_list[i])) {
             if (i == spec_list.size() - 1 && _arena.is_nil(spec_list[i]))
                 continue;
             report_error(transformer_spec,
@@ -594,7 +592,7 @@ std::vector<SpanRef> Expander::expand_define_syntax(
     auto name_ex = list.elem[1];
     auto transformer_spec = list.elem[2];
 
-    if (!_arena.isa<LispIdent>(name_ex)) {
+    if (!_arena.is_ident(name_ex)) {
         report_error(
             name_ex, "define-syntax: expected identifier for macro name");
         return { SpanRef::invalid() };
@@ -625,7 +623,7 @@ std::vector<SpanRef> Expander::expand_let_letrec_syntax(
         return { SpanRef::invalid() };
     }
 
-    if (!_arena.isa<SExprList>(list.elem[1])) {
+    if (!_arena.is_list(list.elem[1])) {
         report_error(list.elem[1],
             std::format("{}: expected list of bindings", let_syntax_name));
         return { SpanRef::invalid() };
@@ -637,7 +635,7 @@ std::vector<SpanRef> Expander::expand_let_letrec_syntax(
     for (const auto& binding : bindings) {
         if (_arena.is_nil(binding))
             continue;
-        if (!_arena.isa<SExprList>(binding)) {
+        if (!_arena.is_list(binding)) {
             report_error(binding,
                 std::format("{}: expected (name transformer) for each binding",
                     let_syntax_name));
@@ -652,7 +650,7 @@ std::vector<SpanRef> Expander::expand_let_letrec_syntax(
         }
 
         auto name_ex = pair[0];
-        if (!_arena.isa<LispIdent>(name_ex)) {
+        if (!_arena.is_ident(name_ex)) {
             report_error(
                 name_ex, "let-syntax: expected identifier for macro name");
             return { SpanRef::invalid() };
