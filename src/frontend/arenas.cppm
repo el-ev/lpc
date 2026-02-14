@@ -145,6 +145,7 @@ public:
 
     template <typename... Args>
     [[nodiscard]] inline SpanRef from_loc(LocRef loc, Args&&... args);
+    [[nodiscard]] inline SpanRef from_loc(LocRef loc, SExprRef expr);
     template <typename... Args>
     [[nodiscard]] inline SpanRef expand(
         LocRef loc, SpanRef parent, ScopeSetRef scopes, Args&&... args);
@@ -212,8 +213,12 @@ public:
 template <typename... Args>
 SpanRef SpanArena::from_loc(LocRef loc, Args&&... args) {
     auto expr_ref = _expr_arena.emplace(SExpr(std::forward<Args>(args)...));
-    return emplace(loc, expr_ref, SpanRef::invalid(), _scope_arena.empty_set());
+    return from_loc(loc, expr_ref);
 }
+
+SpanRef SpanArena::from_loc(LocRef loc, SExprRef expr) {
+    return emplace(loc, expr, SpanRef::invalid(), _scope_arena.empty_set());
+}   
 
 template <typename... Args>
 SpanRef SpanArena::expand(

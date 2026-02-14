@@ -48,7 +48,6 @@ public:
         return name + "." + std::to_string(count++);
     }
 
-    // TODO: signal error when shadowing causes ambiguity
     void add_binding(const std::string& name, const std::set<ScopeID>& scopes,
         Binding binding) {
         _bindings[name].push_back(
@@ -135,7 +134,7 @@ private:
     [[nodiscard]] SpanRef add_scope(SpanRef expr, ScopeID scope);
 
     void report_error(SpanRef failed_expr, std::string_view msg);
-    bool check_arity(SpanRef el, std::size_t min_arity, std::size_t max_arity);
+    bool check_arity(SpanRef el, const SExprList& list, std::size_t min_arity, std::size_t max_arity);
     bool is_identifier_active(SpanRef id_ref);
 
     std::vector<SpanRef> expand_lambda(const SExprList& list, SpanRef root);

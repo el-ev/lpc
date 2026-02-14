@@ -14,31 +14,48 @@ using lpc::utils::Error;
     if (!expr.is_valid())
         return expr;
 
-    auto scopes = _arena.scopes(expr);
-    if (scopes.contains(scope))
-        scopes.erase(scope);
-    else
-        scopes.insert(scope);
-    auto new_scopes_ref = _arena.scope_arena().intern(std::move(scopes));
     const auto& sexpr = _arena.expr(expr);
+    bool changed = false;
+
     if (const auto* list = sexpr.get<SExprList>()) {
         std::vector<SpanRef> v;
         v.reserve(list->elem.size());
-        for (const auto& el : list->elem)
-            v.push_back(add_scope(el, scope));
-        return _arena.expand(_arena.loc_ref(expr), _parent, new_scopes_ref,
-            SExprList(std::move(v)));
+        for (const auto& el : list->elem) {
+            auto new_el = add_scope(el, scope);
+            if (new_el != el)
+                changed = true;
+            v.push_back(new_el);
+        }
+        if (!changed)
+            return expr;
+        return _arena.expand(_arena.loc_ref(expr), _parent,
+            _arena.scope_arena().empty_set(), SExprList(std::move(v)));
     }
     if (const auto* vec = sexpr.get<SExprVector>()) {
         std::vector<SpanRef> v;
         v.reserve(vec->elem.size());
-        for (const auto& el : vec->elem)
-            v.push_back(add_scope(el, scope));
-        return _arena.expand(_arena.loc_ref(expr), _parent, new_scopes_ref,
-            SExprVector(std::move(v)));
+        for (const auto& el : vec->elem) {
+            auto new_el = add_scope(el, scope);
+            if (new_el != el)
+                changed = true;
+            v.push_back(new_el);
+        }
+        if (!changed)
+            return expr;
+        return _arena.expand(_arena.loc_ref(expr), _parent,
+            _arena.scope_arena().empty_set(), SExprVector(std::move(v)));
     }
-    return _arena.expand(
-        _arena.loc_ref(expr), _parent, new_scopes_ref, _arena.expr_ref(expr));
+    if (_arena.is_ident(expr)) {
+        auto scopes = _arena.scopes(expr);
+        if (scopes.contains(scope))
+            scopes.erase(scope);
+        else
+            scopes.insert(scope);
+        return _arena.get_ident(_arena.loc_ref(expr),
+            _arena.get<LispIdent>(expr)->name, _parent,
+            _arena.scope_arena().intern(std::move(scopes)));
+    }
+    return expr;
 }
 
 // TODO: better?
@@ -138,10 +155,9 @@ void Expander::report_error(SpanRef failed_expr, std::string_view msg) {
     std::println(std::cerr, "  at {}", loc.source_location());
 }
 
-bool Expander::check_arity(
-    SpanRef el, std::size_t min_arity, std::size_t max_arity) {
+bool Expander::check_arity(SpanRef el, const SExprList& list,
+    std::size_t min_arity, std::size_t max_arity) {
     // max_arity == 0 means no maximum
-    const auto& list = *_arena.get<SExprList>(el);
     auto size = list.elem.size();
     if (size < min_arity + 1) {
         report_error(el,
@@ -209,7 +225,7 @@ bool Expander::is_identifier_active(SpanRef id_ref) {
 std::vector<SpanRef> Expander::expand_lambda(
     const SExprList& list, SpanRef root) {
     // (lambda formals body...)
-    if (!check_arity(root, 2, 0))
+    if (!check_arity(root, list, 2, 0))
         return { SpanRef::invalid() };
 
     ScopeID scope = _env.new_scope();
@@ -294,7 +310,7 @@ std::vector<SpanRef> Expander::expand_lambda(
 
 std::vector<SpanRef> Expander::expand_quote(
     const SExprList& list, SpanRef root) {
-    if (!check_arity(root, 2, 2))
+    if (!check_arity(root, list, 2, 2))
         return { SpanRef::invalid() };
     std::vector<SpanRef> out;
     out.push_back(
@@ -307,7 +323,7 @@ std::vector<SpanRef> Expander::expand_quote(
 
 std::vector<SpanRef> Expander::expand_if(const SExprList& list, SpanRef root) {
     // (if condition then-clause else-clause?)
-    if (!check_arity(root, 3, 4))
+    if (!check_arity(root, list, 3, 4))
         return { SpanRef::invalid() };
 
     std::vector<SpanRef> out;
@@ -325,7 +341,7 @@ std::vector<SpanRef> Expander::expand_if(const SExprList& list, SpanRef root) {
 
 std::vector<SpanRef> Expander::expand_begin(
     const SExprList& list, SpanRef root) {
-    if (!check_arity(root, 1, 0))
+    if (!check_arity(root, list, 1, 0))
         return { SpanRef::invalid() };
 
     if (!_is_top_level) {
@@ -353,7 +369,7 @@ std::vector<SpanRef> Expander::expand_begin(
 
 std::vector<SpanRef> Expander::expand_set(const SExprList& list, SpanRef root) {
     // (set! variable expression)
-    if (!check_arity(root, 3, 3))
+    if (!check_arity(root, list, 3, 3))
         return { SpanRef::invalid() };
 
     auto var_ref = list.elem[1];
@@ -381,7 +397,7 @@ std::vector<SpanRef> Expander::expand_set(const SExprList& list, SpanRef root) {
 
 std::vector<SpanRef> Expander::expand_define(
     const SExprList& list, SpanRef root) {
-    if (!check_arity(root, 3, 0))
+    if (!check_arity(root, list, 3, 0))
         return { SpanRef::invalid() };
 
     auto var = list.elem[1];
@@ -440,12 +456,14 @@ std::vector<SpanRef> Expander::expand_define(
             = _env.find_exact_binding(id->name, _arena.scopes(var));
         if (exact != nullptr && exact->isa<VarBinding>()) {
             var = _arena.get_ident(_arena.loc_ref(var),
-                exact->get_unchecked<VarBinding>()->id.name, _parent);
+                exact->get_unchecked<VarBinding>()->id.name, _parent,
+                _arena.scope_ref(var));
         } else {
             auto resolved = _env.unique_name(id->name);
             _env.add_binding(id->name, _arena.scopes(var),
                 Binding(VarBinding(LispIdent(resolved))));
-            var = _arena.get_ident(_arena.loc_ref(var), resolved, _parent);
+            var = _arena.get_ident(
+                _arena.loc_ref(var), resolved, _parent, _arena.scope_ref(var));
         }
     } else {
         report_error(var, "define: expected identifier or list");
@@ -525,7 +543,6 @@ std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
         }
         const auto rule_parts = _arena.get<SExprList>(spec_list[i])->elem;
         if (rule_parts.size() == 3 && _arena.is_nil(rule_parts[2])) {
-            // Validate pattern: must be a list with >= 2 elements or nil
             if (const auto* pattern_list_ptr
                 = _arena.get<SExprList>(rule_parts[0])) {
                 if (pattern_list_ptr->elem.size() < 2) {
@@ -542,7 +559,6 @@ std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
                         form_prefix, _arena.dump(rule_parts[0])));
                 continue;
             }
-            // Strip the head of the pattern
             const auto pattern_list
                 = _arena.get<SExprList>(rule_parts[0])->elem;
             std::vector<SpanRef> pattern_tail_list;
@@ -702,13 +718,13 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
         const auto* binding = _env.find_binding(
             ident->name, _arena.scopes(root), _output_excluded_scope);
         if (binding == nullptr) {
-            // clean.scopes.clear(); // NO LONGER NEEDED, ident has no scopes
-            return { _arena.get_ident(
-                _arena.loc_ref(root), ident->name, _parent) };
+            return { _arena.get_ident(_arena.loc_ref(root), ident->name,
+                _parent, _arena.scope_ref(root)) };
         }
         if (binding->isa<VarBinding>())
             return { _arena.get_ident(_arena.loc_ref(root),
-                binding->get_unchecked<VarBinding>()->id.name, _parent) };
+                binding->get_unchecked<VarBinding>()->id.name, _parent,
+                _arena.scope_ref(root)) };
         return { root };
     }
 
@@ -725,34 +741,35 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
             if (binding != nullptr && binding->isa<CoreBinding>()) {
                 const auto& name = ident.name;
 
-                root = _arena.expand(_arena.loc_ref(root), _parent,
-                    ScopeSetRef::invalid(), list);
-                auto core_expander = with_parent(root);
+                SpanRef parented_root = _arena.expand(_arena.loc_ref(root),
+                    _parent, _arena.scope_ref(root), list);
+                auto core_expander = with_parent(parented_root);
 
                 if (name == "lambda")
-                    return core_expander.expand_lambda(list, root);
+                    return core_expander.expand_lambda(list, parented_root);
                 if (name == "quote")
-                    return core_expander.expand_quote(list, root);
+                    return core_expander.expand_quote(list, parented_root);
                 if (name == "if")
-                    return core_expander.expand_if(list, root);
+                    return core_expander.expand_if(list, parented_root);
                 if (name == "begin")
-                    return core_expander.expand_begin(list, root);
+                    return core_expander.expand_begin(list, parented_root);
                 if (name == "set!")
-                    return core_expander.expand_set(list, root);
+                    return core_expander.expand_set(list, parented_root);
                 if (name == "define")
-                    return core_expander.expand_define(list, root);
+                    return core_expander.expand_define(list, parented_root);
                 if (name == "define-syntax")
-                    return core_expander.expand_define_syntax(list, root);
+                    return core_expander.expand_define_syntax(
+                        list, parented_root);
                 if (name == "let-syntax")
                     return core_expander.expand_let_letrec_syntax(
-                        list, root, false);
+                        list, parented_root, false);
                 if (name == "letrec-syntax")
                     return core_expander.expand_let_letrec_syntax(
-                        list, root, true);
+                        list, parented_root, true);
                 if (name == "syntax-error") {
                     std::string msg;
                     if (!_arena.is_nil(list.elem.back())) {
-                        report_error(root,
+                        report_error(parented_root,
                             std::format(
                                 "syntax-error: syntax-error: syntax-error: "
                                 "syntax-error: syntax-error: syntax-error: "));
@@ -762,16 +779,18 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
                         if (const auto* str
                             = _arena.get<LispString>(list.elem[1]))
                             msg = *str;
-                    report_error(root, std::format("syntax-error: {}", msg));
+                    report_error(
+                        parented_root, std::format("syntax-error: {}", msg));
                     return { SpanRef::invalid() };
                 }
             }
 
             if (binding != nullptr && binding->isa<MacroBinding>()) {
-                root = _arena.expand(_arena.loc_ref(root), _parent,
-                    ScopeSetRef::invalid(), list);
-                return with_depth(_current_depth + 1)
-                    .expand_macro(root, *binding->get<MacroBinding>());
+                SpanRef parented_root = _arena.expand(_arena.loc_ref(root),
+                    _parent, _arena.scope_ref(root), list);
+                return with_parent(parented_root)
+                    .with_depth(_current_depth + 1)
+                    .expand_macro(parented_root, *binding->get<MacroBinding>());
             }
         }
 
@@ -787,7 +806,7 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
             out.insert(out.end(), r.begin(), r.end());
         }
         return { _arena.expand(_arena.loc_ref(root), _parent,
-            ScopeSetRef::invalid(), SExprList(std::move(out))) };
+            _arena.scope_ref(root), SExprList(std::move(out))) };
     }
 
     return { root };
@@ -840,8 +859,9 @@ void ExpandPass::load_core(SpanArena& user_arena) {
             }
             out.insert(out.end(), r.begin(), r.end());
         }
-        auto expanded = arena.expand(arena.loc_ref(root), SpanRef::invalid(),
-            ScopeSetRef::invalid(), SExprList(std::move(out)));
+        SExprRef final_expr
+            = arena.expr_arena().emplace(SExpr(SExprList(std::move(out))));
+        auto expanded = arena.from_loc(arena.loc_ref(root), final_expr);
         if (_had_error)
             return SpanRef::invalid();
         return expanded;
