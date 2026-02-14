@@ -232,8 +232,8 @@ ParseResult CreateList<R>::operator()(Cursor& cursor) const noexcept {
             return std::nullopt;
         }
     }
-    SpanRef node = cursor.arena().from_loc(
-        loc, SExpr(SExprList(std::move(res.value()))));
+    SpanRef node
+        = cursor.arena().from_loc(loc, SExprList(std::move(res.value())));
     return std::vector<SpanRef> { node };
 }
 
@@ -255,8 +255,8 @@ ParseResult CreateVector<R>::operator()(Cursor& cursor) const noexcept {
             return std::nullopt;
         }
     }
-    SpanRef node = cursor.arena().from_loc(
-        loc, SExpr(SExprVector(std::move(res.value()))));
+    SpanRef node
+        = cursor.arena().from_loc(loc, SExprVector(std::move(res.value())));
     return std::vector<SpanRef> { node };
 }
 

@@ -44,22 +44,6 @@ SExprRef SExprArena::get_ident(const std::string& name) noexcept {
     return ref;
 }
 
-SpanRef SpanArena::from_loc(LocRef loc, SExpr&& expr, ScopeSetRef scopes) {
-    if (!scopes.is_valid())
-        scopes = _scope_arena.empty_set();
-    auto expr_ref = _expr_arena.emplace(std::move(expr));
-    return emplace(loc, expr_ref, SpanRef::invalid(), scopes);
-}
-
-SpanRef SpanArena::expand(
-    LocRef loc, SExpr&& expr, SpanRef parent, ScopeSetRef scopes) {
-    if (!scopes.is_valid())
-        scopes = parent.is_valid() ? at(parent).scopes()
-                                   : _scope_arena.empty_set();
-    auto expr_ref = _expr_arena.emplace(std::move(expr));
-    return emplace(loc, expr_ref, parent, scopes);
-}
-
 const Span& SpanArena::at(SpanRef ref) const& {
     return Arena::at(ref);
 }

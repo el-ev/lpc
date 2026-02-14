@@ -144,10 +144,11 @@ public:
         return _scope_arena;
     }
 
-    [[nodiscard]] SpanRef from_loc(
-        LocRef loc, SExpr&& expr, ScopeSetRef scopes = ScopeSetRef::invalid());
-    [[nodiscard]] SpanRef expand(LocRef loc, SExpr&& expr, SpanRef parent,
-        ScopeSetRef scopes = ScopeSetRef::invalid());
+    template <typename... Args>
+    [[nodiscard]] SpanRef from_loc(LocRef loc, Args&&... args);
+    template <typename... Args>
+    [[nodiscard]] SpanRef expand(
+        LocRef loc, SpanRef parent, ScopeSetRef scopes, Args&&... args);
 
     [[nodiscard]] const Span& at(SpanRef ref) const&;
     [[nodiscard]] inline const Span& operator[](SpanRef ref) const& {
@@ -205,5 +206,21 @@ public:
         return expr(ref).get<T>();
     }
 };
+
+template <typename... Args>
+SpanRef SpanArena::from_loc(LocRef loc, Args&&... args) {
+    auto expr_ref = _expr_arena.emplace(SExpr(std::forward<Args>(args)...));
+    return emplace(loc, expr_ref, SpanRef::invalid(), _scope_arena.empty_set());
+}
+
+template <typename... Args>
+SpanRef SpanArena::expand(
+    LocRef loc, SpanRef parent, ScopeSetRef scopes, Args&&... args) {
+    if (!scopes.is_valid())
+        scopes = parent.is_valid() ? at(parent).scopes()
+                                   : _scope_arena.empty_set();
+    auto expr_ref = _expr_arena.emplace(SExpr(std::forward<Args>(args)...));
+    return emplace(loc, expr_ref, parent, scopes);
+}
 
 } // namespace lpc::frontend

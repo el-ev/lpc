@@ -29,8 +29,8 @@ static void collect_pattern_vars(
     }
 }
 
-static SpanRef get_tail(
-    const SExprList& list, std::size_t start, SpanArena& arena, SpanRef parent) {
+static SpanRef get_tail(const SExprList& list, std::size_t start,
+    SpanArena& arena, SpanRef parent) {
     bool is_improper = !list.elem.empty() && !arena.is_nil(list.elem.back());
     if (start >= list.elem.size()) {
         if (is_improper)
@@ -46,8 +46,8 @@ static SpanRef get_tail(
     for (std::size_t i = start; i < list.elem.size(); ++i)
         subset.push_back(list.elem[i]);
 
-    return arena.expand(arena[list.elem.back()].loc(),
-        SExpr(SExprList(std::move(subset))), parent);
+    return arena.expand(arena[list.elem.back()].loc(), parent,
+        ScopeSetRef::invalid(), SExprList(std::move(subset)));
 }
 
 bool Transformer::match(
@@ -159,8 +159,9 @@ bool Transformer::match(
             for (std::size_t i = 0; i < head_count; ++i)
                 if (!match(p_list->elem[i], i_list->elem[i], bindings))
                     return false;
-            return match(
-                tail_pattern, get_tail(*i_list, head_count, _arena, SpanRef::invalid()), bindings);
+            return match(tail_pattern,
+                get_tail(*i_list, head_count, _arena, SpanRef::invalid()),
+                bindings);
         }
         if (ellipsis_pos == 0)
             return false;
@@ -198,15 +199,16 @@ bool Transformer::match(
                     i_list->elem[i_element_count - fixed_after + i], bindings))
                 return false;
 
-        return match(
-            tail_pattern, get_tail(*i_list, i_element_count, _arena, SpanRef::invalid()), bindings);
+        return match(tail_pattern,
+            get_tail(*i_list, i_element_count, _arena, SpanRef::invalid()),
+            bindings);
     }
 
     return p_expr == i_expr;
 }
 
-SpanRef Transformer::instantiate(
-    SpanRef element, const Bindings& bindings, LocRef call_site_loc, SpanRef parent) const {
+SpanRef Transformer::instantiate(SpanRef element, const Bindings& bindings,
+    LocRef call_site_loc, SpanRef parent) const {
     const auto expr = _arena.expr(element);
 
     if (const auto* ident = expr.get<LispIdent>()) {
@@ -247,21 +249,23 @@ SpanRef Transformer::instantiate(
                         for (auto& [name, val] : temp)
                             if (val.is_list && j < val.values.size())
                                 val = BindingValue::single(val.values[j]);
-                        out.push_back(
-                            instantiate(repeat_tmpl, temp, call_site_loc, parent));
+                        out.push_back(instantiate(
+                            repeat_tmpl, temp, call_site_loc, parent));
                     }
                 } else {
-                    out.push_back(
-                        instantiate(repeat_tmpl, bindings, call_site_loc, parent));
+                    out.push_back(instantiate(
+                        repeat_tmpl, bindings, call_site_loc, parent));
                 }
                 ++i;
             } else if (is_ellipsis(elems[i], _arena)) {
             } else {
-                out.push_back(instantiate(elems[i], bindings, call_site_loc, parent));
+                out.push_back(
+                    instantiate(elems[i], bindings, call_site_loc, parent));
             }
         }
 
-        return _arena.expand(call_site_loc, SExpr(SExprList(std::move(out))), parent);
+        return _arena.expand(call_site_loc, parent, ScopeSetRef::invalid(),
+            SExprList(std::move(out)));
     }
 
     return element;
@@ -274,7 +278,8 @@ SpanRef Transformer::transcribe(SpanRef input, SpanRef parent) const {
     for (const auto& rule : _rules) {
         Bindings bindings;
         if (match(rule.pattern_tail, i_tail, bindings)) {
-            return instantiate(rule.template_, bindings, _arena.loc_ref(input), parent);
+            return instantiate(
+                rule.template_, bindings, _arena.loc_ref(input), parent);
         }
     }
     return SpanRef::invalid();
