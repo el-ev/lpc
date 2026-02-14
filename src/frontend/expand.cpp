@@ -181,14 +181,14 @@ bool Expander::check_arity(
     if (max_arity == min_arity && list.elem.size() != min_arity + 1) {
         report_error(el,
             std::format("arity mismatch: expected {} arguments, got {}",
-                min_arity, list.elem.size()));
+                min_arity, list.elem.size() - 1));
         _had_error = true;
         return false;
     }
     if (max_arity != 0 && list.elem.size() > max_arity + 1) {
         report_error(el,
             std::format("arity mismatch: expected at most {} arguments, got {}",
-                max_arity, list.elem.size()));
+                max_arity, list.elem.size() - 1));
         _had_error = true;
         return false;
     }
