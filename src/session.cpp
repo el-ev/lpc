@@ -4,6 +4,8 @@ import lpc.utils.logging;
 import lpc.frontend.expand;
 import lpc.frontend.lexer;
 import lpc.frontend.syntax;
+import lpc.frontend.location;
+import lpc.frontend.ast;
 import lpc.passes;
 import lpc.cps.lower;
 import lpc.backend.interp;
@@ -33,12 +35,14 @@ int Session::run() noexcept {
         std::istreambuf_iterator<char>());
     input_file.close();
 
-    frontend::Lexer lexer(path, source);
+    frontend::LocationArena loc_arena;
+    frontend::SExprArena node_arena(loc_arena);
+
+    frontend::Lexer lexer(loc_arena, path, source);
     if (lexer.is_failed())
         return 1;
 
     auto tokens = lexer.tokens();
-    auto loc_arena = lexer.loc_arena();
 
     if (std::ranges::find(_print_passes, "token") != _print_passes.end()) {
         for (const auto& token : tokens)
@@ -46,13 +50,12 @@ int Session::run() noexcept {
         std::println("");
     }
 
-    frontend::Parser parser(std::move(tokens), std::move(loc_arena));
+    frontend::Parser parser(std::move(tokens), node_arena);
 
     if (parser.is_failed())
         return 1;
 
     auto root = parser.root();
-    auto node_arena = std::move(parser.arena());
 
     if (std::ranges::find(_print_passes, "raw") != _print_passes.end())
         std::print("{}", node_arena.dump_root(root.expr_ref()));

@@ -24,33 +24,31 @@ export using Bindings = std::unordered_map<std::string, BindingValue>;
 export class Transformer {
 public:
     struct SyntaxRule {
-        SExprLocRef pattern;
+        SExprLocRef pattern_tail;
         SExprLocRef template_;
     };
 
 private:
     std::vector<SyntaxRule> _rules;
-    SExprArena& _def_arena;
+    SExprArena& _arena;
     std::set<std::string> _literals;
 
 public:
     explicit Transformer(std::vector<SyntaxRule> rules,
-        std::vector<std::string> literals, SExprArena& def_arena)
+        std::vector<std::string> literals, SExprArena& arena)
         : _rules(std::move(rules))
-        , _def_arena(def_arena)
+        , _arena(arena)
         , _literals(std::make_move_iterator(literals.begin()),
               std::make_move_iterator(literals.end())) {
     }
 
-    [[nodiscard]] SExprLocRef transcribe(
-        SExprLocRef input, SExprArena& input_arena) const;
+    [[nodiscard]] SExprLocRef transcribe(SExprLocRef input) const;
 
 private:
-    [[nodiscard]] bool match(SExprLocRef pattern, SExprArena& pattern_arena,
-        SExprLocRef input, SExprArena& input_arena, Bindings& bindings) const;
+    [[nodiscard]] bool match(
+        SExprLocRef pattern, SExprLocRef input, Bindings& bindings) const;
 
     [[nodiscard]] SExprLocRef instantiate(SExprLocRef element,
-        SExprArena& tmpl_arena, SExprArena& output_arena,
         const Bindings& bindings, LocRef call_site_loc) const;
 };
 

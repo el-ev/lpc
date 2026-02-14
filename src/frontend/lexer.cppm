@@ -12,26 +12,25 @@ private:
     std::size_t _line = 1;
     std::string_view::iterator _line_start;
     std::vector<Token> _tokens;
-    LocationArena _loc_arena;
+    LocationArena& _loc_arena;
+    std::uint32_t _file_idx;
 
     bool _failed = false;
 
 public:
-    explicit Lexer(std::string_view file, std::string_view source) noexcept
+    explicit Lexer(LocationArena& loc_arena, std::string_view file,
+        std::string_view source) noexcept
         : _source(source)
         , _cursor(source)
         , _line_start(source.begin())
-        , _loc_arena(std::string(file)) {
+        , _loc_arena(loc_arena)
+        , _file_idx(_loc_arena.add_file(std::string(file))) {
         while (!is_eof() && !_failed)
             if (!advance() && !is_eof())
                 _failed = true;
         if (_failed)
             return;
         _tokens.emplace_back(Token::eof(loc("<EOF>")));
-    }
-
-    [[nodiscard]] inline LocationArena&& loc_arena() noexcept {
-        return std::move(_loc_arena);
     }
 
     [[nodiscard]] inline std::vector<Token>&& tokens() noexcept {
@@ -48,13 +47,13 @@ public:
 
 private:
     [[nodiscard]] inline constexpr LocRef loc(std::string&& lexeme) noexcept {
-        return _loc_arena.emplace(_line,
+        return _loc_arena.emplace(_file_idx, _line,
             (_line == 1 ? 1 : 0) + std::distance(_line_start, _cursor.begin()),
             std::move(lexeme));
     }
 
     [[nodiscard]] inline constexpr std::string loc_string() noexcept {
-        return std::format("{}:{}:{}", _loc_arena.file(), _line,
+        return std::format("{}:{}:{}", _loc_arena.file(_file_idx), _line,
             (_line == 1 ? 1 : 0) + std::distance(_line_start, _cursor.begin()));
     }
 

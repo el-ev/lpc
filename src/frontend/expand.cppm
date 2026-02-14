@@ -228,7 +228,6 @@ public:
 
 export class ExpandPass final : public Pass {
 private:
-    std::unique_ptr<SExprArena> _core_arena;
     LexEnv _env;
     ExpansionStack _exp_stack;
     bool _core_loaded = false;

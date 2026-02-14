@@ -53,24 +53,28 @@ public:
     }
 };
 
-class LocationArena
-    : Arena<std::tuple<std::uint32_t, std::uint32_t, std::string>,
+export class LocationArena
+    : Arena<std::tuple<std::uint32_t, std::uint32_t, std::uint32_t, std::string>,
           std::uint32_t> {
 private:
-    std::string _file;
+    std::deque<std::string> _files;
 
 public:
     using LocRef = Arena::elem_ref;
-    explicit LocationArena(std::string&& file) noexcept
-        : _file(std::move(file)) { };
+    explicit LocationArena() noexcept = default;
 
-    [[nodiscard]] inline LocRef emplace(
-        std::uint32_t line, std::uint32_t column, std::string&& lexeme) {
-        return Arena::emplace(line, column, std::move(lexeme));
+    std::uint32_t add_file(std::string file) {
+        _files.push_back(std::move(file));
+        return static_cast<std::uint32_t>(_files.size() - 1);
     }
 
-    [[nodiscard]] inline std::string_view file() const noexcept {
-        return _file;
+    [[nodiscard]] inline LocRef emplace(std::uint32_t file_idx,
+        std::uint32_t line, std::uint32_t column, std::string&& lexeme) {
+        return Arena::emplace(file_idx, line, column, std::move(lexeme));
+    }
+
+    [[nodiscard]] inline std::string_view file(std::uint32_t idx) const noexcept {
+        return _files[idx];
     }
 
     [[nodiscard]] inline Location operator[](LocRef ref) const& {
@@ -78,8 +82,8 @@ public:
     }
 
     [[nodiscard]] inline Location at(LocRef ref) const& {
-        auto [line, column, lexeme] = Arena::at(ref);
-        return Location(_file, line, column, std::string(lexeme));
+        auto [file_idx, line, column, lexeme] = Arena::at(ref);
+        return Location(_files[file_idx], line, column, std::string(lexeme));
     }
 };
 

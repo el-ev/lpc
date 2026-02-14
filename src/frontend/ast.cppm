@@ -111,15 +111,23 @@ public:
     }
 };
 
-class SExprArena : Arena<SExpr, std::uint32_t> {
+export class SExprArena : Arena<SExpr, std::uint32_t> {
 private:
-    LocationArena _loc_arena;
+    LocationArena& _loc_arena;
 
 public:
     using SExprRef = Arena<SExpr, std::uint32_t>::elem_ref;
 
-    explicit SExprArena(LocationArena&& loc_arena)
-        : _loc_arena(std::move(loc_arena)) { };
+    explicit SExprArena(LocationArena& loc_arena)
+        : _loc_arena(loc_arena) { };
+
+    [[nodiscard]] inline LocationArena& location_arena() noexcept {
+        return _loc_arena;
+    }
+
+    [[nodiscard]] inline const LocationArena& location_arena() const noexcept {
+        return _loc_arena;
+    }
 
     inline void reserve(std::size_t size) {
         Arena::reserve(size);
@@ -144,6 +152,8 @@ public:
 
     [[nodiscard]] const SExpr& at(SExprRef ref) const&;
     [[nodiscard]] const SExpr& at(SExprLocRef ref) const&;
+
+    [[nodiscard]] std::size_t size() const noexcept;
 
     [[nodiscard]] SExprLocRef nil(LocRef loc) noexcept;
     [[nodiscard]] SExprLocRef get_boolean(LocRef loc, bool value) noexcept;

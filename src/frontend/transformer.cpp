@@ -16,7 +16,7 @@ static bool is_ellipsis(SExprLocRef ref, SExprArena& arena) {
 
 static std::size_t logical_size(const SExprList& list, SExprArena& arena) {
     if (list.elem.empty())
-        return 0;
+        return 0; // Should never happen
     if (arena.at(list.elem.back()).isa<LispNil>())
         return list.elem.size() - 1;
     return list.elem.size();
@@ -64,12 +64,12 @@ static SExprLocRef get_tail(
         SExprLocRef::invalid().loc_ref(), SExprList(std::move(subset)));
 }
 
-bool Transformer::match(SExprLocRef pattern, SExprArena& pattern_arena,
-    SExprLocRef input, SExprArena& input_arena, Bindings& bindings) const {
+bool Transformer::match(
+    SExprLocRef pattern, SExprLocRef input, Bindings& bindings) const {
     if (!pattern.is_valid() || !input.is_valid())
         return false;
 
-    const auto& p_expr = pattern_arena.at(pattern);
+    const auto& p_expr = _arena.at(pattern);
 
     if (p_expr.isa<LispIdent>()) {
         const auto& name = p_expr.get_unchecked<LispIdent>().name;
@@ -77,7 +77,7 @@ bool Transformer::match(SExprLocRef pattern, SExprArena& pattern_arena,
             return true;
 
         if (_literals.contains(name)) {
-            const auto& i_expr = input_arena.at(input);
+            const auto& i_expr = _arena.at(input);
             if (!i_expr.isa<LispIdent>())
                 return false;
             return i_expr.get_unchecked<LispIdent>().name == name;
@@ -90,28 +90,28 @@ bool Transformer::match(SExprLocRef pattern, SExprArena& pattern_arena,
     if (p_expr.isa<SExprList>()) {
         if (!input.is_valid())
             return false;
-        const auto& i_expr = input_arena.at(input);
+        const auto& i_expr = _arena.at(input);
         if (!i_expr.isa<SExprList>())
             return false;
 
         const auto& p_list = p_expr.get_unchecked<SExprList>();
         const auto& i_list = i_expr.get_unchecked<SExprList>();
 
-        std::size_t p_logical = logical_size(p_list, pattern_arena);
-        std::size_t i_logical = logical_size(i_list, input_arena);
+        std::size_t p_logical = logical_size(p_list, _arena);
+        std::size_t i_logical = logical_size(i_list, _arena);
 
         int ellipsis_pos = -1;
         for (std::size_t i = 0; i < p_logical; ++i) {
-            if (is_ellipsis(p_list.elem[i], pattern_arena)) {
+            if (is_ellipsis(p_list.elem[i], _arena)) {
                 ellipsis_pos = static_cast<int>(i);
                 break;
             }
         }
 
         bool p_improper = !p_list.elem.empty()
-            && !pattern_arena.at(p_list.elem.back()).isa<LispNil>();
+            && !_arena.at(p_list.elem.back()).isa<LispNil>();
         bool i_improper = !i_list.elem.empty()
-            && !input_arena.at(i_list.elem.back()).isa<LispNil>();
+            && !_arena.at(i_list.elem.back()).isa<LispNil>();
 
         if (!p_improper) {
             if (i_improper)
@@ -121,8 +121,7 @@ bool Transformer::match(SExprLocRef pattern, SExprArena& pattern_arena,
                 if (p_logical != i_logical)
                     return false;
                 for (std::size_t i = 0; i < p_logical; ++i) {
-                    if (!match(p_list.elem[i], pattern_arena, i_list.elem[i],
-                            input_arena, bindings))
+                    if (!match(p_list.elem[i], i_list.elem[i], bindings))
                         return false;
                 }
                 return true;
@@ -137,8 +136,7 @@ bool Transformer::match(SExprLocRef pattern, SExprArena& pattern_arena,
                 return false;
 
             for (std::size_t i = 0; i < fixed_before; ++i) {
-                if (!match(p_list.elem[i], pattern_arena, i_list.elem[i],
-                        input_arena, bindings))
+                if (!match(p_list.elem[i], i_list.elem[i], bindings))
                     return false;
             }
 
@@ -146,15 +144,14 @@ bool Transformer::match(SExprLocRef pattern, SExprArena& pattern_arena,
             auto repeat_pattern = p_list.elem[ellipsis_pos - 1];
 
             std::set<std::string> ellipsis_vars;
-            collect_pattern_vars(repeat_pattern, pattern_arena, ellipsis_vars);
+            collect_pattern_vars(repeat_pattern, _arena, ellipsis_vars);
 
             for (const auto& var : ellipsis_vars)
                 bindings[var] = BindingValue::list({});
 
             for (std::size_t i = 0; i < repeat_count; ++i) {
                 Bindings temp;
-                if (!match(repeat_pattern, pattern_arena,
-                        i_list.elem[fixed_before + i], input_arena, temp))
+                if (!match(repeat_pattern, i_list.elem[fixed_before + i], temp))
                     return false;
                 for (const auto& [name, val] : temp)
                     if (ellipsis_vars.contains(name))
@@ -163,17 +160,17 @@ bool Transformer::match(SExprLocRef pattern, SExprArena& pattern_arena,
             }
 
             for (std::size_t i = 0; i < fixed_after; ++i) {
-                if (!match(p_list.elem[ellipsis_pos + 1 + i], pattern_arena,
+                if (!match(p_list.elem[ellipsis_pos + 1 + i],
                         i_logical - fixed_after + i < i_list.elem.size()
                             ? i_list.elem[i_logical - fixed_after + i]
                             : SExprLocRef::invalid(),
-                        input_arena, bindings))
+                        bindings))
                     return false;
             }
 
             return true;
-
-        } // Improper pattern
+        } 
+        // Improper pattern
         auto head_count = p_logical - 1;
         auto tail_pattern = p_list.elem.back();
         std::size_t i_element_count = i_improper ? i_logical - 1 : i_logical;
@@ -183,13 +180,11 @@ bool Transformer::match(SExprLocRef pattern, SExprArena& pattern_arena,
                 return false;
 
             for (std::size_t i = 0; i < head_count; ++i) {
-                if (!match(p_list.elem[i], pattern_arena, i_list.elem[i],
-                        input_arena, bindings))
+                if (!match(p_list.elem[i], i_list.elem[i], bindings))
                     return false;
             }
-            return match(tail_pattern, pattern_arena,
-                get_tail(i_list, head_count, input_arena), input_arena,
-                bindings);
+            return match(
+                tail_pattern, get_tail(i_list, head_count, _arena), bindings);
         }
         if (ellipsis_pos == 0)
             return false;
@@ -201,8 +196,7 @@ bool Transformer::match(SExprLocRef pattern, SExprArena& pattern_arena,
             return false;
 
         for (std::size_t i = 0; i < fixed_before; ++i) {
-            if (!match(p_list.elem[i], pattern_arena, i_list.elem[i],
-                    input_arena, bindings))
+            if (!match(p_list.elem[i], i_list.elem[i], bindings))
                 return false;
         }
 
@@ -210,14 +204,13 @@ bool Transformer::match(SExprLocRef pattern, SExprArena& pattern_arena,
         auto repeat_pattern = p_list.elem[ellipsis_pos - 1];
 
         std::set<std::string> ellipsis_vars;
-        collect_pattern_vars(repeat_pattern, pattern_arena, ellipsis_vars);
+        collect_pattern_vars(repeat_pattern, _arena, ellipsis_vars);
         for (const auto& var : ellipsis_vars)
             bindings[var] = BindingValue::list({});
 
         for (std::size_t i = 0; i < repeat_count; ++i) {
             Bindings temp;
-            if (!match(repeat_pattern, pattern_arena,
-                    i_list.elem[fixed_before + i], input_arena, temp))
+            if (!match(repeat_pattern, i_list.elem[fixed_before + i], temp))
                 return false;
             for (const auto& [name, val] : temp)
                 if (ellipsis_vars.contains(name))
@@ -226,58 +219,50 @@ bool Transformer::match(SExprLocRef pattern, SExprArena& pattern_arena,
         }
 
         for (std::size_t i = 0; i < fixed_after; ++i) {
-            if (!match(p_list.elem[ellipsis_pos + 1 + i], pattern_arena,
-                    i_list.elem[i_element_count - fixed_after + i], input_arena,
-                    bindings))
+            if (!match(p_list.elem[ellipsis_pos + 1 + i],
+                    i_list.elem[i_element_count - fixed_after + i], bindings))
                 return false;
         }
 
-        return match(tail_pattern, pattern_arena,
-            get_tail(i_list, i_element_count, input_arena), input_arena,
-            bindings);
+        return match(
+            tail_pattern, get_tail(i_list, i_element_count, _arena), bindings);
     }
 
     if (!input.is_valid())
         return false;
-    const auto& i_expr = input_arena.at(input);
+    const auto& i_expr = _arena.at(input);
 
     return p_expr == i_expr;
 }
 
-SExprLocRef Transformer::instantiate(SExprLocRef element,
-    SExprArena& tmpl_arena, SExprArena& output_arena, const Bindings& bindings,
-    LocRef call_site_loc) const {
+SExprLocRef Transformer::instantiate(
+    SExprLocRef element, const Bindings& bindings, LocRef call_site_loc) const {
     if (!element.is_valid())
         return element;
 
-    auto loc = call_site_loc;
-    const auto& expr = tmpl_arena.at(element);
+    const auto& expr = _arena.at(element);
 
     if (expr.isa<LispIdent>()) {
         auto ident = expr.get_unchecked<LispIdent>();
         auto it = bindings.find(ident.name);
-        if (it != bindings.end()) {
-            if (!it->second.is_list && !it->second.values.empty())
-                return it->second.values[0];
-            if (!it->second.values.empty())
-                return it->second.values[0];
-        }
-        return output_arena.emplace(loc, std::move(ident));
+        if (it != bindings.end() && !it->second.values.empty())
+            return it->second.values[0];
+        return element;
     }
 
     if (expr.isa<SExprList>()) {
         auto elems = expr.get_unchecked<SExprList>().elem;
         std::size_t tmpl_logical = elems.size();
-        if (!elems.empty() && tmpl_arena.at(elems.back()).isa<LispNil>())
+        if (!elems.empty() && _arena.at(elems.back()).isa<LispNil>())
             tmpl_logical--;
 
         std::vector<SExprLocRef> out;
 
         for (std::size_t i = 0; i < elems.size(); ++i) {
-            if (i + 1 < tmpl_logical && is_ellipsis(elems[i + 1], tmpl_arena)) {
+            if (i + 1 < tmpl_logical && is_ellipsis(elems[i + 1], _arena)) {
                 auto repeat_tmpl = elems[i];
                 std::set<std::string> tmpl_vars;
-                collect_pattern_vars(repeat_tmpl, tmpl_arena, tmpl_vars);
+                collect_pattern_vars(repeat_tmpl, _arena, tmpl_vars);
 
                 std::size_t repeat_count = 0;
                 bool found_list = false;
@@ -296,63 +281,35 @@ SExprLocRef Transformer::instantiate(SExprLocRef element,
                         for (auto& [name, val] : temp)
                             if (val.is_list && j < val.values.size())
                                 val = BindingValue::single(val.values[j]);
-                        out.push_back(instantiate(repeat_tmpl, tmpl_arena,
-                            output_arena, temp, call_site_loc));
+                        out.push_back(
+                            instantiate(repeat_tmpl, temp, call_site_loc));
                     }
                 } else {
-                    out.push_back(instantiate(repeat_tmpl, tmpl_arena,
-                        output_arena, bindings, call_site_loc));
+                    out.push_back(
+                        instantiate(repeat_tmpl, bindings, call_site_loc));
                 }
                 ++i;
-            } else if (is_ellipsis(elems[i], tmpl_arena)) {
+            } else if (is_ellipsis(elems[i], _arena)) {
             } else {
-                out.push_back(instantiate(elems[i], tmpl_arena, output_arena,
-                    bindings, call_site_loc));
+                out.push_back(instantiate(elems[i], bindings, call_site_loc));
             }
         }
 
-        return output_arena.emplace(loc, SExprList(std::move(out)));
-    }
-
-    if (expr.isa<LispNil>())
-        return output_arena.nil(loc);
-    if (expr.isa<LispNumber>()) {
-        auto v = expr.get_unchecked<LispNumber>();
-        return output_arena.emplace(loc, v);
-    }
-    if (expr.isa<LispBool>()) {
-        auto v = expr.get_unchecked<LispBool>();
-        return output_arena.emplace(loc, v);
-    }
-    if (expr.isa<LispChar>()) {
-        auto v = expr.get_unchecked<LispChar>();
-        return output_arena.emplace(loc, v);
-    }
-    if (expr.isa<LispString>()) {
-        auto v = expr.get_unchecked<LispString>();
-        return output_arena.emplace(loc, std::move(v));
+        return _arena.emplace(call_site_loc, SExprList(std::move(out)));
     }
 
     return element;
 }
 
-SExprLocRef Transformer::transcribe(
-    SExprLocRef input, SExprArena& input_arena) const {
-
+SExprLocRef Transformer::transcribe(SExprLocRef input) const {
+    const auto& i_list = _arena.at(input).get_unchecked<SExprList>();
+    if (i_list.elem.empty())
+        return SExprLocRef::invalid();
+    auto i_tail = get_tail(i_list, 1, _arena);
     for (const auto& rule : _rules) {
         Bindings bindings;
-        const auto& p_expr = _def_arena.at(rule.pattern);
-        const auto& i_expr = input_arena.at(input);
-
-        // FIXME They must be lists, but we should check somewhere else...
-        const auto& p_list = p_expr.get_unchecked<SExprList>();
-        const auto& i_list = i_expr.get_unchecked<SExprList>();
-        if (!p_list.elem.empty() && !i_list.elem.empty()) {
-            if (match(get_tail(p_list, 1, _def_arena), _def_arena,
-                    get_tail(i_list, 1, input_arena), input_arena, bindings)) {
-                return instantiate(rule.template_, _def_arena, input_arena,
-                    bindings, input.loc_ref());
-            }
+        if (match(rule.pattern_tail, i_tail, bindings)) {
+            return instantiate(rule.template_, bindings, input.loc_ref());
         }
     }
     return SExprLocRef::invalid();

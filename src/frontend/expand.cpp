@@ -517,9 +517,37 @@ std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
         }
         const auto& rule_parts
             = _arena.at(spec_list[i]).get_unchecked<SExprList>().elem;
-        if (rule_parts.size() == 3 && _arena.at(rule_parts[2]).isa<LispNil>())
-            rules.push_back({ rule_parts[0], rule_parts[1] });
-        else
+        if (rule_parts.size() == 3 && _arena.at(rule_parts[2]).isa<LispNil>()) {
+            // Validate pattern: must be a list with >= 2 elements or nil
+            const auto& pattern_expr = _arena.at(rule_parts[0]);
+            if (pattern_expr.isa<SExprList>()) {
+                const auto& pattern_list
+                    = pattern_expr.get_unchecked<SExprList>().elem;
+                if (pattern_list.size() < 2) {
+                    report_error(rule_parts[0],
+                        std::format("{}: invalid syntax-rule: pattern must "
+                                    "be a non-empty list",
+                            form_prefix));
+                    continue;
+                }
+            } else {
+                report_error(rule_parts[0],
+                    std::format("{}: invalid syntax-rule: pattern must be a "
+                                "list, got {}",
+                        form_prefix, _arena.dump(rule_parts[0].expr_ref())));
+                continue;
+            }
+            // Strip the head of the pattern
+            const auto& pattern_list
+                = pattern_expr.get_unchecked<SExprList>().elem;
+            std::vector<SExprLocRef> pattern_tail_list;
+            pattern_tail_list.reserve(pattern_list.size() - 1);
+            for (std::size_t i = 1; i < pattern_list.size(); ++i)
+                pattern_tail_list.push_back(pattern_list[i]);
+            auto pattern_tail = _arena.emplace(rule_parts[0].loc_ref(),
+                SExprList(std::move(pattern_tail_list)));
+            rules.push_back({ pattern_tail, rule_parts[1] });
+        } else
             report_error(transformer_spec,
                 std::format("{}: invalid syntax-rule: unexpected rule format",
                     form_prefix));
@@ -532,7 +560,8 @@ std::vector<SExprLocRef> Expander::expand_define_syntax(
     const SExprList& list, SExprLocRef root) {
     // (define-syntax name (syntax-rules (literals…) (pattern template) …))
     if (!_is_top_level) {
-        report_error(root, "define-syntax: define-syntax allowed only at top level");
+        report_error(
+            root, "define-syntax: define-syntax allowed only at top level");
         return { SExprLocRef::invalid() };
     }
     if (list.elem.size() < 3) {
@@ -643,7 +672,7 @@ std::vector<SExprLocRef> Expander::expand_macro(
     SExprLocRef root, const MacroBinding& macro) {
     ScopeID intro = _env.new_scope();
     auto scoped_in = add_scope(root, intro);
-    auto result = macro.transformer->transcribe(scoped_in, _arena);
+    auto result = macro.transformer->transcribe(scoped_in);
     if (!result.is_valid()) {
         report_error(
             root, "macro expansion failed: no syntax-rules pattern matched");
@@ -761,23 +790,22 @@ std::vector<SExprLocRef> Expander::expand(SExprLocRef root) {
 
 #include "../core.scm"
 
-void ExpandPass::load_core(SExprArena& /* user_arena */) {
-    Lexer lexer("<core>", CORE_SOURCE);
+void ExpandPass::load_core(SExprArena& user_arena) {
+    Lexer lexer(user_arena.location_arena(), "<core>", CORE_SOURCE);
     if (lexer.is_failed())
         return;
 
-    Parser parser(lexer.tokens(), lexer.loc_arena());
+    Parser parser(lexer.tokens(), user_arena);
     if (parser.is_failed())
         return;
 
     auto core_root = parser.root();
-    _core_arena = std::make_unique<SExprArena>(std::move(parser.arena()));
 
-    const auto& root_expr = _core_arena->at(core_root);
+    const auto& root_expr = user_arena.at(core_root);
     if (root_expr.isa<SExprList>()) {
         bool dummy_error = false;
         for (const auto& form : root_expr.get_unchecked<SExprList>().elem) {
-            Expander expander(_env, *_core_arena, _exp_stack, dummy_error,
+            Expander expander(_env, user_arena, _exp_stack, dummy_error,
                 _show_core_expansion, _max_expansion_depth);
             (void)expander.with_core(true).expand(form);
         }
