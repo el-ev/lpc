@@ -41,12 +41,6 @@ using lpc::utils::Error;
         _arena.loc_ref(expr), _parent, new_scopes_ref, _arena.expr_ref(expr));
 }
 
-// FIXME: redundant params
-[[nodiscard]] static SpanRef make_canonical(
-    LocRef loc, const std::string& name, SpanArena& arena, SpanRef parent) {
-    return arena.get_ident(loc, name, parent);
-}
-
 // TODO: better?
 [[nodiscard]] static std::pair<std::size_t, std::size_t> find_cycle_suffix(
     std::span<const std::string> seq) {
@@ -285,8 +279,8 @@ std::vector<SpanRef> Expander::expand_lambda(
     }
 
     std::vector<SpanRef> out;
-    out.push_back(make_canonical(
-        _arena.loc_ref(list.elem[0]), "lambda", _arena, _parent));
+    out.push_back(
+        _arena.get_ident(_arena.loc_ref(list.elem[0]), "lambda", _parent));
     out.push_back(final_params);
     for (std::size_t i = 2; i < list.elem.size(); ++i) {
         auto r = as_sub_expression().expand(add_scope(list.elem[i], scope));
@@ -304,7 +298,7 @@ std::vector<SpanRef> Expander::expand_quote(
         return { SpanRef::invalid() };
     std::vector<SpanRef> out;
     out.push_back(
-        make_canonical(_arena.loc_ref(list.elem[0]), "quote", _arena, _parent));
+        _arena.get_ident(_arena.loc_ref(list.elem[0]), "quote", _parent));
     out.push_back(list.elem[1]);
     out.push_back(_arena.nil(_arena.loc_ref(root), _parent));
     return { _arena.expand(_arena.loc_ref(root), _parent,
@@ -318,7 +312,7 @@ std::vector<SpanRef> Expander::expand_if(const SExprList& list, SpanRef root) {
 
     std::vector<SpanRef> out;
     out.push_back(
-        make_canonical(_arena.loc_ref(list.elem[0]), "if", _arena, _parent));
+        _arena.get_ident(_arena.loc_ref(list.elem[0]), "if", _parent));
     for (std::size_t i = 1; i < list.elem.size(); ++i) {
         auto r = as_sub_expression().expand(list.elem[i]);
         if (r.size() != 1 || !r[0].is_valid())
@@ -337,8 +331,8 @@ std::vector<SpanRef> Expander::expand_begin(
     if (!_is_top_level) {
         // call macro __begin
         auto new_list = list;
-        new_list.elem[0] = make_canonical(
-            _arena.loc_ref(list.elem[0]), "__begin", _arena, _parent);
+        new_list.elem[0] = _arena.get_ident(
+            _arena.loc_ref(list.elem[0]), "__begin", _parent);
         auto ref = _arena.expand(_arena.loc_ref(root), _parent,
             ScopeSetRef::invalid(), SExprList(std::move(new_list)));
         auto r = expand(ref);
@@ -373,7 +367,7 @@ std::vector<SpanRef> Expander::expand_set(const SExprList& list, SpanRef root) {
 
     std::vector<SpanRef> out;
     out.push_back(
-        make_canonical(_arena.loc_ref(list.elem[0]), "set!", _arena, _parent));
+        _arena.get_ident(_arena.loc_ref(list.elem[0]), "set!", _parent));
     out.push_back(var_expanded[0]);
     for (std::size_t i = 2; i < list.elem.size(); ++i) {
         auto r = as_sub_expression().expand(list.elem[i]);
@@ -416,8 +410,8 @@ std::vector<SpanRef> Expander::expand_define(
             ScopeSetRef::invalid(), SExprList(std::move(params)));
 
         std::vector<SpanRef> lam;
-        lam.push_back(make_canonical(
-            _arena.loc_ref(list.elem[0]), "lambda", _arena, _parent));
+        lam.push_back(
+            _arena.get_ident(_arena.loc_ref(list.elem[0]), "lambda", _parent));
         lam.push_back(params_node);
         for (std::size_t i = 2; i < list.elem.size(); ++i)
             lam.push_back(list.elem[i]);
@@ -425,8 +419,8 @@ std::vector<SpanRef> Expander::expand_define(
             ScopeSetRef::invalid(), SExprList(std::move(lam)));
 
         std::vector<SpanRef> def;
-        def.push_back(make_canonical(
-            _arena.loc_ref(list.elem[0]), "define", _arena, _parent));
+        def.push_back(
+            _arena.get_ident(_arena.loc_ref(list.elem[0]), "define", _parent));
         def.push_back(func_name);
         def.push_back(lam_node);
         def.push_back(_arena.nil(_arena.loc_ref(root), _parent));
@@ -459,8 +453,8 @@ std::vector<SpanRef> Expander::expand_define(
     }
 
     std::vector<SpanRef> out;
-    out.push_back(make_canonical(
-        _arena.loc_ref(list.elem[0]), "define", _arena, _parent));
+    out.push_back(
+        _arena.get_ident(_arena.loc_ref(list.elem[0]), "define", _parent));
     out.push_back(var);
     for (std::size_t i = 2; i < list.elem.size(); ++i) {
         auto r = as_sub_expression().expand(list.elem[i]);
@@ -668,7 +662,7 @@ std::vector<SpanRef> Expander::expand_let_letrec_syntax(
 
     std::vector<SpanRef> out;
     out.push_back(
-        make_canonical(_arena.loc_ref(list.elem[0]), "begin", _arena, _parent));
+        _arena.get_ident(_arena.loc_ref(list.elem[0]), "begin", _parent));
     for (std::size_t i = 2; i < list.elem.size(); ++i) {
         out.push_back(list.elem[i]);
     }
