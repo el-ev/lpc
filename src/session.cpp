@@ -3,6 +3,7 @@ module lpc.session;
 import std;
 
 import lpc.analysis.expand;
+import lpc.analysis.sema;
 import lpc.context;
 import lpc.passes;
 import lpc.syntax.arenas;
@@ -67,7 +68,11 @@ int Session::run() noexcept {
 
     CompilerContext ctx(std::move(_options), std::move(span_arena));
 
-    auto result = PassManager().add<ExpandPass>().run_all(root, ctx);
+    auto result = PassManager()
+                    .add<ExpandPass>()
+                    .add<SemaPass>()
+                    .run_all(root, ctx);
+                    
 
     if (!result.is_valid())
         return 1;

@@ -3,6 +3,7 @@ export module lpc.context;
 import std;
 
 import lpc.syntax.arenas;
+import lpc.analysis.core_form;
 
 namespace lpc {
 
@@ -22,25 +23,26 @@ export struct CompilerOptions {
 export class CompilerContext {
 private:
     CompilerOptions _options;
-    syntax::SpanArena _arena;
+    syntax::SpanArena _span_arena;
+    analysis::CoreExprArena _core_arena;
 
 public:
     explicit CompilerContext(
-        CompilerOptions&& options, syntax::SpanArena&& arena)
+        CompilerOptions&& options, syntax::SpanArena&& span_arena)
         : _options(std::move(options))
-        , _arena(std::move(arena)) {
+        , _span_arena(std::move(span_arena)) {
     }
 
     [[nodiscard]] const CompilerOptions& options() const noexcept {
         return _options;
     }
 
-    [[nodiscard]] syntax::SpanArena& arena() noexcept {
-        return _arena;
+    [[nodiscard]] syntax::SpanArena& span_arena() noexcept {
+        return _span_arena;
     }
 
-    [[nodiscard]] const syntax::SpanArena& arena() const noexcept {
-        return _arena;
+    [[nodiscard]] analysis::CoreExprArena& core_arena() noexcept {
+        return _core_arena;
     }
 };
 

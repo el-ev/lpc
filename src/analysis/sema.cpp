@@ -9,8 +9,6 @@ namespace lpc::analysis {
 
 using namespace lpc::syntax;
 
-class SymbolTable { };
-
 [[nodiscard]] SpanRef SemaPass::run(
     SpanRef root, CompilerContext& /* ctx */) noexcept {
     return root;

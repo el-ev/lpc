@@ -12,6 +12,8 @@ namespace lpc::analysis {
 
 using namespace lpc::syntax;
 
+class SymbolTable { };
+
 export class SemaPass final : public Pass {
 private:
 public:

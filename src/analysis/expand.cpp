@@ -818,7 +818,7 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
 #include "../core.scm"
 
 void ExpandPass::load_core(CompilerContext& ctx) {
-    auto& user_arena = ctx.arena();
+    auto& user_arena = ctx.span_arena();
     // Add a leading space so it can't be a valid file name
     Lexer lexer(user_arena.location_arena(), " <core> ", CORE_SOURCE);
     if (lexer.is_failed())
@@ -846,7 +846,7 @@ void ExpandPass::load_core(CompilerContext& ctx) {
     if (!_core_loaded)
         load_core(ctx);
 
-    auto& arena = ctx.arena();
+    auto& arena = ctx.span_arena();
     _had_error = false;
     Expander expander(_env, ctx, _had_error);
 

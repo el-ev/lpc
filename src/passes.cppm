@@ -46,7 +46,7 @@ public:
 
     [[nodiscard]] SpanRef run_all(SpanRef root, CompilerContext& ctx) noexcept {
         SpanRef result = root;
-        auto& arena = ctx.arena();
+        auto& arena = ctx.span_arena();
 
         for (const auto& pass : _passes) {
             Debug("Running pass: {}", pass->name());

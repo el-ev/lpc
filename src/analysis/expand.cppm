@@ -113,7 +113,7 @@ class Expander {
 public:
     Expander(LexEnv& env, CompilerContext& ctx, bool& had_error)
         : _env(env)
-        , _arena(ctx.arena())
+        , _arena(ctx.span_arena())
         , _had_error(had_error)
         , _show_core(ctx.options().show_core_expansion)
         , _max_depth(ctx.options().max_expansion_depth) {
