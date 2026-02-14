@@ -4,15 +4,14 @@ import std;
 
 import lpc.analysis.transformer;
 import lpc.context;
-import lpc.core.arenas;
-import lpc.core.refs;
 import lpc.passes;
+import lpc.syntax.arenas;
 import lpc.syntax.ast;
+import lpc.syntax.refs;
 import lpc.utils.tagged_union;
 
 namespace lpc::analysis {
 
-using namespace lpc::core;
 using namespace lpc::syntax;
 
 using lpc::utils::TaggedUnion;

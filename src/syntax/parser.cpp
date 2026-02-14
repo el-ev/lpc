@@ -7,8 +7,6 @@ import lpc.utils.logging;
 
 namespace lpc::syntax {
 
-using namespace lpc::core;
-
 using lpc::utils::Error;
 
 // clang-format off

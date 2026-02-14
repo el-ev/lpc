@@ -7,7 +7,6 @@ import lpc.syntax.ast;
 
 namespace lpc::analysis {
 
-using namespace lpc::core;
 using namespace lpc::syntax;
 
 class SymbolTable { };

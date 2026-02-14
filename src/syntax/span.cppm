@@ -1,10 +1,10 @@
-export module lpc.core.span;
+export module lpc.syntax.span;
 
 import std;
 
-import lpc.core.refs;
+import lpc.syntax.refs;
 
-namespace lpc::core {
+namespace lpc::syntax {
 
 export struct Location {
 private:
@@ -78,4 +78,4 @@ public:
     }
 };
 
-} // namespace lpc::core
+} // namespace lpc::syntax

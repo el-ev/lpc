@@ -7,8 +7,6 @@ import lpc.utils.logging;
 
 namespace lpc::syntax {
 
-using namespace lpc::core;
-
 SpanRef Cursor::get_ident() noexcept {
     if (type() != TokenType::IDENT)
         return SpanRef::invalid();

@@ -7,8 +7,6 @@ import lpc.utils.logging;
 
 namespace lpc::syntax {
 
-using namespace lpc::core;
-
 using lpc::utils::Error;
 
 std::size_t count_till_delimeter(std::string_view str) {

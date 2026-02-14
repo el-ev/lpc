@@ -4,17 +4,16 @@ import std;
 
 import lpc.analysis.expand;
 import lpc.context;
-import lpc.core.arenas;
-import lpc.core.refs;
 import lpc.passes;
+import lpc.syntax.arenas;
 import lpc.syntax.ast;
 import lpc.syntax.lexer;
+import lpc.syntax.refs;
 import lpc.syntax.syntax;
 import lpc.utils.logging;
 
 namespace lpc {
 
-using namespace lpc::core;
 using namespace lpc::syntax;
 using namespace lpc::analysis;
 

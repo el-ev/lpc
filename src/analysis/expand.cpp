@@ -9,7 +9,6 @@ import lpc.utils.logging;
 
 namespace lpc::analysis {
 
-using namespace lpc::core;
 using namespace lpc::syntax;
 
 using lpc::utils::Error;

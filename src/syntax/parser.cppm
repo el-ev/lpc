@@ -2,14 +2,12 @@ export module lpc.syntax.syntax;
 
 import std;
 
-import lpc.core.arenas;
-import lpc.core.refs;
+import lpc.syntax.arenas;
 import lpc.syntax.ast;
 import lpc.syntax.cursor;
+import lpc.syntax.refs;
 
 namespace lpc::syntax {
-
-using namespace lpc::core;
 
 export class Parser {
 private:

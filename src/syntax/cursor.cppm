@@ -2,14 +2,14 @@ export module lpc.syntax.cursor;
 
 import std;
 
-import lpc.core.arenas;
-import lpc.core.refs;
+import lpc.syntax.arenas;
+import lpc.syntax.refs;
 import lpc.syntax.token;
 import lpc.utils.logging;
 
 namespace lpc::syntax {
 
-using namespace lpc::core;
+
 
 export class Cursor {
 private:

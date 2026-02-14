@@ -63,9 +63,7 @@ def reorder_imports(content):
     while body and not body[0].strip():
         body.pop(0)
     
-    return "
-".join(new_lines + body) + "
-"
+    return "\n".join(new_lines + body) + "\n"
 
 def process_file(filepath):
     with open(filepath, 'r') as f:

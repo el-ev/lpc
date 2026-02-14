@@ -3,14 +3,13 @@ export module lpc.passes;
 import std;
 
 import lpc.context;
-import lpc.core.arenas;
-import lpc.core.refs;
+import lpc.syntax.arenas;
 import lpc.syntax.ast;
+import lpc.syntax.refs;
 import lpc.utils.logging;
 
 namespace lpc {
 
-using namespace lpc::core;
 using namespace lpc::syntax;
 
 using lpc::utils::Debug;

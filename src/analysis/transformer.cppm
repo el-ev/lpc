@@ -2,13 +2,12 @@ export module lpc.analysis.transformer;
 
 import std;
 
-import lpc.core.arenas;
-import lpc.core.refs;
+import lpc.syntax.arenas;
 import lpc.syntax.ast;
+import lpc.syntax.refs;
 
 namespace lpc::analysis {
 
-using namespace lpc::core;
 using namespace lpc::syntax;
 
 export struct BindingValue {

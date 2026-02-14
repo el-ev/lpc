@@ -2,12 +2,11 @@ export module lpc.syntax.lexer;
 
 import std;
 
-import lpc.core.arenas;
+import lpc.syntax.arenas;
 import lpc.syntax.token;
 
 namespace lpc::syntax {
 
-using namespace lpc::core;
 
 export class Lexer {
 private:

@@ -2,13 +2,12 @@ export module lpc.syntax.token;
 
 import std;
 
-import lpc.core.refs;
-import lpc.core.span;
+import lpc.syntax.refs;
+import lpc.syntax.span;
 import lpc.utils.tagged_union;
 
 namespace lpc::syntax {
 
-using namespace lpc::core;
 
 using lpc::utils::TaggedUnion;
 

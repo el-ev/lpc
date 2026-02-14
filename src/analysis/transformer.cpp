@@ -6,7 +6,6 @@ import lpc.syntax.ast;
 
 namespace lpc::analysis {
 
-using namespace lpc::core;
 using namespace lpc::syntax;
 
 static bool is_ellipsis(SpanRef ref, SpanArena& arena) {

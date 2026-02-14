@@ -2,13 +2,11 @@ export module lpc.syntax.combinators;
 
 import std;
 
-import lpc.core.refs;
 import lpc.syntax.ast;
 import lpc.syntax.cursor;
+import lpc.syntax.refs;
 
 export namespace lpc::syntax::combinators {
-
-using namespace lpc::core;
 
 using ParseResult = std::optional<std::vector<SpanRef>>;
 
