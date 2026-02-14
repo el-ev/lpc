@@ -5,6 +5,8 @@ import lpc.frontend.ast;
 
 export namespace lpc::frontend::combinators {
 
+using ParseResult = std::optional<std::vector<SExprLocRef>>;
+
 template <typename T>
 concept ParserRule = requires(T t) {
     { t(std::declval<Cursor&>()) } -> std::same_as<ParseResult>;

@@ -111,13 +111,6 @@ public:
     }
 };
 
-export inline constexpr bool operator==(
-    const SExprLocRef& lhs, const SExprLocRef& rhs) noexcept {
-    return lhs.expr_ref() == rhs.expr_ref() && lhs.loc_ref() == rhs.loc_ref();
-}
-
-export using ParseResult = std::optional<std::vector<SExprLocRef>>;
-
 class SExprArena : Arena<SExpr, std::uint32_t> {
 private:
     LocationArena _loc_arena;

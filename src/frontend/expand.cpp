@@ -53,12 +53,6 @@ SExprLocRef Expander::add_scope(SExprLocRef expr, ScopeID scope) {
     });
 }
 
-struct ScopeKey {
-    std::string name;
-    std::set<ScopeID> scopes;
-    auto operator<=>(const ScopeKey&) const = default;
-};
-
 [[nodiscard]] static SExprLocRef make_canonical(
     LocRef loc, const std::string& name, SExprArena& arena) {
     return arena.emplace(loc, LispIdent(name));
@@ -383,7 +377,6 @@ std::vector<SExprLocRef> Expander::expand_define(
 
     auto var = list.elem[1];
 
-    // TODO canonicalize to lambda form
     if (_arena.at(var).isa<SExprList>()) {
         const auto& var_list = _arena.at(var).get_unchecked<SExprList>().elem;
         if (var_list.empty())
@@ -539,7 +532,7 @@ std::vector<SExprLocRef> Expander::expand_define_syntax(
     const SExprList& list, SExprLocRef root) {
     // (define-syntax name (syntax-rules (literals…) (pattern template) …))
     if (!_is_top_level) {
-        report_error(root, "define-syntax allowed only at top level");
+        report_error(root, "define-syntax: define-syntax allowed only at top level");
         return { SExprLocRef::invalid() };
     }
     if (list.elem.size() < 3) {
