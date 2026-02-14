@@ -2,8 +2,8 @@ export module lpc.syntax.token;
 
 import std;
 
-import lpc.core.span;
 import lpc.core.refs;
+import lpc.core.span;
 import lpc.utils.tagged_union;
 
 namespace lpc::syntax {

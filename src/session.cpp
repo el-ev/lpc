@@ -2,14 +2,14 @@ module lpc.session;
 
 import std;
 
+import lpc.analysis.expand;
 import lpc.context;
 import lpc.core.arenas;
-import lpc.syntax.ast;
-import lpc.analysis.expand;
-import lpc.syntax.lexer;
 import lpc.core.refs;
-import lpc.syntax.syntax;
 import lpc.passes;
+import lpc.syntax.ast;
+import lpc.syntax.lexer;
+import lpc.syntax.syntax;
 import lpc.utils.logging;
 
 namespace lpc {

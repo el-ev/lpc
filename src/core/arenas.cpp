@@ -2,8 +2,8 @@ module lpc.core.arenas;
 
 import std;
 
-import lpc.syntax.ast;
 import lpc.core.span;
+import lpc.syntax.ast;
 import lpc.utils.arena;
 
 namespace lpc::core {

@@ -3,10 +3,10 @@ export module lpc.cps.lower;
 import std;
 
 import lpc.context;
-import lpc.syntax.ast;
 import lpc.core.arenas;
 import lpc.core.refs;
 import lpc.passes;
+import lpc.syntax.ast;
 
 namespace lpc::cps {
 

@@ -2,10 +2,10 @@ export module lpc.passes;
 
 import std;
 
-import lpc.syntax.ast;
-import lpc.core.arenas;
 import lpc.context;
+import lpc.core.arenas;
 import lpc.core.refs;
+import lpc.syntax.ast;
 import lpc.utils.logging;
 
 namespace lpc {

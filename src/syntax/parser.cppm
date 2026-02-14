@@ -2,10 +2,10 @@ export module lpc.syntax.syntax;
 
 import std;
 
-import lpc.syntax.ast;
 import lpc.core.arenas;
-import lpc.syntax.cursor;
 import lpc.core.refs;
+import lpc.syntax.ast;
+import lpc.syntax.cursor;
 
 namespace lpc::syntax {
 

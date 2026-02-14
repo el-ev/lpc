@@ -2,9 +2,9 @@ export module lpc.analysis.transformer;
 
 import std;
 
-import lpc.syntax.ast;
 import lpc.core.arenas;
 import lpc.core.refs;
+import lpc.syntax.ast;
 
 namespace lpc::analysis {
 

@@ -1,5 +1,6 @@
 module lpc.utils.logging;
 
+
 namespace lpc::utils {
 
 std::optional<Logger> logger;

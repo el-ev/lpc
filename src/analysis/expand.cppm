@@ -2,12 +2,12 @@ export module lpc.analysis.expand;
 
 import std;
 
+import lpc.analysis.transformer;
 import lpc.context;
-import lpc.syntax.ast;
 import lpc.core.arenas;
 import lpc.core.refs;
-import lpc.analysis.transformer;
 import lpc.passes;
+import lpc.syntax.ast;
 import lpc.utils.tagged_union;
 
 namespace lpc::analysis {

@@ -1,5 +1,6 @@
 module lpc.utils.option;
 
+
 namespace lpc::utils {
 
 void App::display_help() const noexcept {
