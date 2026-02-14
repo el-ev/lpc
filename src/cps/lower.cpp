@@ -2,8 +2,8 @@ module lpc.cps.lower;
 
 namespace lpc::cps {
 
-[[nodiscard]] SExprLocRef LowerPass::run(
-    SExprLocRef root, SExprArena& /* arena */) noexcept {
+[[nodiscard]] SpanRef LowerPass::run(
+    SpanRef root, SpanArena& /* arena */) noexcept {
     // TODO: implement CPS lowering
     return root;
 }

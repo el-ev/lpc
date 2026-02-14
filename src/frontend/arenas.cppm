@@ -49,59 +49,104 @@ public:
         auto [file_idx, line, column, lexeme] = Arena::at(ref);
         return Location(_files[file_idx], line, column, std::string(lexeme));
     }
+
+    [[nodiscard]] inline std::uint32_t file_idx(LocRef ref) const noexcept {
+        return std::get<0>(Arena::at(ref));
+    }
 };
 
 export class SExprArena : Arena<SExprTag, SExpr, std::uint32_t> {
-private:
-    LocationArena& _loc_arena;
-
 public:
-    explicit SExprArena(LocationArena& loc_arena)
-        : _loc_arena(loc_arena) { };
+    explicit SExprArena() noexcept = default;
 
-    [[nodiscard]] inline LocationArena& location_arena() noexcept {
-        return _loc_arena;
-    }
-
-    [[nodiscard]] inline const LocationArena& location_arena() const noexcept {
-        return _loc_arena;
-    }
-
-    inline void reserve(std::size_t size) {
-        Arena::reserve(size);
-    }
-
-    [[nodiscard]] const SExpr& operator[](SExprLocRef ref) const& {
-        return at(ref);
-    }
-
-    template <typename... Args>
-    SExprLocRef emplace(LocRef loc, Args&&... args) {
-        return SExprLocRef(Arena::emplace(std::forward<Args>(args)...), loc);
-    }
-
-    [[nodiscard]] inline Location location(SExprLocRef ref) const noexcept {
-        return _loc_arena.at(ref.loc_ref());
-    }
-
-    [[nodiscard]] inline Location location(LocRef ref) const noexcept {
-        return _loc_arena.at(ref);
+    [[nodiscard]] inline SExprRef emplace(SExpr&& expr) {
+        return Arena::emplace(std::move(expr));
     }
 
     [[nodiscard]] const SExpr& at(SExprRef ref) const&;
-    [[nodiscard]] const SExpr& at(SExprLocRef ref) const&;
 
-    [[nodiscard]] std::size_t size() const noexcept;
-
-    [[nodiscard]] SExprLocRef nil(LocRef loc) noexcept;
-    [[nodiscard]] SExprLocRef get_boolean(LocRef loc, bool value) noexcept;
-
-    [[nodiscard]] std::string dump_root(SExprRef root) const;
-    [[nodiscard]] std::string dump(SExprRef ref) const;
+    [[nodiscard]] SExprRef nil() noexcept;
+    [[nodiscard]] SExprRef get_bool(bool value) noexcept;
 
 private:
     SExprRef _nil_node;
-    std::pair<SExprRef, SExprRef> _boolean_nodes;
+    std::pair<SExprRef, SExprRef> _bool_nodes;
+};
+
+export class SpanArena : Arena<SpanTag, Span, std::uint32_t> {
+private:
+    SExprArena _expr_arena;
+    LocationArena _loc_arena;
+
+public:
+    explicit SpanArena(SExprArena&& expr_arena, LocationArena&& loc_arena)
+        : _expr_arena(std::move(expr_arena))
+        , _loc_arena(std::move(loc_arena)) { };
+
+    SpanArena(const SpanArena&) = delete;
+    SpanArena(SpanArena&&) = delete;
+    SpanArena& operator=(const SpanArena&) = delete;
+    SpanArena& operator=(SpanArena&&) = delete;
+
+    [[nodiscard]] SExprArena& expr_arena() noexcept {
+        return _expr_arena;
+    }
+
+    [[nodiscard]] const SExprArena& expr_arena() const noexcept {
+        return _expr_arena;
+    }
+
+    [[nodiscard]] LocationArena& location_arena() noexcept {
+        return _loc_arena;
+    }
+
+    [[nodiscard]] const LocationArena& location_arena() const noexcept {
+        return _loc_arena;
+    }
+
+    [[nodiscard]] SpanRef from_loc(LocRef loc, SExpr&& expr);
+    [[nodiscard]] SpanRef expand(LocRef loc, SExpr&& expr, SpanRef parent);
+
+    [[nodiscard]] const Span& at(SpanRef ref) const&;
+    [[nodiscard]] inline const Span& operator[](SpanRef ref) const& {
+        return at(ref);
+    }
+
+    [[nodiscard]] Location loc(SpanRef ref) const noexcept;
+    [[nodiscard]] Location loc(LocRef ref) const noexcept;
+
+    [[nodiscard]] LocRef loc_ref(SpanRef ref) const noexcept;
+
+    [[nodiscard]] const SExpr& expr(SpanRef ref) const noexcept;
+    [[nodiscard]] const SExpr& expr(SExprRef ref) const noexcept;
+
+    [[nodiscard]] SExprRef expr_ref(SpanRef ref) const noexcept;
+
+    [[nodiscard]] SpanRef nil(
+        LocRef loc, SpanRef parent = SpanRef::invalid()) noexcept;
+    [[nodiscard]] SpanRef get_bool(
+        LocRef loc, bool value, SpanRef parent = SpanRef::invalid()) noexcept;
+
+    [[nodiscard]] bool is_core_binding(SpanRef ref) const noexcept;
+
+    void walk(SpanRef ref, const std::function<void(SpanRef)>& f);
+
+    [[nodiscard]] std::string dump_root(SpanRef root) const;
+    [[nodiscard]] std::string dump(SpanRef ref) const;
+
+    template <typename T>
+    [[nodiscard]] inline bool isa(SpanRef ref) const noexcept {
+        return expr(ref).isa<T>();
+    }
+
+    [[nodiscard]] inline bool is_nil(SpanRef ref) const noexcept {
+        return expr(ref).isa<LispNil>();
+    }
+
+    template <typename T>
+    [[nodiscard]] inline const T* get(SpanRef ref) const noexcept {
+        return expr(ref).get<T>();
+    }
 };
 
 } // namespace lpc::frontend

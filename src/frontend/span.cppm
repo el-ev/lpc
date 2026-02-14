@@ -2,6 +2,8 @@ export module lpc.frontend.span;
 
 import std;
 
+import lpc.frontend.refs;
+
 namespace lpc::frontend {
 
 export struct Location {
@@ -44,6 +46,30 @@ public:
 
     [[nodiscard]] auto source_location() const noexcept -> std::string {
         return std::format("{}:{}:{}", _file, _line, _column);
+    }
+};
+
+export class Span {
+private:
+    LocRef _loc;
+    SExprRef _expr;
+    SpanRef _parent;
+// TODO Scopes here
+public:
+    explicit Span(
+        LocRef loc, SExprRef expr, SpanRef parent) noexcept
+        : _loc(loc)
+        , _expr(expr)
+        , _parent(parent) { };
+
+    [[nodiscard]] LocRef loc() const noexcept {
+        return _loc;
+    }
+    [[nodiscard]] SExprRef expr() const noexcept {
+        return _expr;
+    }
+    [[nodiscard]] SpanRef parent() const noexcept {
+        return _parent;
     }
 };
 

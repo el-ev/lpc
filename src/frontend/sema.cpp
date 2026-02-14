@@ -10,7 +10,7 @@ class SymbolTable {
 
 };
 
-[[nodiscard]] SExprLocRef SemaPass::run(SExprLocRef root, SExprArena& arena) noexcept {
+[[nodiscard]] SpanRef SemaPass::run(SpanRef root, SpanArena& arena) noexcept {
     return root;
 }
 

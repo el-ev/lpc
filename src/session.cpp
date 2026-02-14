@@ -16,6 +16,7 @@ import lpc.utils.logging;
 
 namespace lpc {
 
+using namespace lpc::frontend;
 using lpc::utils::Error;
 using lpc::utils::Warn;
 
@@ -39,10 +40,11 @@ int Session::run() noexcept {
         std::istreambuf_iterator<char>());
     input_file.close();
 
-    frontend::LocationArena loc_arena;
-    frontend::SExprArena node_arena(loc_arena);
+    LocationArena loc_arena;
+    SExprArena node_arena;
+    SpanArena span_arena(std::move(node_arena), std::move(loc_arena));
 
-    frontend::Lexer lexer(loc_arena, path, source);
+    Lexer lexer(span_arena.location_arena(), path, source);
     if (lexer.is_failed())
         return 1;
 
@@ -50,11 +52,11 @@ int Session::run() noexcept {
 
     if (std::ranges::find(_print_passes, "token") != _print_passes.end()) {
         for (const auto& token : tokens)
-            std::print("{} ", loc_arena[token.loc()].lexeme());
+            std::print("{} ", span_arena.loc(token.loc()).lexeme());
         std::println("");
     }
 
-    frontend::Parser parser(std::move(tokens), node_arena);
+    frontend::Parser parser(std::move(tokens), span_arena);
 
     if (parser.is_failed())
         return 1;
@@ -62,12 +64,12 @@ int Session::run() noexcept {
     auto root = parser.root();
 
     if (std::ranges::find(_print_passes, "raw") != _print_passes.end())
-        std::print("{}", node_arena.dump_root(root.expr_ref()));
+        std::print("{}", span_arena.dump_root(root));
 
     PassManager pass_manager;
     pass_manager.add_pass<frontend::ExpandPass>(
         _show_core_expansion, _max_expansion_depth);
-    root = pass_manager.run_all(root, node_arena, _print_passes);
+    root = pass_manager.run_all(root, span_arena, _print_passes);
     if (!root.is_valid())
         return 1;
 

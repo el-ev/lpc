@@ -27,7 +27,7 @@ struct MacroBinding {
 using Binding = TaggedUnion<VarBinding, CoreBinding, MacroBinding>;
 
 export struct ExpansionFrame {
-    SExprLocRef expr;
+    SpanRef expr;
     bool is_core;
     std::uint32_t parent;
 };
@@ -43,7 +43,7 @@ public:
     ExpansionStack() = default;
 
     [[nodiscard]] std::uint32_t push(
-        SExprLocRef expr, bool is_core, std::uint32_t parent) {
+        SpanRef expr, bool is_core, std::uint32_t parent) {
         auto idx = static_cast<std::uint32_t>(_frames.size());
         _frames.push_back({ expr, is_core, parent });
         return idx;
@@ -85,25 +85,24 @@ public:
             .scopes = id.scopes, .binding = std::move(binding) });
     }
 
-    [[nodiscard]] std::optional<std::reference_wrapper<const Binding>>
-    find_exact_binding(const LispIdent& id) const noexcept {
+    [[nodiscard]] const Binding* find_exact_binding(
+        const LispIdent& id) const noexcept {
         auto it = _bindings.find(id.name);
         if (it == _bindings.end())
-            return std::nullopt;
-        for (const auto& entry : it->second) {
+            return nullptr;
+        for (const auto& entry : it->second)
             if (entry.scopes == id.scopes)
-                return std::cref(entry.binding);
-        }
-        return std::nullopt;
+                return &entry.binding;
+        return nullptr;
     }
 
-    [[nodiscard]] std::optional<std::reference_wrapper<const Binding>>
-    find_binding(const LispIdent& id,
+    [[nodiscard]] const Binding* find_binding(
+        const LispIdent& id,
         std::optional<ScopeID> exclude_scope = std::nullopt) const noexcept {
 
         auto it = _bindings.find(id.name);
         if (it == _bindings.end())
-            return std::nullopt;
+            return nullptr;
 
         const BindingEntry* best = nullptr;
 
@@ -113,7 +112,8 @@ public:
                 continue;
 
             if (std::ranges::includes(id.scopes, entry.scopes)) {
-                if (best == nullptr || std::ranges::includes(entry.scopes, best->scopes)) {
+                if (best == nullptr
+                    || std::ranges::includes(entry.scopes, best->scopes)) {
                     // prefer later bindings over earlier ones
                     best = &entry;
                 } else if (std::ranges::includes(best->scopes, entry.scopes)) {
@@ -125,8 +125,8 @@ public:
         }
 
         if (best != nullptr)
-            return std::cref(best->binding);
-        return std::nullopt;
+            return &best->binding;
+        return nullptr;
     }
 
     void define_core_syntax(const std::string& name) {
@@ -138,7 +138,7 @@ private:
 
 class Expander {
 public:
-    Expander(LexEnv& env, SExprArena& arena, ExpansionStack& stack,
+    Expander(LexEnv& env, SpanArena& arena, ExpansionStack& stack,
         bool& had_error, bool show_core, std::uint32_t max_depth)
         : _env(env)
         , _arena(arena)
@@ -148,11 +148,11 @@ public:
         , _max_depth(max_depth) {
     }
 
-    std::vector<SExprLocRef> expand(SExprLocRef root);
+    std::vector<SpanRef> expand(SpanRef root);
 
 private:
     LexEnv& _env;
-    SExprArena& _arena;
+    SpanArena& _arena;
     ExpansionStack& _stack;
     bool& _had_error;
 
@@ -164,33 +164,26 @@ private:
     std::uint32_t _current_depth = 0;
     std::optional<ScopeID> _output_excluded_scope;
 
-    [[nodiscard]] SExprLocRef add_scope(SExprLocRef expr, ScopeID scope);
+    [[nodiscard]] SpanRef add_scope(SpanRef expr, ScopeID scope);
 
-    void report_error(SExprLocRef failed_expr, std::string_view msg);
-    bool check_arity(
-        SExprLocRef el, std::size_t min_arity, std::size_t max_arity);
+    void report_error(SpanRef failed_expr, std::string_view msg);
+    bool check_arity(SpanRef el, std::size_t min_arity, std::size_t max_arity);
     bool is_identifier_active(const LispIdent& id);
 
-    std::vector<SExprLocRef> expand_lambda(
-        const SExprList& list, SExprLocRef root);
-    std::vector<SExprLocRef> expand_quote(
-        const SExprList& list, SExprLocRef root);
-    std::vector<SExprLocRef> expand_if(const SExprList& list, SExprLocRef root);
-    std::vector<SExprLocRef> expand_begin(
-        const SExprList& list, SExprLocRef root);
-    std::vector<SExprLocRef> expand_set(
-        const SExprList& list, SExprLocRef root);
-    std::vector<SExprLocRef> expand_define(
-        const SExprList& list, SExprLocRef root);
-    std::vector<SExprLocRef> expand_define_syntax(
-        const SExprList& list, SExprLocRef root);
-    std::vector<SExprLocRef> expand_let_letrec_syntax(
-        const SExprList& list, SExprLocRef root, bool is_letrec);
-    std::vector<SExprLocRef> expand_macro(
-        SExprLocRef root, const MacroBinding& macro);
+    std::vector<SpanRef> expand_lambda(const SExprList& list, SpanRef root);
+    std::vector<SpanRef> expand_quote(const SExprList& list, SpanRef root);
+    std::vector<SpanRef> expand_if(const SExprList& list, SpanRef root);
+    std::vector<SpanRef> expand_begin(const SExprList& list, SpanRef root);
+    std::vector<SpanRef> expand_set(const SExprList& list, SpanRef root);
+    std::vector<SpanRef> expand_define(const SExprList& list, SpanRef root);
+    std::vector<SpanRef> expand_define_syntax(
+        const SExprList& list, SpanRef root);
+    std::vector<SpanRef> expand_let_letrec_syntax(
+        const SExprList& list, SpanRef root, bool is_letrec);
+    std::vector<SpanRef> expand_macro(SpanRef root, const MacroBinding& macro);
 
     std::optional<std::unique_ptr<Transformer>> parse_syntax_rules(
-        SExprLocRef transformer_spec,
+        SpanRef transformer_spec,
         std::string_view form_prefix = "define-syntax");
 
 public:
@@ -236,7 +229,7 @@ private:
     std::uint32_t _max_expansion_depth = 1000;
     bool _had_error = false;
 
-    void load_core(SExprArena& user_arena);
+    void load_core(SpanArena& user_arena);
 
 public:
     [[nodiscard]] std::string name() const noexcept final {
@@ -251,8 +244,7 @@ public:
         _max_expansion_depth = v;
     }
 
-    [[nodiscard]] SExprLocRef run(
-        SExprLocRef root, SExprArena& arena) noexcept final;
+    [[nodiscard]] SpanRef run(SpanRef root, SpanArena& arena) noexcept final;
 
     explicit ExpandPass(
         bool show_core_expansion, std::uint32_t max_expansion_depth) noexcept;

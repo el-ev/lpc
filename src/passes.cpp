@@ -2,6 +2,7 @@ module lpc.passes;
 
 import std;
 
+import lpc.frontend.refs;
 import lpc.utils.logging;
 
 namespace lpc {
@@ -9,9 +10,9 @@ namespace lpc {
 using lpc::utils::Debug;
 using lpc::utils::Error;
 
-SExprLocRef PassManager::run_all(SExprLocRef root, SExprArena& arena,
+SpanRef PassManager::run_all(SpanRef root, SpanArena& arena,
     std::vector<std::string>& print_passes) noexcept {
-    SExprLocRef result = root;
+    SpanRef result = root;
     for (const auto& pass : _passes) {
         Debug("Running pass: {}", pass->name());
 
@@ -25,7 +26,7 @@ SExprLocRef PassManager::run_all(SExprLocRef root, SExprArena& arena,
 
         if (std::ranges::find(print_passes, pass->name())
             != print_passes.end()) {
-            std::print("{}", arena.dump_root(result.expr_ref()));
+            std::print("{}", arena.dump_root(result));
         }
     }
 

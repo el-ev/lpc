@@ -17,8 +17,7 @@ public:
         return "sema";
     }
 
-    [[nodiscard]] SExprLocRef run(
-        SExprLocRef root, SExprArena& arena) noexcept final;
+    [[nodiscard]] SpanRef run(SpanRef root, SpanArena& arena) noexcept final;
 
     explicit SemaPass() noexcept = default;
     ~SemaPass() final = default;

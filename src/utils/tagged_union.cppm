@@ -193,86 +193,60 @@ public:
 
     template <index_t I>
         requires(I < sizeof...(Types))
-    [[nodiscard]] constexpr std::optional<std::reference_wrapper<type_at<I>>>
-    get() & noexcept {
+    [[nodiscard]] constexpr type_at<I>* get() & noexcept {
         if (index_ != I)
-            return std::nullopt;
+            return nullptr;
         return get_unchecked<I>();
     }
 
     template <index_t I>
         requires(I < sizeof...(Types))
-    [[nodiscard]] constexpr std::optional<
-        std::reference_wrapper<const type_at<I>>>
-    get() const& noexcept {
+    [[nodiscard]] constexpr const type_at<I>* get() const& noexcept {
         if (index_ != I)
-            return std::nullopt;
+            return nullptr;
         return get_unchecked<I>();
     }
 
     template <typename T>
         requires(std::disjunction_v<std::is_same<T, Types>...>)
-    [[nodiscard]] constexpr std::optional<std::reference_wrapper<T>>
-    get() & noexcept {
+    [[nodiscard]] constexpr T* get() & noexcept {
         constexpr auto idx = type_index<T>();
         if (index_ != idx)
-            return std::nullopt;
-        return std::ref(get_unchecked<T>());
+            return nullptr;
+        return get_unchecked<T>();
     }
 
     template <typename T>
         requires(std::disjunction_v<std::is_same<T, Types>...>)
-    [[nodiscard]] constexpr std::optional<std::reference_wrapper<const T>>
-    get() const& noexcept {
+    [[nodiscard]] constexpr const T* get() const& noexcept {
         constexpr auto idx = type_index<T>();
         if (index_ != idx)
-            return std::nullopt;
-        return std::cref(get_unchecked<T>());
-    }
-
-    template <typename T>
-        requires(std::disjunction_v<std::is_same<T, Types>...>)
-    [[nodiscard]] constexpr std::optional<T> get() && noexcept {
-        constexpr auto idx = type_index<T>();
-        if (index_ != idx)
-            return std::nullopt;
-        return std::move(get_unchecked<T>());
+            return nullptr;
+        return get_unchecked<T>();
     }
 
     template <index_t I>
         requires(I < sizeof...(Types))
-    [[nodiscard]] constexpr auto& get_unchecked() & noexcept {
-        return *storage_as<type_at<I>>();
+    [[nodiscard]] constexpr auto* get_unchecked() & noexcept {
+        return storage_as<type_at<I>>();
     }
 
     template <index_t I>
         requires(I < sizeof...(Types))
-    [[nodiscard]] constexpr const auto& get_unchecked() const& noexcept {
-        return *storage_as<type_at<I>>();
-    }
-
-    template <index_t I>
-        requires(I < sizeof...(Types))
-    [[nodiscard]] constexpr auto&& get_unchecked() && noexcept {
-        return std::move(*storage_as<type_at<I>>());
+    [[nodiscard]] constexpr const auto* get_unchecked() const& noexcept {
+        return storage_as<type_at<I>>();
     }
 
     template <typename T>
         requires(std::disjunction_v<std::is_same<T, Types>...>)
-    [[nodiscard]] constexpr T& get_unchecked() & noexcept {
-        return *storage_as<T>();
+    [[nodiscard]] constexpr T* get_unchecked() & noexcept {
+        return storage_as<T>();
     }
 
     template <typename T>
         requires(std::disjunction_v<std::is_same<T, Types>...>)
-    [[nodiscard]] constexpr const T& get_unchecked() const& noexcept {
-        return *storage_as<T>();
-    }
-
-    template <typename T>
-        requires(std::disjunction_v<std::is_same<T, Types>...>)
-    [[nodiscard]] constexpr T&& get_unchecked() && noexcept {
-        return std::move(*storage_as<T>());
+    [[nodiscard]] constexpr const T* get_unchecked() const& noexcept {
+        return storage_as<T>();
     }
 
     template <typename T, typename... Args>
@@ -406,42 +380,42 @@ export namespace tagged_union {
 
     template <typename... Types, TaggedUnion<Types...>::index_t I>
         requires(I < sizeof...(Types))
-    [[nodiscard]] constexpr auto& get_unchecked(
+    [[nodiscard]] constexpr auto* get_unchecked(
         TaggedUnion<Types...>& v) noexcept {
         return v.template get_unchecked<I>();
     }
 
     template <typename... Types, TaggedUnion<Types...>::index_t I>
         requires(I < sizeof...(Types))
-    [[nodiscard]] constexpr const auto& get_unchecked(
+    [[nodiscard]] constexpr const auto* get_unchecked(
         const TaggedUnion<Types...>& v) noexcept {
         return v.template get_unchecked<I>();
     }
 
     template <typename... Types, TaggedUnion<Types...>::index_t I>
         requires(I < sizeof...(Types))
-    [[nodiscard]] constexpr auto&& get_unchecked(
+    [[nodiscard]] constexpr auto* get_unchecked(
         TaggedUnion<Types...>&& v) noexcept {
         return std::move(v).template get_unchecked<I>();
     }
 
     template <typename T, typename... Types>
         requires(std::disjunction_v<std::is_same<T, Types>...>)
-    [[nodiscard]] constexpr T& get_unchecked(
+    [[nodiscard]] constexpr T* get_unchecked(
         TaggedUnion<Types...>& v) noexcept {
         return v.template get_unchecked<T>();
     }
 
     template <typename T, typename... Types>
         requires(std::disjunction_v<std::is_same<T, Types>...>)
-    [[nodiscard]] constexpr const T& get_unchecked(
+    [[nodiscard]] constexpr const T* get_unchecked(
         const TaggedUnion<Types...>& v) noexcept {
         return v.template get_unchecked<T>();
     }
 
     template <typename T, typename... Types>
         requires(std::disjunction_v<std::is_same<T, Types>...>)
-    [[nodiscard]] constexpr T&& get_unchecked(
+    [[nodiscard]] constexpr T* get_unchecked(
         TaggedUnion<Types...>&& v) noexcept {
         return std::move(v).template get_unchecked<T>();
     }

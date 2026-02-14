@@ -28,6 +28,10 @@
     lpc::test::get_runner().assert_true(                                       \
         expected != actual, #expected " != " #actual)
 
+#define ASSERT_GT(lhs, rhs)                                                    \
+    lpc::test::get_runner().assert_true(                                       \
+        lhs > rhs, #lhs " > " #rhs)
+
 #define ASSERT_THROW(expr, exception_type)                                     \
     try {                                                                      \
         expr;                                                                  \

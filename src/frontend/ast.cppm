@@ -37,11 +37,11 @@ export using LispString = std::string;
 export class SExpr;
 
 export struct SExprList {
-    std::vector<SExprLocRef> elem;
+    std::vector<SpanRef> elem;
 
     [[nodiscard]] explicit SExprList() noexcept = default;
     [[nodiscard]] explicit SExprList(
-        std::vector<SExprLocRef>&& elements) noexcept
+        std::vector<SpanRef>&& elements) noexcept
         : elem(std::move(elements)) { };
 };
 
@@ -51,10 +51,10 @@ export inline constexpr bool operator==(
 }
 
 export struct SExprVector {
-    std::vector<SExprLocRef> elem;
+    std::vector<SpanRef> elem;
     [[nodiscard]] explicit SExprVector() noexcept = default;
     [[nodiscard]] explicit SExprVector(
-        std::vector<SExprLocRef>&& elements) noexcept
+        std::vector<SpanRef>&& elements) noexcept
         : elem(std::move(elements)) { };
 };
 

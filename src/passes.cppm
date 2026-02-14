@@ -14,8 +14,8 @@ public:
     virtual ~Pass() = default;
 
     [[nodiscard]] virtual std::string name() const noexcept = 0;
-    [[nodiscard]] virtual SExprLocRef run(
-        SExprLocRef root, SExprArena& arena) noexcept
+    [[nodiscard]] virtual SpanRef run(
+        SpanRef root, SpanArena& arena) noexcept
         = 0;
 
     Pass(const Pass&) = delete;
@@ -56,7 +56,7 @@ public:
         }
     }
 
-    [[nodiscard]] SExprLocRef run_all(SExprLocRef root, SExprArena& arena,
+    [[nodiscard]] SpanRef run_all(SpanRef root, SpanArena& arena,
         std::vector<std::string>& print_passes) noexcept;
 
     void clear() noexcept {

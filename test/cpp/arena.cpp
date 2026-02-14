@@ -7,8 +7,11 @@ import lpc.utils.arena;
 using namespace lpc::test;
 using lpc::utils::Arena;
 
+struct TestTag { };
+struct StringTag { };
+
 // Concrete arena for testing (Arena's constructor is protected)
-class TestArena : public Arena<int, std::uint32_t> {
+class TestArena : public Arena<TestTag, int, std::uint32_t> {
 public:
     TestArena()
         : Arena() {
@@ -18,7 +21,7 @@ public:
     }
 };
 
-class StringArena : public Arena<std::string, std::uint32_t> {
+class StringArena : public Arena<StringTag, std::string, std::uint32_t> {
 public:
     StringArena()
         : Arena() {

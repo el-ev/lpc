@@ -8,7 +8,7 @@ import lpc.frontend.refs;
 
 export namespace lpc::frontend::combinators {
 
-using ParseResult = std::optional<std::vector<SExprLocRef>>;
+using ParseResult = std::optional<std::vector<SpanRef>>;
 
 template <typename T>
 concept ParserRule = requires(T t) {
@@ -186,33 +186,33 @@ template <TokenType T>
 ParseResult OneToken<T>::operator()(Cursor& cursor) const noexcept {
     if (cursor.is<T>()) {
         cursor.advance();
-        return std::vector<SExprLocRef> {};
+        return std::vector<SpanRef> {};
     }
     return std::nullopt;
 }
 
 template <Keyword K>
 ParseResult InsertKeyword<K>::operator()(Cursor& cursor) const noexcept {
-    SExprLocRef node = cursor.arena().emplace(cursor.loc(),
-        LispIdent(
-            std::string(lex_defs::KEYWORDS[static_cast<std::size_t>(K)])));
-    return std::vector<SExprLocRef> { node };
+    SpanRef node = cursor.arena().from_loc(cursor.loc(),
+        SExpr(LispIdent(
+            std::string(lex_defs::KEYWORDS[static_cast<std::size_t>(K)]))));
+    return std::vector<SpanRef> { node };
 }
 
 ParseResult GetIdentifier::operator()(Cursor& cursor) const noexcept {
-    SExprLocRef node = cursor.get_ident();
+    SpanRef node = cursor.get_ident();
     if (!node.is_valid())
         return std::nullopt;
     cursor.advance();
-    return std::vector<SExprLocRef> { node };
+    return std::vector<SpanRef> { node };
 }
 
 ParseResult GetConstant::operator()(Cursor& cursor) const noexcept {
-    SExprLocRef node = cursor.get_constant();
+    SpanRef node = cursor.get_constant();
     if (!node.is_valid())
         return std::nullopt;
     cursor.advance();
-    return std::vector<SExprLocRef> { node };
+    return std::vector<SpanRef> { node };
 }
 
 template <ParserRule R>
@@ -233,9 +233,9 @@ ParseResult CreateList<R>::operator()(Cursor& cursor) const noexcept {
             return std::nullopt;
         }
     }
-    SExprLocRef node
-        = cursor.arena().emplace(loc, SExprList(std::move(res.value())));
-    return std::vector<SExprLocRef> { node };
+    SpanRef node
+        = cursor.arena().from_loc(loc, SExpr(SExprList(std::move(res.value()))));
+    return std::vector<SpanRef> { node };
 }
 
 template <ParserRule R>
@@ -256,14 +256,14 @@ ParseResult CreateVector<R>::operator()(Cursor& cursor) const noexcept {
             return std::nullopt;
         }
     }
-    SExprLocRef node
-        = cursor.arena().emplace(loc, SExprVector(std::move(res.value())));
-    return std::vector<SExprLocRef> { node };
+    SpanRef node
+        = cursor.arena().from_loc(loc, SExpr(SExprVector(std::move(res.value()))));
+    return std::vector<SpanRef> { node };
 }
 
 ParseResult CreateNil::operator()(Cursor& cursor) const noexcept {
-    SExprLocRef node = cursor.arena().nil(cursor.loc());
-    return std::vector<SExprLocRef> { node };
+    SpanRef node = cursor.arena().nil(cursor.loc());
+    return std::vector<SpanRef> { node };
 }
 
 template <ParserRule Lhs, ParserRule Rhs>
@@ -343,7 +343,7 @@ ParseResult Maybe<R>::operator()(Cursor& cursor) const noexcept {
 
 template <ParserRule R>
 ParseResult Many<R>::operator()(Cursor& cursor) const noexcept {
-    std::vector<SExprLocRef> result;
+    std::vector<SpanRef> result;
     if constexpr (R::manages_rollback::value) {
         while (auto nl = R()(cursor)) {
             if (result.capacity() - result.size() < nl->size())

@@ -402,35 +402,34 @@ bool Lexer::read_operator() noexcept {
     };
 }
 
-
-SExprLocRef Cursor::get_ident() const noexcept {
+SpanRef Cursor::get_ident() noexcept {
     if (type() != TokenType::IDENT)
-        return SExprLocRef::invalid();
-    std::string name = value().get_unchecked<std::string>();
-    return arena().emplace(loc(), LispIdent(std::move(name)));
+        return SpanRef::invalid();
+    std::string name = *value().get_unchecked<std::string>();
+    return arena().from_loc(loc(), SExpr(LispIdent(std::move(name))));
 }
 
-SExprLocRef Cursor::get_constant() const noexcept {
-    SExprLocRef ref;
+SpanRef Cursor::get_constant() noexcept {
+    SpanRef ref;
     switch (type()) {
     case TokenType::NUMBER: {
-        LispNumber v = value().get_unchecked<LispNumber>();
-        ref = arena().emplace(loc(), v);
+        LispNumber v = *value().get_unchecked<LispNumber>();
+        ref = arena().from_loc(loc(), SExpr(v));
         break;
     }
     case TokenType::BOOLEAN: {
-        bool v = value().get_unchecked<LispBool>();
-        ref = arena().get_boolean(loc(), v);
+        bool v = *value().get_unchecked<LispBool>();
+        ref = arena().from_loc(loc(), SExpr(v));
         break;
     }
     case TokenType::CHARACTER: {
-        char v = value().get_unchecked<LispChar>();
-        ref = arena().emplace(loc(), v);
+        char v = *value().get_unchecked<LispChar>();
+        ref = arena().from_loc(loc(), SExpr(v));
         break;
     }
     case TokenType::STRING: {
-        auto v = value().get_unchecked<LispString>();
-        ref = arena().emplace(loc(), std::move(v));
+        auto v = *value().get_unchecked<LispString>();
+        ref = arena().from_loc(loc(), SExpr(std::move(v)));
         break;
     }
     default:

@@ -51,6 +51,10 @@ public:
     }
 
 private:
+    [[nodiscard]] inline constexpr std::uint32_t file_idx() const noexcept {
+        return _file_idx;
+    }
+
     [[nodiscard]] inline constexpr LocRef loc(std::string&& lexeme) noexcept {
         return _loc_arena.emplace(_file_idx, _line,
             (_line == 1 ? 1 : 0) + std::distance(_line_start, _cursor.begin()),
@@ -81,12 +85,13 @@ private:
     [[nodiscard]] bool read_operator() noexcept;
 };
 
+// TODO should not be here
 export class Cursor {
 private:
     const std::vector<Token>& _tokens;
     bool _failed = false;
     std::vector<Token>::const_iterator _token;
-    SExprArena& _arena;
+    SpanArena& _arena;
 
     struct SavePoint {
     private:
@@ -101,7 +106,7 @@ private:
 
 public:
     explicit constexpr Cursor(
-        const std::vector<Token>& tokens, SExprArena& arena) noexcept
+        const std::vector<Token>& tokens, SpanArena& arena) noexcept
         : _tokens(tokens)
         , _token(_tokens.begin())
         , _arena(arena) { };
@@ -122,7 +127,7 @@ public:
 
     void fail() noexcept {
         if (!_failed) {
-            auto loc = _arena.location(this->loc());
+            auto loc = _arena.loc(this->loc());
             lpc::utils::Error("Unexpected token \"{}\" at {}",
                 loc.lexeme(), loc.source_location());
             _failed = true;
@@ -157,11 +162,7 @@ public:
         return _token->value();
     }
 
-    [[nodiscard]] inline constexpr SExprArena& arena() & noexcept {
-        return _arena;
-    }
-
-    [[nodiscard]] inline constexpr SExprArena& arena() const& noexcept {
+    [[nodiscard]] inline SpanArena& arena() & noexcept {
         return _arena;
     }
 
@@ -170,7 +171,7 @@ public:
         return type() == T;
     }
 
-    [[nodiscard]] SExprLocRef get_ident() const noexcept;
-    [[nodiscard]] SExprLocRef get_constant() const noexcept;
+    [[nodiscard]] SpanRef get_ident() noexcept;
+    [[nodiscard]] SpanRef get_constant() noexcept;
 };
 } // namespace lpc::frontend

@@ -16,8 +16,7 @@ public:
         return "lower";
     }
 
-    [[nodiscard]] SExprLocRef run(
-        SExprLocRef root, SExprArena& arena) noexcept final;
+    [[nodiscard]] SpanRef run(SpanRef root, SpanArena& arena) noexcept final;
 
     LowerPass() = default;
     ~LowerPass() final = default;
