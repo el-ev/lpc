@@ -1,10 +1,10 @@
-export module lpc.frontend.span;
+export module lpc.core.span;
 
 import std;
 
-import lpc.frontend.refs;
+import lpc.core.refs;
 
-namespace lpc::frontend {
+namespace lpc::core {
 
 export struct Location {
 private:
@@ -78,4 +78,4 @@ public:
     }
 };
 
-} // namespace lpc::frontend
+} // namespace lpc::core

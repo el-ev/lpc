@@ -1,12 +1,14 @@
-module lpc.frontend.arenas;
+module lpc.core.arenas;
 
 import std;
 
-import lpc.frontend.ast;
-import lpc.frontend.span;
+import lpc.syntax.ast;
+import lpc.core.span;
 import lpc.utils.arena;
 
-namespace lpc::frontend {
+namespace lpc::core {
+
+using namespace lpc::syntax;
 
 namespace {
     template <typename... Ts>
@@ -185,4 +187,4 @@ std::string SpanArena::dump(SpanRef ref) const {
         [](const auto&) { return ""; } });
 };
 
-} // namespace lpc::frontend
+} // namespace lpc::core

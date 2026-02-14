@@ -1,18 +1,20 @@
-module lpc.frontend.syntax;
+module lpc.syntax.syntax;
 
 import std;
 
-import lpc.frontend.combinators;
+import lpc.syntax.combinators;
 import lpc.utils.logging;
 
-namespace lpc::frontend {
+namespace lpc::syntax {
+
+using namespace lpc::core;
 
 using lpc::utils::Error;
 
 // clang-format off
 namespace rules {
 
-using namespace lpc::frontend::combinators;
+using namespace lpc::syntax::combinators;
 
 struct Datum;
 
@@ -109,4 +111,4 @@ void Parser::parse() noexcept {
     }
     _root = program.value()[0];
 }
-}
+} // namespace lpc::syntax

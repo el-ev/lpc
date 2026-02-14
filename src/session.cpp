@@ -3,18 +3,21 @@ module lpc.session;
 import std;
 
 import lpc.context;
-import lpc.frontend.arenas;
-import lpc.frontend.ast;
-import lpc.frontend.expand;
-import lpc.frontend.lexer;
-import lpc.frontend.refs;
-import lpc.frontend.syntax;
+import lpc.core.arenas;
+import lpc.syntax.ast;
+import lpc.analysis.expand;
+import lpc.syntax.lexer;
+import lpc.core.refs;
+import lpc.syntax.syntax;
 import lpc.passes;
 import lpc.utils.logging;
 
 namespace lpc {
 
-using namespace lpc::frontend;
+using namespace lpc::core;
+using namespace lpc::syntax;
+using namespace lpc::analysis;
+
 using lpc::utils::Error;
 
 int Session::run() noexcept {
@@ -53,7 +56,7 @@ int Session::run() noexcept {
         std::println("");
     }
 
-    frontend::Parser parser(std::move(tokens), span_arena);
+    Parser parser(std::move(tokens), span_arena);
 
     if (parser.is_failed())
         return 1;
@@ -65,7 +68,7 @@ int Session::run() noexcept {
 
     CompilerContext ctx(std::move(_options), std::move(span_arena));
 
-    auto result = PassManager().add<frontend::ExpandPass>().run_all(root, ctx);
+    auto result = PassManager().add<ExpandPass>().run_all(root, ctx);
 
     if (!result.is_valid())
         return 1;

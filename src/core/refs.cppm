@@ -1,10 +1,10 @@
-export module lpc.frontend.refs;
+export module lpc.core.refs;
 
 import std;
 
 import lpc.utils.arena;
 
-namespace lpc::frontend {
+namespace lpc::core {
 
 using lpc::utils::ElementReference;
 
@@ -20,4 +20,4 @@ export using SExprRef = ElementReference<SExprTag, std::uint32_t>;
 export using SpanRef = ElementReference<SpanTag, std::uint32_t>;
 export using ScopeSetRef = ElementReference<ScopeSetTag, std::uint32_t>;
 
-} // namespace lpc::frontend
+} // namespace lpc::core

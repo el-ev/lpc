@@ -1,12 +1,14 @@
-export module lpc.frontend.combinators;
+export module lpc.syntax.combinators;
 
 import std;
 
-import lpc.frontend.ast;
-import lpc.frontend.lexer;
-import lpc.frontend.refs;
+import lpc.syntax.ast;
+import lpc.syntax.cursor;
+import lpc.core.refs;
 
-export namespace lpc::frontend::combinators {
+export namespace lpc::syntax::combinators {
+
+using namespace lpc::core;
 
 using ParseResult = std::optional<std::vector<SpanRef>>;
 
@@ -373,4 +375,4 @@ ParseResult Must<R>::operator()(Cursor& cursor) const noexcept {
     return result;
 }
 
-} // namespace lpc::frontend::combinators
+} // namespace lpc::syntax::combinators

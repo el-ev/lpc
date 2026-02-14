@@ -1,14 +1,17 @@
-export module lpc.frontend.sema;
+export module lpc.analysis.sema;
 
 import std;
 
 import lpc.context;
-import lpc.frontend.ast;
-import lpc.frontend.arenas;
-import lpc.frontend.refs;
+import lpc.syntax.ast;
+import lpc.core.arenas;
+import lpc.core.refs;
 import lpc.passes;
 
-namespace lpc::frontend {
+namespace lpc::analysis {
+
+using namespace lpc::core;
+using namespace lpc::syntax;
 
 export class SemaPass final : public Pass {
 private:
@@ -24,4 +27,4 @@ public:
     ~SemaPass() final = default;
 };
 
-} // namespace lpc::frontend
+} // namespace lpc::analysis

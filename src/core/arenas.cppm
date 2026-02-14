@@ -1,13 +1,15 @@
-export module lpc.frontend.arenas;
+export module lpc.core.arenas;
 
 import std;
 
-export import lpc.frontend.refs;
-import lpc.frontend.ast;
-import lpc.frontend.span;
+export import lpc.core.refs;
+import lpc.syntax.ast;
+import lpc.core.span;
 import lpc.utils.arena;
 
-namespace lpc::frontend {
+namespace lpc::core {
+
+using namespace lpc::syntax;
 
 using lpc::utils::Arena;
 
@@ -234,4 +236,4 @@ SpanRef SpanArena::expand(
     return emplace(loc, expr, parent, scopes);
 }
 
-} // namespace lpc::frontend
+} // namespace lpc::core

@@ -1,12 +1,15 @@
-export module lpc.frontend.transformer;
+export module lpc.analysis.transformer;
 
 import std;
 
-import lpc.frontend.ast;
-import lpc.frontend.arenas;
-import lpc.frontend.refs;
+import lpc.syntax.ast;
+import lpc.core.arenas;
+import lpc.core.refs;
 
-namespace lpc::frontend {
+namespace lpc::analysis {
+
+using namespace lpc::core;
+using namespace lpc::syntax;
 
 export struct BindingValue {
     std::vector<SpanRef> values;
@@ -54,4 +57,4 @@ private:
         LocRef call_site_loc, SpanRef parent) const;
 };
 
-} // namespace lpc::frontend
+} // namespace lpc::analysis

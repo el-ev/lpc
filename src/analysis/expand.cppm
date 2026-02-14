@@ -1,16 +1,19 @@
-export module lpc.frontend.expand;
+export module lpc.analysis.expand;
 
 import std;
 
 import lpc.context;
-import lpc.frontend.ast;
-import lpc.frontend.arenas;
-import lpc.frontend.refs;
-import lpc.frontend.transformer;
+import lpc.syntax.ast;
+import lpc.core.arenas;
+import lpc.core.refs;
+import lpc.analysis.transformer;
 import lpc.passes;
 import lpc.utils.tagged_union;
 
-namespace lpc::frontend {
+namespace lpc::analysis {
+
+using namespace lpc::core;
+using namespace lpc::syntax;
 
 using lpc::utils::TaggedUnion;
 
@@ -201,4 +204,4 @@ public:
     ~ExpandPass() final = default;
 };
 
-} // namespace lpc::frontend
+} // namespace lpc::analysis

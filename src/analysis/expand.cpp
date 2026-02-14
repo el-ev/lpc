@@ -1,13 +1,16 @@
-module lpc.frontend.expand;
+module lpc.analysis.expand;
 
 import std;
 
 import lpc.context;
-import lpc.frontend.lexer;
-import lpc.frontend.syntax;
+import lpc.syntax.lexer;
+import lpc.syntax.syntax;
 import lpc.utils.logging;
 
-namespace lpc::frontend {
+namespace lpc::analysis {
+
+using namespace lpc::core;
+using namespace lpc::syntax;
 
 using lpc::utils::Error;
 
@@ -884,4 +887,4 @@ ExpandPass::ExpandPass() noexcept {
     _env.define_core_syntax("syntax-error");
 }
 
-} // namespace lpc::frontend
+} // namespace lpc::analysis

@@ -3,13 +3,15 @@ export module lpc.cps.lower;
 import std;
 
 import lpc.context;
-import lpc.frontend.ast;
-import lpc.frontend.arenas;
-import lpc.frontend.refs;
+import lpc.syntax.ast;
+import lpc.core.arenas;
+import lpc.core.refs;
 import lpc.passes;
 
 namespace lpc::cps {
-using namespace lpc::frontend;
+
+using namespace lpc::core;
+using namespace lpc::syntax;
 
 export class LowerPass final : public Pass {
 public:

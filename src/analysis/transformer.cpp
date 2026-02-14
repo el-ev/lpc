@@ -1,10 +1,13 @@
-module lpc.frontend.transformer;
+module lpc.analysis.transformer;
 
 import std;
 
-import lpc.frontend.ast;
+import lpc.syntax.ast;
 
-namespace lpc::frontend {
+namespace lpc::analysis {
+
+using namespace lpc::core;
+using namespace lpc::syntax;
 
 static bool is_ellipsis(SpanRef ref, SpanArena& arena) {
     if (const auto* expr = arena.get<LispIdent>(ref))
@@ -284,4 +287,4 @@ SpanRef Transformer::transcribe(SpanRef input, SpanRef parent) const {
     }
     return SpanRef::invalid();
 }
-} // namespace lpc::frontend
+} // namespace lpc::analysis

@@ -1,13 +1,15 @@
-export module lpc.frontend.syntax;
+export module lpc.syntax.syntax;
 
 import std;
 
-import lpc.frontend.ast;
-import lpc.frontend.arenas;
-import lpc.frontend.lexer;
-import lpc.frontend.refs;
+import lpc.syntax.ast;
+import lpc.core.arenas;
+import lpc.syntax.cursor;
+import lpc.core.refs;
 
-namespace lpc::frontend {
+namespace lpc::syntax {
+
+using namespace lpc::core;
 
 export class Parser {
 private:
@@ -45,4 +47,4 @@ public:
         return _root;
     }
 };
-}
+} // namespace lpc::syntax

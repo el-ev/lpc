@@ -2,15 +2,17 @@ export module lpc.passes;
 
 import std;
 
-import lpc.frontend.ast;
-import lpc.frontend.arenas;
+import lpc.syntax.ast;
+import lpc.core.arenas;
 import lpc.context;
-import lpc.frontend.refs;
+import lpc.core.refs;
 import lpc.utils.logging;
 
 namespace lpc {
 
-using namespace lpc::frontend;
+using namespace lpc::core;
+using namespace lpc::syntax;
+
 using lpc::utils::Debug;
 using lpc::utils::Error;
 

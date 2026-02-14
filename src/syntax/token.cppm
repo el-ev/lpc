@@ -1,12 +1,14 @@
-export module lpc.frontend.token;
+export module lpc.syntax.token;
 
 import std;
 
-import lpc.frontend.span;
-import lpc.frontend.refs;
+import lpc.core.span;
+import lpc.core.refs;
 import lpc.utils.tagged_union;
 
-namespace lpc::frontend {
+namespace lpc::syntax {
+
+using namespace lpc::core;
 
 using lpc::utils::TaggedUnion;
 
@@ -130,4 +132,4 @@ public:
     }
 };
 
-} // namespace lpc::frontend
+} // namespace lpc::syntax

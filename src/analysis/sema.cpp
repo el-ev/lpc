@@ -1,11 +1,14 @@
-module lpc.frontend.sema;
+module lpc.analysis.sema;
 
 import std;
 
 import lpc.context;
-import lpc.frontend.ast;
+import lpc.syntax.ast;
 
-namespace lpc::frontend {
+namespace lpc::analysis {
+
+using namespace lpc::core;
+using namespace lpc::syntax;
 
 class SymbolTable { };
 
@@ -14,4 +17,4 @@ class SymbolTable { };
     return root;
 }
 
-} // namespace lpc::frontend
+} // namespace lpc::analysis
