@@ -7,8 +7,6 @@ import lpc.frontend.ast;
 namespace lpc::frontend {
 
 static bool is_ellipsis(SpanRef ref, SpanArena& arena) {
-    if (!ref.is_valid())
-        return false;
     if (const auto* expr = arena.get<LispIdent>(ref))
         return expr->name == "...";
     return false;
@@ -22,8 +20,6 @@ static std::size_t logical_size(const SExprList& list, SpanArena& arena) {
 
 static void collect_pattern_vars(
     SpanRef pattern, SpanArena& arena, std::set<std::string>& vars) {
-    if (!pattern.is_valid())
-        return;
     if (const auto* ident = arena.get<LispIdent>(pattern)) {
         if (ident->name != "_" && ident->name != "...")
             vars.insert(ident->name);
@@ -56,9 +52,6 @@ static SpanRef get_tail(
 
 bool Transformer::match(
     SpanRef pattern, SpanRef input, Bindings& bindings) const {
-    if (!pattern.is_valid() || !input.is_valid())
-        return false;
-
     const auto& p_expr = _arena.expr(pattern);
     const auto& i_expr = _arena.expr(input);
 
@@ -214,9 +207,6 @@ bool Transformer::match(
 
 SpanRef Transformer::instantiate(
     SpanRef element, const Bindings& bindings, LocRef call_site_loc, SpanRef parent) const {
-    if (!element.is_valid())
-        return element;
-
     const auto expr = _arena.expr(element);
 
     if (const auto* ident = expr.get<LispIdent>()) {
@@ -278,10 +268,9 @@ SpanRef Transformer::instantiate(
 }
 
 SpanRef Transformer::transcribe(SpanRef input, SpanRef parent) const {
-    const auto* i_list = _arena.get<SExprList>(input);
-    if (i_list == nullptr || i_list->elem.empty())
-        return SpanRef::invalid();
-    auto i_tail = get_tail(*i_list, 1, _arena, parent);
+    // type checked outside
+    const auto& i_list = *_arena.get<SExprList>(input);
+    auto i_tail = get_tail(i_list, 1, _arena, parent);
     for (const auto& rule : _rules) {
         Bindings bindings;
         if (match(rule.pattern_tail, i_tail, bindings)) {

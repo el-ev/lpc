@@ -166,10 +166,8 @@ void Expander::report_error(SpanRef failed_expr, std::string_view msg) {
 bool Expander::check_arity(
     SpanRef el, std::size_t min_arity, std::size_t max_arity) {
     // max_arity == 0 means no maximum
-    const auto* list = _arena.get<SExprList>(el);
-    if (!list)
-        return false;
-    auto size = list->elem.size();
+    const auto& list = *_arena.get<SExprList>(el);
+    auto size = list.elem.size();
     if (size < min_arity + 1) {
         report_error(el,
             std::format("arity mismatch: expected{} {} arguments, got {}",
@@ -191,7 +189,7 @@ bool Expander::check_arity(
         _had_error = true;
         return false;
     }
-    if (!_arena.is_nil(list->elem.back())) {
+    if (!_arena.is_nil(list.elem.back())) {
         report_error(el, "arity mismatch: improper list");
         _had_error = true;
         return false;
