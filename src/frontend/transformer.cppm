@@ -44,6 +44,14 @@ public:
 
     [[nodiscard]] SExprLocRef transcribe(
         SExprLocRef input, SExprArena& input_arena) const;
+
+private:
+    [[nodiscard]] bool match(SExprLocRef pattern, SExprArena& pattern_arena,
+        SExprLocRef input, SExprArena& input_arena, Bindings& bindings) const;
+
+    [[nodiscard]] SExprLocRef instantiate(SExprLocRef element,
+        SExprArena& tmpl_arena, SExprArena& output_arena,
+        const Bindings& bindings, LocRef call_site_loc) const;
 };
 
 } // namespace lpc::frontend

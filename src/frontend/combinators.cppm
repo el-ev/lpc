@@ -126,13 +126,7 @@ struct Must {
     explicit constexpr Must() noexcept = default;
     explicit constexpr Must(R /* r */) noexcept { };
 
-    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept {
-        auto res = R()(cursor);
-        if (!res) {
-            cursor.fail();
-        }
-        return res;
-    }
+    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
 
 template <ParserRule R>
@@ -362,6 +356,15 @@ ParseResult Many<R>::operator()(Cursor& cursor) const noexcept {
             save = cursor.save();
         }
         cursor.set(save);
+    }
+    return result;
+}
+
+template <ParserRule R>
+ParseResult Must<R>::operator()(Cursor& cursor) const noexcept {
+    auto result = R()(cursor);
+    if (!result) {
+        cursor.fail();
     }
     return result;
 }

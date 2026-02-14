@@ -49,10 +49,6 @@ public:
     [[nodiscard]] const ExpansionFrame& at(std::uint32_t idx) const {
         return _frames[idx];
     }
-
-    [[nodiscard]] std::uint32_t size() const noexcept {
-        return static_cast<std::uint32_t>(_frames.size());
-    }
 };
 
 using ExpStackRef = std::uint32_t;
@@ -86,7 +82,8 @@ public:
             .scopes = id.scopes, .binding = std::move(binding) });
     }
 
-    [[nodiscard]] std::optional<std::reference_wrapper<const Binding>> find_exact_binding(const LispIdent& id) const noexcept {
+    [[nodiscard]] std::optional<std::reference_wrapper<const Binding>>
+    find_exact_binding(const LispIdent& id) const noexcept {
         auto it = _bindings.find(id.name);
         if (it == _bindings.end())
             return std::nullopt;
@@ -97,7 +94,8 @@ public:
         return std::nullopt;
     }
 
-    [[nodiscard]] std::optional<std::reference_wrapper<const Binding>> find_binding(const LispIdent& id,
+    [[nodiscard]] std::optional<std::reference_wrapper<const Binding>>
+    find_binding(const LispIdent& id,
         std::optional<ScopeID> exclude_scope = std::nullopt) const noexcept {
 
         auto it = _bindings.find(id.name);
@@ -135,6 +133,97 @@ public:
     }
 
 private:
+};
+
+class Expander {
+public:
+    Expander(LexEnv& env, SExprArena& arena, ExpansionStack& stack,
+        bool& had_error, bool show_core, std::uint32_t max_depth)
+        : _env(env)
+        , _arena(arena)
+        , _stack(stack)
+        , _had_error(had_error)
+        , _show_core(show_core)
+        , _max_depth(max_depth) {
+    }
+
+    std::vector<SExprLocRef> expand(SExprLocRef root);
+
+private:
+    LexEnv& _env;
+    SExprArena& _arena;
+    ExpansionStack& _stack;
+    bool& _had_error;
+
+    ExpStackRef _parent = ExpansionStack::INVALID;
+    bool _is_core = false;
+    bool _show_core = false;
+    bool _is_top_level = true;
+    std::uint32_t _max_depth = 1000;
+    std::uint32_t _current_depth = 0;
+    std::optional<ScopeID> _output_excluded_scope;
+
+    [[nodiscard]] SExprLocRef add_scope(SExprLocRef expr, ScopeID scope);
+
+    void report_error(SExprLocRef failed_expr, std::string_view msg);
+    bool check_arity(
+        SExprLocRef el, std::size_t min_arity, std::size_t max_arity);
+    bool is_identifier_active(const LispIdent& id);
+
+    std::vector<SExprLocRef> expand_lambda(
+        const SExprList& list, SExprLocRef root);
+    std::vector<SExprLocRef> expand_quote(
+        const SExprList& list, SExprLocRef root);
+    std::vector<SExprLocRef> expand_if(const SExprList& list, SExprLocRef root);
+    std::vector<SExprLocRef> expand_begin(
+        const SExprList& list, SExprLocRef root);
+    std::vector<SExprLocRef> expand_set(
+        const SExprList& list, SExprLocRef root);
+    std::vector<SExprLocRef> expand_define(
+        const SExprList& list, SExprLocRef root);
+    std::vector<SExprLocRef> expand_define_syntax(
+        const SExprList& list, SExprLocRef root);
+    std::vector<SExprLocRef> expand_let_letrec_syntax(
+        const SExprList& list, SExprLocRef root, bool is_letrec);
+    std::vector<SExprLocRef> expand_macro(
+        SExprLocRef root, const MacroBinding& macro);
+
+    std::optional<std::unique_ptr<Transformer>> parse_syntax_rules(
+        SExprLocRef transformer_spec,
+        std::string_view form_prefix = "define-syntax");
+
+public:
+    [[nodiscard]] Expander with_parent(ExpStackRef parent, bool is_core) const {
+        Expander next = *this;
+        next._parent = parent;
+        next._is_core = is_core;
+        return next;
+    }
+
+    [[nodiscard]] Expander with_depth(std::uint32_t depth) const {
+        Expander next = *this;
+        next._current_depth = depth;
+        return next;
+    }
+
+    [[nodiscard]] Expander as_sub_expression() const {
+        Expander next = *this;
+        next._is_top_level = false;
+        return next;
+    }
+
+    [[nodiscard]] Expander with_excluded_scope(
+        std::optional<ScopeID> scope) const {
+        Expander next = *this;
+        next._output_excluded_scope = scope;
+        return next;
+    }
+
+    [[nodiscard]] Expander with_core(bool is_core) const {
+        Expander next = *this;
+        next._is_core = is_core;
+        return next;
+    }
 };
 
 export class ExpandPass final : public Pass {
