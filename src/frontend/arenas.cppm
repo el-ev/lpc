@@ -14,7 +14,40 @@ using lpc::utils::Arena;
 
 export class LocationArena;
 export class SExprArena;
+export class ScopeArena;
 export class SpanArena;
+
+class ScopeArena : Arena<ScopeSetTag, std::set<ScopeID>, std::uint32_t> {
+private:
+    std::map<std::set<ScopeID>, ScopeSetRef> _interned;
+
+public:
+    explicit ScopeArena() noexcept = default;
+
+    [[nodiscard]] ScopeSetRef intern(std::set<ScopeID>&& scopes) {
+        if (auto it = _interned.find(scopes); it != _interned.end())
+            return it->second;
+        auto ref = Arena::emplace(std::move(scopes));
+        _interned[at(ref)] = ref;
+        return ref;
+    }
+
+    [[nodiscard]] ScopeSetRef intern(const std::set<ScopeID>& scopes) {
+        if (auto it = _interned.find(scopes); it != _interned.end())
+            return it->second;
+        auto ref = Arena::emplace(scopes);
+        _interned[at(ref)] = ref;
+        return ref;
+    }
+
+    [[nodiscard]] const std::set<ScopeID>& at(ScopeSetRef ref) const& {
+        return Arena::at(ref);
+    }
+
+    [[nodiscard]] ScopeSetRef empty_set() {
+        return intern(std::set<ScopeID> {});
+    }
+};
 
 class LocationArena
     : Arena<LocTag,
@@ -63,16 +96,19 @@ public:
 
     [[nodiscard]] SExprRef nil() noexcept;
     [[nodiscard]] SExprRef get_bool(bool value) noexcept;
+    [[nodiscard]] SExprRef get_ident(const std::string& name) noexcept;
 
 private:
     SExprRef _nil_node;
     std::pair<SExprRef, SExprRef> _bool_nodes;
+    std::map<std::string, SExprRef> _ident_nodes;
 };
 
 export class SpanArena : Arena<SpanTag, Span, std::uint32_t> {
 private:
     SExprArena _expr_arena;
     LocationArena _loc_arena;
+    ScopeArena _scope_arena;
 
 public:
     explicit SpanArena(SExprArena&& expr_arena, LocationArena&& loc_arena)
@@ -100,8 +136,18 @@ public:
         return _loc_arena;
     }
 
-    [[nodiscard]] SpanRef from_loc(LocRef loc, SExpr&& expr);
-    [[nodiscard]] SpanRef expand(LocRef loc, SExpr&& expr, SpanRef parent);
+    [[nodiscard]] ScopeArena& scope_arena() noexcept {
+        return _scope_arena;
+    }
+
+    [[nodiscard]] const ScopeArena& scope_arena() const noexcept {
+        return _scope_arena;
+    }
+
+    [[nodiscard]] SpanRef from_loc(
+        LocRef loc, SExpr&& expr, ScopeSetRef scopes = ScopeSetRef::invalid());
+    [[nodiscard]] SpanRef expand(LocRef loc, SExpr&& expr, SpanRef parent,
+        ScopeSetRef scopes = ScopeSetRef::invalid());
 
     [[nodiscard]] const Span& at(SpanRef ref) const&;
     [[nodiscard]] inline const Span& operator[](SpanRef ref) const& {
@@ -118,10 +164,17 @@ public:
 
     [[nodiscard]] SExprRef expr_ref(SpanRef ref) const noexcept;
 
-    [[nodiscard]] SpanRef nil(
-        LocRef loc, SpanRef parent = SpanRef::invalid()) noexcept;
-    [[nodiscard]] SpanRef get_bool(
-        LocRef loc, bool value, SpanRef parent = SpanRef::invalid()) noexcept;
+    [[nodiscard]] const std::set<ScopeID>& scopes(SpanRef ref) const noexcept;
+    [[nodiscard]] ScopeSetRef scope_ref(SpanRef ref) const noexcept;
+
+    [[nodiscard]] SpanRef nil(LocRef loc, SpanRef parent = SpanRef::invalid(),
+        ScopeSetRef scopes = ScopeSetRef::invalid()) noexcept;
+    [[nodiscard]] SpanRef get_bool(LocRef loc, bool value,
+        SpanRef parent = SpanRef::invalid(),
+        ScopeSetRef scopes = ScopeSetRef::invalid()) noexcept;
+    [[nodiscard]] SpanRef get_ident(LocRef loc, const std::string& name,
+        SpanRef parent = SpanRef::invalid(),
+        ScopeSetRef scopes = ScopeSetRef::invalid()) noexcept;
 
     [[nodiscard]] bool is_core_binding(SpanRef ref) const noexcept;
 

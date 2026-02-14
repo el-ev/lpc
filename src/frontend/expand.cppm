@@ -49,27 +49,28 @@ public:
     }
 
     // TODO: signal error when shadowing causes ambiguity
-    void add_binding(const LispIdent& id, Binding binding) {
-        _bindings[id.name].push_back(BindingEntry {
-            .scopes = id.scopes, .binding = std::move(binding) });
+    void add_binding(const std::string& name, const std::set<ScopeID>& scopes,
+        Binding binding) {
+        _bindings[name].push_back(
+            BindingEntry { .scopes = scopes, .binding = std::move(binding) });
     }
 
-    [[nodiscard]] const Binding* find_exact_binding(
-        const LispIdent& id) const noexcept {
-        auto it = _bindings.find(id.name);
+    [[nodiscard]] const Binding* find_exact_binding(const std::string& name,
+        const std::set<ScopeID>& scopes) const noexcept {
+        auto it = _bindings.find(name);
         if (it == _bindings.end())
             return nullptr;
         for (const auto& entry : it->second)
-            if (entry.scopes == id.scopes)
+            if (entry.scopes == scopes)
                 return &entry.binding;
         return nullptr;
     }
 
-    [[nodiscard]] const Binding* find_binding(
-        const LispIdent& id,
+    [[nodiscard]] const Binding* find_binding(const std::string& name,
+        const std::set<ScopeID>& scopes,
         std::optional<ScopeID> exclude_scope = std::nullopt) const noexcept {
 
-        auto it = _bindings.find(id.name);
+        auto it = _bindings.find(name);
         if (it == _bindings.end())
             return nullptr;
 
@@ -80,7 +81,7 @@ public:
                 && entry.binding.isa<MacroBinding>())
                 continue;
 
-            if (std::ranges::includes(id.scopes, entry.scopes)) {
+            if (std::ranges::includes(scopes, entry.scopes)) {
                 if (best == nullptr
                     || std::ranges::includes(entry.scopes, best->scopes)) {
                     // prefer later bindings over earlier ones
@@ -100,7 +101,7 @@ public:
     }
 
     void define_core_syntax(const std::string& name) {
-        add_binding(LispIdent(name), Binding { CoreBinding {} });
+        add_binding(name, {}, Binding { CoreBinding {} });
     }
 
 private:
@@ -108,8 +109,8 @@ private:
 
 class Expander {
 public:
-    Expander(LexEnv& env, SpanArena& arena,
-        bool& had_error, bool show_core, std::uint32_t max_depth)
+    Expander(LexEnv& env, SpanArena& arena, bool& had_error, bool show_core,
+        std::uint32_t max_depth)
         : _env(env)
         , _arena(arena)
         , _had_error(had_error)
@@ -135,7 +136,7 @@ private:
 
     void report_error(SpanRef failed_expr, std::string_view msg);
     bool check_arity(SpanRef el, std::size_t min_arity, std::size_t max_arity);
-    bool is_identifier_active(const LispIdent& id);
+    bool is_identifier_active(SpanRef id_ref);
 
     std::vector<SpanRef> expand_lambda(const SExprList& list, SpanRef root);
     std::vector<SpanRef> expand_quote(const SExprList& list, SpanRef root);

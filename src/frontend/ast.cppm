@@ -10,7 +10,6 @@ namespace lpc::frontend {
 
 using lpc::utils::TaggedUnion;
 
-export using ScopeID = std::uint32_t;
 export class LispNil { };
 
 export inline constexpr bool operator==(
@@ -21,16 +20,14 @@ export inline constexpr bool operator==(
 export class LispIdent {
 public:
     std::string name;
-    std::set<ScopeID> scopes;
 
-    explicit LispIdent(std::string name, std::set<ScopeID> scopes = {})
-        : name(std::move(name))
-        , scopes(std::move(scopes)) {
+    explicit LispIdent(std::string name)
+        : name(std::move(name)) {
     }
 
     [[nodiscard]] inline constexpr bool operator==(
         const LispIdent& other) const noexcept {
-        return name == other.name && scopes == other.scopes;
+        return name == other.name;
     }
 };
 export using LispString = std::string;
@@ -40,8 +37,7 @@ export struct SExprList {
     std::vector<SpanRef> elem;
 
     [[nodiscard]] explicit SExprList() noexcept = default;
-    [[nodiscard]] explicit SExprList(
-        std::vector<SpanRef>&& elements) noexcept
+    [[nodiscard]] explicit SExprList(std::vector<SpanRef>&& elements) noexcept
         : elem(std::move(elements)) { };
 };
 
@@ -53,8 +49,7 @@ export inline constexpr bool operator==(
 export struct SExprVector {
     std::vector<SpanRef> elem;
     [[nodiscard]] explicit SExprVector() noexcept = default;
-    [[nodiscard]] explicit SExprVector(
-        std::vector<SpanRef>&& elements) noexcept
+    [[nodiscard]] explicit SExprVector(std::vector<SpanRef>&& elements) noexcept
         : elem(std::move(elements)) { };
 };
 

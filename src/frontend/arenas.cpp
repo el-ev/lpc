@@ -36,14 +36,28 @@ SExprRef SExprArena::get_bool(bool value) noexcept {
     return _bool_nodes.second;
 }
 
-SpanRef SpanArena::from_loc(LocRef loc, SExpr&& expr) {
-    auto expr_ref = _expr_arena.emplace(std::move(expr));
-    return emplace(loc, expr_ref, SpanRef::invalid());
+SExprRef SExprArena::get_ident(const std::string& name) noexcept {
+    if (auto it = _ident_nodes.find(name); it != _ident_nodes.end())
+        return it->second;
+    auto ref = Arena::emplace(LispIdent(name));
+    _ident_nodes[name] = ref;
+    return ref;
 }
 
-SpanRef SpanArena::expand(LocRef loc, SExpr&& expr, SpanRef parent) {
+SpanRef SpanArena::from_loc(LocRef loc, SExpr&& expr, ScopeSetRef scopes) {
+    if (!scopes.is_valid())
+        scopes = _scope_arena.empty_set();
     auto expr_ref = _expr_arena.emplace(std::move(expr));
-    return emplace(loc, expr_ref, parent);
+    return emplace(loc, expr_ref, SpanRef::invalid(), scopes);
+}
+
+SpanRef SpanArena::expand(
+    LocRef loc, SExpr&& expr, SpanRef parent, ScopeSetRef scopes) {
+    if (!scopes.is_valid())
+        scopes = parent.is_valid() ? at(parent).scopes()
+                                   : _scope_arena.empty_set();
+    auto expr_ref = _expr_arena.emplace(std::move(expr));
+    return emplace(loc, expr_ref, parent, scopes);
 }
 
 const Span& SpanArena::at(SpanRef ref) const& {
@@ -80,12 +94,36 @@ SExprRef SpanArena::expr_ref(SpanRef ref) const noexcept {
     return at(ref).expr();
 }
 
-SpanRef SpanArena::nil(LocRef loc, SpanRef parent) noexcept {
-    return emplace(loc, _expr_arena.nil(), parent);
+const std::set<ScopeID>& SpanArena::scopes(SpanRef ref) const noexcept {
+    return _scope_arena.at(at(ref).scopes());
 }
 
-SpanRef SpanArena::get_bool(LocRef loc, bool value, SpanRef parent) noexcept {
-    return emplace(loc, _expr_arena.get_bool(value), parent);
+ScopeSetRef SpanArena::scope_ref(SpanRef ref) const noexcept {
+    return at(ref).scopes();
+}
+
+SpanRef SpanArena::nil(
+    LocRef loc, SpanRef parent, ScopeSetRef scopes) noexcept {
+    if (!scopes.is_valid())
+        scopes = parent.is_valid() ? at(parent).scopes()
+                                   : _scope_arena.empty_set();
+    return emplace(loc, _expr_arena.nil(), parent, scopes);
+}
+
+SpanRef SpanArena::get_bool(
+    LocRef loc, bool value, SpanRef parent, ScopeSetRef scopes) noexcept {
+    if (!scopes.is_valid())
+        scopes = parent.is_valid() ? at(parent).scopes()
+                                   : _scope_arena.empty_set();
+    return emplace(loc, _expr_arena.get_bool(value), parent, scopes);
+}
+
+SpanRef SpanArena::get_ident(LocRef loc, const std::string& name,
+    SpanRef parent, ScopeSetRef scopes) noexcept {
+    if (!scopes.is_valid())
+        scopes = parent.is_valid() ? at(parent).scopes()
+                                   : _scope_arena.empty_set();
+    return emplace(loc, _expr_arena.get_ident(name), parent, scopes);
 }
 
 bool SpanArena::is_core_binding(SpanRef ref) const noexcept {

@@ -69,7 +69,8 @@ bool Lexer::advance() noexcept {
     if (read_operator() || read_ident() || read_string() || read_number(0))
         return true;
 
-    Error("Unrecognized token starting with '{}' at {}", _cursor[0], loc_string());
+    Error("Unrecognized token starting with '{}' at {}", _cursor[0],
+        loc_string());
     _failed = true;
     return false;
 }
@@ -246,8 +247,8 @@ bool Lexer::read_number(int radix) noexcept {
         return false;
     }
 
-    auto prefix_len
-        = static_cast<std::size_t>(std::distance(_cursor.begin(), value_start.begin()));
+    auto prefix_len = static_cast<std::size_t>(
+        std::distance(_cursor.begin(), value_start.begin()));
     std::string value_string(
         value_start.substr(0, size - prefix_len - sharp_count));
     std::int64_t value = std::stoll(value_string, nullptr, radix_value);
@@ -406,7 +407,7 @@ SpanRef Cursor::get_ident() noexcept {
     if (type() != TokenType::IDENT)
         return SpanRef::invalid();
     std::string name = *value().get_unchecked<std::string>();
-    return arena().from_loc(loc(), SExpr(LispIdent(std::move(name))));
+    return arena().get_ident(loc(), name);
 }
 
 SpanRef Cursor::get_constant() noexcept {

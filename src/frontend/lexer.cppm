@@ -128,8 +128,8 @@ public:
     void fail() noexcept {
         if (!_failed) {
             auto loc = _arena.loc(this->loc());
-            lpc::utils::Error("Unexpected token \"{}\" at {}",
-                loc.lexeme(), loc.source_location());
+            lpc::utils::Error("Unexpected token \"{}\" at {}", loc.lexeme(),
+                loc.source_location());
             _failed = true;
         }
     }

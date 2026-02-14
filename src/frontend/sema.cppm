@@ -11,7 +11,6 @@ namespace lpc::frontend {
 
 export class SemaPass final : public Pass {
 private:
-
 public:
     [[nodiscard]] std::string name() const noexcept final {
         return "sema";

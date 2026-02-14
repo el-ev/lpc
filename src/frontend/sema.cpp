@@ -6,9 +6,7 @@ import lpc.frontend.ast;
 
 namespace lpc::frontend {
 
-class SymbolTable {
-
-};
+class SymbolTable { };
 
 [[nodiscard]] SpanRef SemaPass::run(SpanRef root, SpanArena& arena) noexcept {
     return root;

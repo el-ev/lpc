@@ -54,13 +54,15 @@ private:
     LocRef _loc;
     SExprRef _expr;
     SpanRef _parent;
-// TODO Scopes here
+    ScopeSetRef _scopes;
+
 public:
     explicit Span(
-        LocRef loc, SExprRef expr, SpanRef parent) noexcept
+        LocRef loc, SExprRef expr, SpanRef parent, ScopeSetRef scopes) noexcept
         : _loc(loc)
         , _expr(expr)
-        , _parent(parent) { };
+        , _parent(parent)
+        , _scopes(scopes) { };
 
     [[nodiscard]] LocRef loc() const noexcept {
         return _loc;
@@ -70,6 +72,9 @@ public:
     }
     [[nodiscard]] SpanRef parent() const noexcept {
         return _parent;
+    }
+    [[nodiscard]] ScopeSetRef scopes() const noexcept {
+        return _scopes;
     }
 };
 

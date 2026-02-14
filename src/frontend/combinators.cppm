@@ -193,9 +193,8 @@ ParseResult OneToken<T>::operator()(Cursor& cursor) const noexcept {
 
 template <Keyword K>
 ParseResult InsertKeyword<K>::operator()(Cursor& cursor) const noexcept {
-    SpanRef node = cursor.arena().from_loc(cursor.loc(),
-        SExpr(LispIdent(
-            std::string(lex_defs::KEYWORDS[static_cast<std::size_t>(K)]))));
+    SpanRef node = cursor.arena().get_ident(cursor.loc(),
+        std::string(lex_defs::KEYWORDS[static_cast<std::size_t>(K)]));
     return std::vector<SpanRef> { node };
 }
 
@@ -233,8 +232,8 @@ ParseResult CreateList<R>::operator()(Cursor& cursor) const noexcept {
             return std::nullopt;
         }
     }
-    SpanRef node
-        = cursor.arena().from_loc(loc, SExpr(SExprList(std::move(res.value()))));
+    SpanRef node = cursor.arena().from_loc(
+        loc, SExpr(SExprList(std::move(res.value()))));
     return std::vector<SpanRef> { node };
 }
 
@@ -256,8 +255,8 @@ ParseResult CreateVector<R>::operator()(Cursor& cursor) const noexcept {
             return std::nullopt;
         }
     }
-    SpanRef node
-        = cursor.arena().from_loc(loc, SExpr(SExprVector(std::move(res.value()))));
+    SpanRef node = cursor.arena().from_loc(
+        loc, SExpr(SExprVector(std::move(res.value()))));
     return std::vector<SpanRef> { node };
 }
 
