@@ -4,27 +4,23 @@ import std;
 
 import lpc.frontend.ast;
 import lpc.frontend.arenas;
+import lpc.context;
 import lpc.frontend.refs;
+import lpc.utils.logging;
 
 namespace lpc {
+
 using namespace lpc::frontend;
+using lpc::utils::Debug;
+using lpc::utils::Error;
 
 export class Pass {
 public:
     virtual ~Pass() = default;
-
     [[nodiscard]] virtual std::string name() const noexcept = 0;
     [[nodiscard]] virtual SpanRef run(
-        SpanRef root, SpanArena& arena) noexcept
+        SpanRef root, CompilerContext& ctx) noexcept
         = 0;
-
-    Pass(const Pass&) = delete;
-    Pass& operator=(const Pass&) = delete;
-    Pass(Pass&&) = default;
-    Pass& operator=(Pass&&) = default;
-
-protected:
-    explicit Pass() = default;
 };
 
 export class PassManager {
@@ -40,31 +36,34 @@ public:
     PassManager(PassManager&&) = default;
     PassManager& operator=(PassManager&&) = default;
 
-    template <typename T, typename... Args>
+    template <typename T>
         requires std::is_base_of_v<Pass, T>
-    void add_pass(Args&&... args) {
-        _passes.emplace_back(std::make_unique<T>(std::forward<Args>(args)...));
+    PassManager& add() {
+        _passes.emplace_back(std::make_unique<T>());
+        return *this;
     }
 
-    template <typename P, typename... Ps>
-        requires std::is_base_of_v<Pass, P>
-        && (std::is_base_of_v<Pass, Ps> && ...)
-    void add_passes() {
-        _passes.emplace_back(std::make_unique<P>());
-        if constexpr (sizeof...(Ps) > 0) {
-            add_passes<Ps...>();
+    [[nodiscard]] SpanRef run_all(SpanRef root, CompilerContext& ctx) noexcept {
+        SpanRef result = root;
+        auto& arena = ctx.arena();
+
+        for (const auto& pass : _passes) {
+            Debug("Running pass: {}", pass->name());
+
+            result = pass->run(result, ctx);
+            if (!result.is_valid()) {
+                Error("Pass failed: {}", pass->name());
+                return result;
+            }
+
+            Debug("Pass {} completed successfully", pass->name());
+
+            if (ctx.options().should_print(pass->name())) {
+                std::print("{}", arena.dump_root(result));
+            }
         }
-    }
 
-    [[nodiscard]] SpanRef run_all(SpanRef root, SpanArena& arena,
-        std::vector<std::string>& print_passes) noexcept;
-
-    void clear() noexcept {
-        _passes.clear();
-    }
-
-    [[nodiscard]] std::size_t size() const noexcept {
-        return _passes.size();
+        return result;
     }
 };
 

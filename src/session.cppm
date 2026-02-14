@@ -2,16 +2,15 @@ export module lpc.session;
 
 import std;
 
+import lpc.context;
+
 namespace lpc {
 
 export class Session {
 private:
-    std::string _output_file_path;
     std::vector<std::string> _input_file_paths;
-    std::vector<std::string> _print_passes;
-    std::string _backend;
-    bool _show_core_expansion = false;
-    std::uint32_t _max_expansion_depth = 1000;
+    std::string _output_file_path;
+    CompilerOptions _options;
 
 public:
     explicit Session() = default;
@@ -36,7 +35,7 @@ public:
               });
 
         std::ranges::for_each(split_view, [this](std::string_view pass) {
-            _print_passes.emplace_back(pass);
+            _options.print_passes.emplace_back(pass);
         });
     }
 
@@ -45,16 +44,16 @@ public:
             std::println(std::cerr, "Unsupported backend: {}", backend);
             return false;
         }
-        _backend = std::string(backend);
+        _options.backend = std::string(backend);
         return true;
     }
 
     void set_show_core_expansion(bool v) noexcept {
-        _show_core_expansion = v;
+        _options.show_core_expansion = v;
     }
 
     void set_max_expansion_depth(std::uint32_t v) noexcept {
-        _max_expansion_depth = v;
+        _options.max_expansion_depth = v;
     }
 
     [[nodiscard]] int run() noexcept;

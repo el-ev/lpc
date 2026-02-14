@@ -2,13 +2,11 @@ module lpc.session;
 
 import std;
 
-import lpc.backend.interp;
-import lpc.cps.lower;
+import lpc.context;
 import lpc.frontend.arenas;
 import lpc.frontend.ast;
 import lpc.frontend.expand;
 import lpc.frontend.lexer;
-import lpc.frontend.span;
 import lpc.frontend.refs;
 import lpc.frontend.syntax;
 import lpc.passes;
@@ -18,7 +16,6 @@ namespace lpc {
 
 using namespace lpc::frontend;
 using lpc::utils::Error;
-using lpc::utils::Warn;
 
 int Session::run() noexcept {
     if (_input_file_paths.empty()) {
@@ -50,7 +47,7 @@ int Session::run() noexcept {
 
     auto tokens = lexer.tokens();
 
-    if (std::ranges::find(_print_passes, "token") != _print_passes.end()) {
+    if (_options.should_print("token")) {
         for (const auto& token : tokens)
             std::print("{} ", span_arena.loc(token.loc()).lexeme());
         std::println("");
@@ -63,20 +60,15 @@ int Session::run() noexcept {
 
     auto root = parser.root();
 
-    if (std::ranges::find(_print_passes, "raw") != _print_passes.end())
+    if (_options.should_print("raw"))
         std::print("{}", span_arena.dump_root(root));
 
-    PassManager pass_manager;
-    pass_manager.add_pass<frontend::ExpandPass>(
-        _show_core_expansion, _max_expansion_depth);
-    root = pass_manager.run_all(root, span_arena, _print_passes);
-    if (!root.is_valid())
-        return 1;
+    CompilerContext ctx(std::move(_options), std::move(span_arena));
 
-    if (_backend == "interp") {
-        // backend::Interp interp;
-        return 0;
-    }
+    auto result = PassManager().add<frontend::ExpandPass>().run_all(root, ctx);
+
+    if (!result.is_valid())
+        return 1;
 
     return 0;
 }

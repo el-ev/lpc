@@ -25,8 +25,8 @@ auto main(int argc, char* argv[]) noexcept -> int {
         .add_option("output", 'o', "Output file path", "out.c",
             [&](auto path) { session.set_output_file(std::string(path)); })
         .add_option("print", NO_SHORT_NAME,
-            "Print intermediate representations, separated by commas. (token, "
-            "raw, ...)",
+            "Print intermediate representations, separated by commas. "
+            "(token, raw, expand, all)",
             "", [&](auto passes_str) { session.set_print_passes(passes_str); })
         .add_option("backend", 'b',
             "Backend to use. Currently only 'interp' is supported.", "interp",

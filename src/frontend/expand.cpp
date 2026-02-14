@@ -2,6 +2,7 @@ module lpc.frontend.expand;
 
 import std;
 
+import lpc.context;
 import lpc.frontend.lexer;
 import lpc.frontend.syntax;
 import lpc.utils.logging;
@@ -814,7 +815,8 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
 
 #include "../core.scm"
 
-void ExpandPass::load_core(SpanArena& user_arena) {
+void ExpandPass::load_core(CompilerContext& ctx) {
+    auto& user_arena = ctx.arena();
     // Add a leading space so it can't be a valid file name
     Lexer lexer(user_arena.location_arena(), " <core> ", CORE_SOURCE);
     if (lexer.is_failed())
@@ -830,21 +832,21 @@ void ExpandPass::load_core(SpanArena& user_arena) {
         const auto list = *list_ptr;
         bool dummy_error = false;
         for (const auto& form : list.elem) {
-            Expander expander(_env, user_arena, dummy_error,
-                _show_core_expansion, _max_expansion_depth);
+            Expander expander(_env, ctx, dummy_error);
             (void)expander.expand(form);
         }
     }
     _core_loaded = true;
 }
 
-[[nodiscard]] SpanRef ExpandPass::run(SpanRef root, SpanArena& arena) noexcept {
+[[nodiscard]] SpanRef ExpandPass::run(
+    SpanRef root, CompilerContext& ctx) noexcept {
     if (!_core_loaded)
-        load_core(arena);
+        load_core(ctx);
 
+    auto& arena = ctx.arena();
     _had_error = false;
-    Expander expander(
-        _env, arena, _had_error, _show_core_expansion, _max_expansion_depth);
+    Expander expander(_env, ctx, _had_error);
 
     if (const auto* list_ptr = arena.get<SExprList>(root)) {
         const auto list = *list_ptr;
@@ -869,10 +871,7 @@ void ExpandPass::load_core(SpanArena& user_arena) {
     __builtin_unreachable();
 }
 
-ExpandPass::ExpandPass(
-    bool show_core_expansion, std::uint32_t max_expansion_depth) noexcept
-    : _show_core_expansion(show_core_expansion)
-    , _max_expansion_depth(max_expansion_depth) {
+ExpandPass::ExpandPass() noexcept {
     _env.define_core_syntax("lambda");
     _env.define_core_syntax("quote");
     _env.define_core_syntax("if");

@@ -2,6 +2,7 @@ export module lpc.frontend.sema;
 
 import std;
 
+import lpc.context;
 import lpc.frontend.ast;
 import lpc.frontend.arenas;
 import lpc.frontend.refs;
@@ -16,7 +17,8 @@ public:
         return "sema";
     }
 
-    [[nodiscard]] SpanRef run(SpanRef root, SpanArena& arena) noexcept final;
+    [[nodiscard]] SpanRef run(
+        SpanRef root, CompilerContext& ctx) noexcept final;
 
     explicit SemaPass() noexcept = default;
     ~SemaPass() final = default;

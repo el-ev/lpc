@@ -2,6 +2,7 @@ export module lpc.frontend.expand;
 
 import std;
 
+import lpc.context;
 import lpc.frontend.ast;
 import lpc.frontend.arenas;
 import lpc.frontend.refs;
@@ -108,13 +109,12 @@ private:
 
 class Expander {
 public:
-    Expander(LexEnv& env, SpanArena& arena, bool& had_error, bool show_core,
-        std::uint32_t max_depth)
+    Expander(LexEnv& env, CompilerContext& ctx, bool& had_error)
         : _env(env)
-        , _arena(arena)
+        , _arena(ctx.arena())
         , _had_error(had_error)
-        , _show_core(show_core)
-        , _max_depth(max_depth) {
+        , _show_core(ctx.options().show_core_expansion)
+        , _max_depth(ctx.options().max_expansion_depth) {
     }
 
     std::vector<SpanRef> expand(SpanRef root);
@@ -134,7 +134,8 @@ private:
     [[nodiscard]] SpanRef add_scope(SpanRef expr, ScopeID scope);
 
     void report_error(SpanRef failed_expr, std::string_view msg);
-    bool check_arity(SpanRef el, const SExprList& list, std::size_t min_arity, std::size_t max_arity);
+    bool check_arity(SpanRef el, const SExprList& list, std::size_t min_arity,
+        std::size_t max_arity);
     bool is_identifier_active(SpanRef id_ref);
 
     std::vector<SpanRef> expand_lambda(const SExprList& list, SpanRef root);
@@ -184,29 +185,19 @@ export class ExpandPass final : public Pass {
 private:
     LexEnv _env;
     bool _core_loaded = false;
-    bool _show_core_expansion = false;
-    std::uint32_t _max_expansion_depth = 1000;
     bool _had_error = false;
 
-    void load_core(SpanArena& user_arena);
+    void load_core(CompilerContext& ctx);
 
 public:
     [[nodiscard]] std::string name() const noexcept final {
         return "expand";
     }
 
-    void set_show_core_expansion(bool v) noexcept {
-        _show_core_expansion = v;
-    }
+    [[nodiscard]] SpanRef run(
+        SpanRef root, CompilerContext& ctx) noexcept final;
 
-    void set_max_expansion_depth(std::uint32_t v) noexcept {
-        _max_expansion_depth = v;
-    }
-
-    [[nodiscard]] SpanRef run(SpanRef root, SpanArena& arena) noexcept final;
-
-    explicit ExpandPass(
-        bool show_core_expansion, std::uint32_t max_expansion_depth) noexcept;
+    explicit ExpandPass() noexcept;
     ~ExpandPass() final = default;
 };
 

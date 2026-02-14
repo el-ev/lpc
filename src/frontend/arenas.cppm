@@ -115,9 +115,8 @@ public:
         , _loc_arena(std::move(loc_arena)) { };
 
     SpanArena(const SpanArena&) = delete;
-    SpanArena(SpanArena&&) = delete;
-    SpanArena& operator=(const SpanArena&) = delete;
-    SpanArena& operator=(SpanArena&&) = delete;
+    SpanArena(SpanArena&&) = default;
+    SpanArena& operator=(SpanArena&&) = default;
 
     [[nodiscard]] SExprArena& expr_arena() noexcept {
         return _expr_arena;

@@ -3,7 +3,7 @@ module lpc.cps.lower;
 namespace lpc::cps {
 
 [[nodiscard]] SpanRef LowerPass::run(
-    SpanRef root, SpanArena& /* arena */) noexcept {
+    SpanRef root, CompilerContext& /* ctx */) noexcept {
     // TODO: implement CPS lowering
     return root;
 }
