@@ -51,17 +51,20 @@ private:
     template <typename P, typename... Rest>
     auto run_impl(auto&& input, CompilerContext& ctx) noexcept {
         P pass;
+        using FinalOut = typename last_type<In, Passes...>::type::out_type;
         auto result = pass.run(std::forward<decltype(input)>(input), ctx);
 
         if (pass.is_failed()) {
-            Error("Pass {} failed", pass.name());
-            using FinalOut = typename last_type<In, Passes...>::type::out_type;
+            Error("Pass failed: {}", pass.name());
             return FinalOut {};
         }
 
         Debug("Pass {} completed successfully", pass.name());
         if (ctx.options().should_print(pass.name()))
             std::print("{}", pass.dump(result, ctx));
+
+        if (ctx.options().should_stop(pass.name()))
+            return FinalOut {};
 
         return run_impl<Rest...>(std::move(result), ctx);
     }

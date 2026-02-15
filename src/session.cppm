@@ -56,6 +56,10 @@ public:
         _options.max_expansion_depth = v;
     }
 
+    void set_stop_after(std::string_view pass) noexcept {
+        _options.stop_after = std::string(pass);
+    }
+
     [[nodiscard]] int run() noexcept;
 };
 

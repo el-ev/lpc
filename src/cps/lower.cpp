@@ -1,6 +1,5 @@
 module lpc.cps.lower;
 
-
 namespace lpc::cps {
 
 // [[nodiscard]] SpanRef LowerPass::run(

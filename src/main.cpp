@@ -28,6 +28,9 @@ auto main(int argc, char* argv[]) noexcept -> int {
             "Print intermediate representations, separated by commas. "
             "(lex, parse, expand, all)",
             "", [&](auto passes_str) { session.set_print_passes(passes_str); })
+        .add_option("stop-after", NO_SHORT_NAME,
+            "Stop after the specified pass (lex, parse, expand, sema).", "",
+            [&](auto pass) { session.set_stop_after(pass); })
         .add_option("backend", 'b',
             "Backend to use. Currently only 'interp' is supported.", "interp",
             [&](auto backend) {

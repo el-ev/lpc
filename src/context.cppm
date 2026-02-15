@@ -11,12 +11,17 @@ export struct CompilerOptions {
     bool show_core_expansion = false;
     std::uint32_t max_expansion_depth = 1000;
     std::vector<std::string> print_passes;
+    std::string stop_after;
     std::string backend = "interp";
 
     [[nodiscard]] bool should_print(std::string_view pass) const noexcept {
         if (std::ranges::find(print_passes, "all") != print_passes.end())
             return true;
         return std::ranges::find(print_passes, pass) != print_passes.end();
+    }
+
+    [[nodiscard]] bool should_stop(std::string_view pass) const noexcept {
+        return stop_after == pass;
     }
 };
 
