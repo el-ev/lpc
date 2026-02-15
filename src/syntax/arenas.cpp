@@ -5,14 +5,74 @@ import std;
 import lpc.syntax.ast;
 import lpc.syntax.span;
 import lpc.utils.arena;
+import lpc.utils.logging;
 
 namespace lpc::syntax {
+
+using lpc::utils::Error;
 
 namespace {
     template <typename... Ts>
     struct SExprVisitor : Ts... {
         using Ts::operator()...;
     };
+
+    // TODO: better?
+    [[nodiscard]] std::pair<std::size_t, std::size_t> find_cycle_suffix(
+        std::span<const std::string> seq) {
+        const auto n = seq.size();
+        if (n < 2)
+            return { 0, 0 };
+        for (std::size_t L = 1; L <= n / 2; ++L) {
+            const auto pattern = std::span(seq).last(L);
+            std::size_t k = 1;
+            for (std::size_t j = 1; j * L < n; ++j) {
+                const auto start = n - ((j + 1) * L);
+                if (start + L > n)
+                    break;
+                if (!std::equal(seq.begin() + static_cast<std::ptrdiff_t>(start),
+                        seq.begin() + static_cast<std::ptrdiff_t>(start + L),
+                        pattern.begin(), pattern.end()))
+                    break;
+                k = j + 1;
+            }
+            if (k >= 2)
+                return { L, k };
+        }
+        return { 0, 0 };
+    }
+
+    void flush_expansion_segment(std::vector<std::string>& segment) {
+        if (segment.empty())
+            return;
+        const auto [cycle_len, num_reps] = find_cycle_suffix(segment);
+        const std::size_t cycle_start = cycle_len > 0 && num_reps >= 2
+            ? segment.size() - (cycle_len * num_reps)
+            : segment.size();
+        for (std::size_t i = 0; i < cycle_start;) {
+            std::size_t run = 1;
+            while (i + run < cycle_start && segment[i + run] == segment[i])
+                ++run;
+            std::println(std::cerr, "  in expansion of: {}", segment[i]);
+            if (run > 1)
+                std::println(
+                    std::cerr, "  ({} identical frames omitted)", run - 1);
+            i += run;
+        }
+        if (cycle_len > 0 && num_reps >= 2) {
+            for (std::size_t i = 0; i < cycle_len; ++i)
+                std::println(std::cerr, "  in expansion of: {}",
+                    segment[cycle_start + i]);
+            const auto to_omit = (num_reps - 1) * cycle_len;
+            if (cycle_len == 1)
+                std::println(
+                    std::cerr, "  ({} identical frames omitted)", to_omit);
+            else
+                std::println(
+                    std::cerr, "  ({} similar frames omitted)", to_omit);
+        }
+        segment.clear();
+    }
 } // namespace
 
 [[nodiscard]] const SExpr& SExprArena::at(SExprRef ref) const& {
@@ -52,6 +112,54 @@ void SpanArena::walk(SpanRef ref, const std::function<void(SpanRef)>& f) {
     f(ref);
     if (at(ref).parent().is_valid())
         walk(at(ref).parent(), f);
+}
+
+bool SpanArena::report_error(
+    SpanRef failed_expr, std::string_view msg, bool show_core) const {
+    auto failed_str = dump(failed_expr);
+
+    Error("{}", msg);
+    std::println(std::cerr, "  for: {}", failed_str);
+
+    dump_backtrace(at(failed_expr).parent(), show_core);
+
+    auto location = loc(failed_expr);
+    std::println(std::cerr, "  at {}", location.source_location());
+
+    return false;
+}
+
+void SpanArena::dump_backtrace(SpanRef parent, bool show_core) const {
+    struct Frame {
+        int core_omitted;
+        std::string dump;
+    };
+    std::vector<Frame> frames;
+    frames.reserve(64);
+    int core_omitted = 0;
+    auto cur = parent;
+    while (cur.is_valid()) {
+        if (is_core_binding(cur) && !show_core) {
+            core_omitted++;
+            cur = at(cur).parent();
+            continue;
+        }
+        frames.push_back({ core_omitted, dump(cur) });
+        core_omitted = 0;
+        cur = at(cur).parent();
+    }
+    if (core_omitted > 0)
+        std::println(std::cerr, "  ({} frames omitted)", core_omitted);
+
+    std::vector<std::string> segment;
+    for (const auto& [core, dump] : frames) {
+        if (core > 0) {
+            flush_expansion_segment(segment);
+            std::println(std::cerr, "  ({} frames omitted)", core);
+        }
+        segment.push_back(dump);
+    }
+    flush_expansion_segment(segment);
 }
 
 Location SpanArena::loc(SpanRef ref) const noexcept {

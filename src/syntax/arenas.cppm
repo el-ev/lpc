@@ -183,6 +183,18 @@ public:
 
     void walk(SpanRef ref, const std::function<void(SpanRef)>& f);
 
+    [[nodiscard]] bool report_error(SpanRef failed_expr, std::string_view msg,
+        bool show_core = false) const;
+
+    template <typename... Args>
+    [[nodiscard]] bool report_error(SpanRef failed_expr, bool show_core,
+        std::format_string<Args...> fmt, Args&&... args) const {
+        return report_error(
+            failed_expr, std::format(fmt, std::forward<Args>(args)...), show_core);
+    }
+
+    void dump_backtrace(SpanRef parent, bool show_core = false) const;
+
     [[nodiscard]] std::string dump_root(SpanRef root) const;
     [[nodiscard]] std::string dump(SpanRef ref) const;
 
