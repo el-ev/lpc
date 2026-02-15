@@ -88,9 +88,11 @@ public:
                     || std::ranges::includes(entry.scopes, best->scopes)) {
                     // prefer later bindings over earlier ones
                     best = &entry;
-                } else if (std::ranges::includes(best->scopes, entry.scopes)) {
-                    // best is a superset of entry, so best is already better
-                } else {
+                }
+                // else if (std::ranges::includes(best->scopes, entry.scopes))
+                // { best is a superset of entry, so best is already better
+                // }
+                else {
                     // ambiguous reference
                     // todo do something?
                 }

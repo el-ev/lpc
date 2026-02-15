@@ -23,6 +23,10 @@ class SymbolTable {
     std::uint32_t _next_id = 0;
 
 public:
+    explicit SymbolTable()
+        : _current(std::make_unique<Scope>()) {
+    }
+
     VarId define(const std::string& name) {
         VarId id { .id = _next_id++, .debug_name = name };
         _current->bindings[name] = id;
@@ -45,18 +49,18 @@ public:
     }
 };
 
-export class SemaPass final : public Pass<SpanRef, SpanRef> {
+export class SemaPass final : public Pass<SpanRef, CoreExprRef> {
 private:
 public:
     [[nodiscard]] std::string name() const noexcept final {
         return "sema";
     }
 
-    [[nodiscard]] SpanRef run(
+    [[nodiscard]] CoreExprRef run(
         SpanRef root, CompilerContext& ctx) noexcept final;
 
-    [[nodiscard]] std::string dump(
-        const SpanRef& /* result */, CompilerContext& /* ctx */) const noexcept final {
+    [[nodiscard]] std::string dump(const CoreExprRef& /* result */,
+        CompilerContext& /* ctx */) const noexcept final {
         return "";
     }
 

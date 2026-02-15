@@ -53,7 +53,7 @@ int Session::run() noexcept {
                       .add<ExpandPass>()
                       .add<SemaPass>()
                       .build()
-                      .run(std::monostate {}, ctx);
+                      .run({}, ctx);
 
     if (!result.is_valid())
         return 1;

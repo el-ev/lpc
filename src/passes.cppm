@@ -43,7 +43,7 @@ public:
 
 private:
     template <typename... Rest>
-    requires(sizeof...(Rest) == 0)
+        requires(sizeof...(Rest) == 0)
     auto run_impl(auto&& input, CompilerContext& /* ctx */) noexcept {
         return std::forward<decltype(input)>(input);
     }
@@ -56,11 +56,7 @@ private:
         if (pass.is_failed()) {
             Error("Pass {} failed", pass.name());
             using FinalOut = typename last_type<In, Passes...>::type::out_type;
-            if constexpr (std::is_same_v<FinalOut, syntax::SpanRef>) {
-                return syntax::SpanRef::invalid();
-            } else {
-                return FinalOut {};
-            }
+            return FinalOut {};
         }
 
         Debug("Pass {} completed successfully", pass.name());

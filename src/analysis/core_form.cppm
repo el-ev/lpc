@@ -14,6 +14,10 @@ using lpc::utils::TaggedUnion;
 export struct VarId {
     std::uint32_t id;
     std::string debug_name;
+
+    auto operator<=>(const VarId& other) const noexcept {
+        return id <=> other.id;
+    }
 };
 
 export struct CoreExprTag { };
@@ -82,7 +86,9 @@ public:
     [[nodiscard]] CoreExprRef emplace(SpanRef origin, Args&&... args) {
         return Arena::emplace(origin, std::forward<Args>(args)...);
     }
-    [[nodiscard]] const CoreExpr& at(CoreExprRef ref) const { return Arena::at(ref); }
+    [[nodiscard]] const CoreExpr& at(CoreExprRef ref) const {
+        return Arena::at(ref);
+    }
 };
 
 } // namespace lpc::analysis
