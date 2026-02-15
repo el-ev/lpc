@@ -438,6 +438,10 @@ static std::string dump_core(
         return "(set! " + set->target.debug_name + " "
             + dump_core(core, spans, set->value) + ")";
 
+    if (const auto* def = expr.get<CoreDefine>())
+        return "(define " + def->target.debug_name + " "
+            + dump_core(core, spans, def->value) + ")";
+
     if (const auto* seq = expr.get<CoreSeq>()) {
         std::string out = "(begin";
         for (const auto& e : seq->exprs)
