@@ -38,7 +38,11 @@ Checks: >
   -misc-no-recursion,
   -readability-identifier-naming,
   -cppcoreguidelines-pro-bounds-constant-array-index,
-  -misc-use-anonymous-namespace
+  -misc-use-anonymous-namespace,
+  -readability-identifier-length,
+  -readability-named-parameter,
+  -hicpp-named-parameter,
+  
 
 WarningsAsErrors: ''
 HeaderFilterRegex: '.*'

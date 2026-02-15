@@ -1,2 +1,0 @@
-; %lpc --print token %s
-#
