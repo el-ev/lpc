@@ -11,9 +11,16 @@ namespace lpc::analysis {
 using namespace lpc::syntax;
 using lpc::utils::TaggedUnion;
 
+export enum class VarKind : std::int8_t {
+    Local,
+    Global,
+    Builtin
+};
+
 export struct VarId {
     std::uint32_t id;
     std::string debug_name;
+    VarKind kind = VarKind::Local;
 
     auto operator<=>(const VarId& other) const noexcept {
         return id <=> other.id;
@@ -25,10 +32,31 @@ export using CoreExprRef
     = lpc::utils::ElementReference<CoreExprTag, std::uint32_t>;
 export class CoreExprArena;
 
+export struct Arity {
+    std::uint32_t min_args;
+    std::uint32_t max_args; // 0 for variadic
+
+    [[nodiscard]] static constexpr Arity fixed(std::uint32_t n) {
+        return { .min_args = n, .max_args = n };
+    }
+
+    [[nodiscard]] static constexpr Arity at_least(std::uint32_t n) {
+        return { .min_args = n, .max_args = 0 };
+    }
+
+    [[nodiscard]] constexpr bool is_applicable(std::uint32_t n) const noexcept {
+        return min_args <= n && (max_args == 0 || n <= max_args);
+    }
+
+    [[nodiscard]] constexpr bool is_variadic() const noexcept {
+        return max_args == 0;
+    }
+};
+
 export struct CoreLambda {
     std::vector<VarId> params;
     std::optional<VarId> rest_param;
-    std::vector<CoreExprRef> body;
+    CoreExprRef body;
 };
 
 export struct CoreIf {
@@ -46,13 +74,10 @@ export struct CoreDefine {
     CoreExprRef value;
 };
 
-export struct CoreQuote {
-    SpanRef datum;
-};
-
-export struct CoreBegin {
+export struct CoreSeq {
     std::vector<CoreExprRef> exprs;
 };
+
 export struct CoreApply {
     CoreExprRef func;
     std::vector<CoreExprRef> args;
@@ -66,12 +91,16 @@ export struct CoreLiteral {
     SpanRef value;
 };
 
+export struct CoreQuote {
+    SpanRef datum;
+};
+
 export class CoreExpr
-    : public TaggedUnion<CoreLambda, CoreIf, CoreSet, CoreDefine, CoreQuote,
-          CoreBegin, CoreApply, CoreVar, CoreLiteral> {
+    : public TaggedUnion<CoreLambda, CoreIf, CoreSet, CoreDefine, CoreSeq,
+          CoreApply, CoreVar, CoreLiteral, CoreQuote> {
 public:
     using TaggedUnion = TaggedUnion<CoreLambda, CoreIf, CoreSet, CoreDefine,
-        CoreQuote, CoreBegin, CoreApply, CoreVar, CoreLiteral>;
+        CoreSeq, CoreApply, CoreVar, CoreLiteral, CoreQuote>;
     SpanRef origin;
     template <typename... Args>
     explicit CoreExpr(SpanRef origin, Args&&... args) noexcept
