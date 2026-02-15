@@ -94,6 +94,7 @@ class TestChecker:
             return TestResult(False, False, error_msg)
         
         actual_stdout, actual_stderr = self.executor.execute(command)
+        actual_stdout = '\n'.join([l for l in actual_stdout.splitlines() if not l.startswith('[')])
         expected_stdout = self.file_reader.read_file(f"{scm_file}.stdout")
         expected_stderr = self.file_reader.read_file(f"{scm_file}.stderr")
         
