@@ -87,20 +87,16 @@ export struct CoreVar {
     VarId var;
 };
 
-export struct CoreLiteral {
+export struct CoreConstant {
     SpanRef value;
-};
-
-export struct CoreQuote {
-    SpanRef datum;
 };
 
 export class CoreExpr
     : public TaggedUnion<CoreLambda, CoreIf, CoreSet, CoreDefine, CoreSeq,
-          CoreApply, CoreVar, CoreLiteral, CoreQuote> {
+          CoreApply, CoreVar, CoreConstant> {
 public:
     using TaggedUnion = TaggedUnion<CoreLambda, CoreIf, CoreSet, CoreDefine,
-        CoreSeq, CoreApply, CoreVar, CoreLiteral, CoreQuote>;
+        CoreSeq, CoreApply, CoreVar, CoreConstant>;
     SpanRef origin;
     template <typename... Args>
     explicit CoreExpr(SpanRef origin, Args&&... args) noexcept

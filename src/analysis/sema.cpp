@@ -102,7 +102,7 @@ CoreExprRef Lowerer::lower_variable(SpanRef ref, const LispIdent& id) {
 }
 
 CoreExprRef Lowerer::lower_literal(SpanRef ref) {
-    return _core.emplace(ref, CoreLiteral { .value = ref });
+    return _core.emplace(ref, CoreConstant { .value = ref });
 }
 
 CoreExprRef Lowerer::lower_list(SpanRef ref, const SExprList& list) {
@@ -284,7 +284,7 @@ CoreExprRef Lowerer::lower_define(SpanRef ref, const SExprList& list) {
 CoreExprRef Lowerer::lower_quote(SpanRef ref, const SExprList& list) {
     // (quote datum)
     // list.elem = [quote, datum, nil]
-    return _core.emplace(ref, CoreQuote { .datum = list.elem[1] });
+    return _core.emplace(ref, CoreConstant { .value = list.elem[1] });
 }
 
 CoreExprRef Lowerer::lower_begin(SpanRef ref, const SExprList& list) {
@@ -389,7 +389,7 @@ CoreExprRef Lowerer::lower_program(SpanRef root) {
         return CoreExprRef::invalid();
 
     if (forms.empty())
-        return _core.emplace(root, CoreLiteral { .value = root });
+        return _core.emplace(root, CoreConstant { .value = root });
 
     if (forms.size() == 1)
         return forms[0];
@@ -407,11 +407,8 @@ static std::string dump_core(
     if (const auto* var = expr.get<CoreVar>())
         return var->var.debug_name;
 
-    if (const auto* lit = expr.get<CoreLiteral>())
-        return spans.dump(lit->value);
-
-    if (const auto* q = expr.get<CoreQuote>())
-        return "'" + spans.dump(q->datum);
+    if (const auto* lit = expr.get<CoreConstant>())
+        return "'" + spans.dump(lit->value);
 
     if (const auto* lam = expr.get<CoreLambda>()) {
         std::string out = "(lambda (";
@@ -440,10 +437,6 @@ static std::string dump_core(
     if (const auto* set = expr.get<CoreSet>())
         return "(set! " + set->target.debug_name + " "
             + dump_core(core, spans, set->value) + ")";
-
-    if (const auto* def = expr.get<CoreDefine>())
-        return "(define " + def->target.debug_name + " "
-            + dump_core(core, spans, def->value) + ")";
 
     if (const auto* seq = expr.get<CoreSeq>()) {
         std::string out = "(begin";
