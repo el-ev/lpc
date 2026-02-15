@@ -139,8 +139,8 @@ private:
     void dump_backtrace();
 
     template <typename... Args>
-    bool report_error(SpanRef failed_expr, std::format_string<Args...> fmt,
-        Args&&... args) {
+    bool report_error(
+        SpanRef failed_expr, std::format_string<Args...> fmt, Args&&... args) {
         return report_error(
             failed_expr, std::format(fmt, std::forward<Args>(args)...));
     }
@@ -192,7 +192,7 @@ public:
     }
 };
 
-export class ExpandPass final : public Pass {
+export class ExpandPass final : public Pass<SpanRef, SpanRef> {
 private:
     LexEnv _env;
     bool _core_loaded = false;
@@ -208,8 +208,16 @@ public:
     [[nodiscard]] SpanRef run(
         SpanRef root, CompilerContext& ctx) noexcept final;
 
+    [[nodiscard]] std::string dump(
+        const SpanRef& result, CompilerContext& ctx) const noexcept final {
+        return ctx.span_arena().dump_root(result);
+    }
+
+    [[nodiscard]] bool is_failed() const noexcept final {
+        return _had_error;
+    }
+
     explicit ExpandPass() noexcept;
-    ~ExpandPass() final = default;
 };
 
 } // namespace lpc::analysis

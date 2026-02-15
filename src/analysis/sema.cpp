@@ -2,6 +2,7 @@ module lpc.analysis.sema;
 
 import std;
 
+import lpc.analysis.core_form;
 import lpc.context;
 import lpc.syntax.ast;
 

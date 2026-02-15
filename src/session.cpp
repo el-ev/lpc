@@ -44,35 +44,16 @@ int Session::run() noexcept {
     SExprArena node_arena;
     SpanArena span_arena(std::move(node_arena), std::move(loc_arena));
 
-    Lexer lexer(span_arena.location_arena(), path, source);
-    if (lexer.is_failed())
-        return 1;
+    CompilerContext ctx(std::move(_options), std::string(path),
+        std::move(source), std::move(span_arena));
 
-    auto tokens = lexer.tokens();
-
-    if (_options.should_print("token")) {
-        for (const auto& token : tokens)
-            std::print("{} ", span_arena.loc(token.loc()).lexeme());
-        std::println("");
-    }
-
-    Parser parser(std::move(tokens), span_arena);
-
-    if (parser.is_failed())
-        return 1;
-
-    auto root = parser.root();
-
-    if (_options.should_print("raw"))
-        std::print("{}", span_arena.dump_root(root));
-
-    CompilerContext ctx(std::move(_options), std::move(span_arena));
-
-    auto result = PassManager()
-                    .add<ExpandPass>()
-                    .add<SemaPass>()
-                    .run_all(root, ctx);
-                    
+    auto result = builder<std::monostate>()
+                      .add<LexPass>()
+                      .add<ParsePass>()
+                      .add<ExpandPass>()
+                      .add<SemaPass>()
+                      .build()
+                      .run(std::monostate {}, ctx);
 
     if (!result.is_valid())
         return 1;

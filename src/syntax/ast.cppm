@@ -8,8 +8,6 @@ import lpc.utils.tagged_union;
 
 namespace lpc::syntax {
 
-
-
 using lpc::utils::TaggedUnion;
 
 export class LispNil { };

@@ -109,4 +109,15 @@ void Parser::parse() noexcept {
     }
     _root = program.value()[0];
 }
+
+SpanRef ParsePass::run(
+    std::vector<Token> tokens, CompilerContext& ctx) noexcept {
+    Parser parser(std::move(tokens), ctx.span_arena());
+    if (parser.is_failed()) {
+        _failed = true;
+        return SpanRef::invalid();
+    }
+    return parser.root();
+}
+
 } // namespace lpc::syntax

@@ -2,6 +2,8 @@ export module lpc.syntax.lexer;
 
 import std;
 
+import lpc.context;
+import lpc.passes;
 import lpc.syntax.arenas;
 import lpc.syntax.token;
 
@@ -81,6 +83,28 @@ private:
     [[nodiscard]] bool read_character() noexcept;
     [[nodiscard]] bool read_string() noexcept;
     [[nodiscard]] bool read_operator() noexcept;
+};
+
+export class LexPass final : public Pass<std::monostate, std::vector<Token>> {
+private:
+    bool _failed = false;
+
+public:
+    [[nodiscard]] std::string name() const noexcept final {
+        return "lex";
+    }
+
+    [[nodiscard]] std::vector<Token> run(
+        std::monostate, CompilerContext& ctx) noexcept final;
+
+    [[nodiscard]] std::string dump(
+        const std::vector<Token>& result, CompilerContext& ctx) const noexcept final;
+
+    [[nodiscard]] bool is_failed() const noexcept final {
+        return _failed;
+    }
+
+    explicit LexPass() noexcept = default;
 };
 
 } // namespace lpc::syntax

@@ -9,8 +9,6 @@ import lpc.utils.logging;
 
 namespace lpc::syntax {
 
-
-
 export class Cursor {
 private:
     const std::vector<Token>& _tokens;

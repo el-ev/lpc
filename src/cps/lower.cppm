@@ -12,17 +12,17 @@ namespace lpc::cps {
 
 using namespace lpc::syntax;
 
-export class LowerPass final : public Pass {
-public:
-    [[nodiscard]] std::string name() const noexcept final {
-        return "lower";
-    }
+// export class LowerPass final : public Pass {
+// public:
+//     [[nodiscard]] std::string name() const noexcept final {
+//         return "lower";
+//     }
 
-    [[nodiscard]] SpanRef run(
-        SpanRef root, CompilerContext& ctx) noexcept final;
+//     [[nodiscard]] SpanRef run(
+//         SpanRef root, CompilerContext& ctx) noexcept final;
 
-    LowerPass() = default;
-    ~LowerPass() final = default;
-};
+//     LowerPass() = default;
+//     ~LowerPass() final = default;
+// };
 
 } // namespace lpc::cps

@@ -403,4 +403,20 @@ bool Lexer::read_operator() noexcept {
     };
 }
 
+std::vector<Token> LexPass::run(std::monostate, CompilerContext& ctx) noexcept {
+    Lexer lexer(ctx.span_arena().location_arena(), ctx.path(), ctx.source());
+    if (lexer.is_failed()) {
+        _failed = true;
+        return {};
+    }
+    return lexer.tokens();
+}
+
+std::string LexPass::dump(const std::vector<Token>& result, CompilerContext& ctx) const noexcept {
+    std::string out;
+    for (const auto& token : result)
+        out += std::format("{} ", ctx.span_arena().loc(token.loc()).lexeme());
+    return out + "\n";
+}
+
 } // namespace lpc::syntax
