@@ -337,20 +337,24 @@ std::vector<SpanRef> Expander::expand_begin(
     if (!check_arity(root, list, 1, 0))
         return { SpanRef::invalid() };
 
+    std::vector<SpanRef> out;
+
     if (!_is_top_level) {
-        // call macro __begin
-        auto new_list = list;
-        new_list.elem[0] = _arena.get_ident(
-            _arena.loc_ref(list.elem[0]), "__begin", _parent);
-        auto ref = _arena.expand(_arena.loc_ref(root), _parent,
-            ScopeSetRef::invalid(), SExprList(std::move(new_list)));
-        auto r = expand(ref);
-        if (r.size() != 1 || !r[0].is_valid())
-            return { SpanRef::invalid() };
-        return { r[0] };
+        if (list.elem.size() == 3)
+            return expand(list.elem[1]);
+        out.push_back(
+            _arena.get_ident(_arena.loc_ref(list.elem[0]), "begin", _parent));
+        for (std::size_t i = 1; i < list.elem.size(); ++i) {
+            auto r = expand(list.elem[i]);
+            if (std::ranges::any_of(
+                    r, [](const auto& r) { return !r.is_valid(); }))
+                return { SpanRef::invalid() };
+            out.insert(out.end(), r.begin(), r.end());
+        }
+        return { _arena.expand(_arena.loc_ref(root), _parent,
+            ScopeSetRef::invalid(), SExprList(std::move(out))) };
     }
 
-    std::vector<SpanRef> out;
     for (std::size_t i = 1; i < list.elem.size(); ++i) {
         auto r = expand(list.elem[i]);
         if (std::ranges::any_of(r, [](const auto& r) { return !r.is_valid(); }))
