@@ -74,9 +74,9 @@ using lpc::utils::Error;
             const auto start = n - ((j + 1) * L);
             if (start + L > n)
                 break;
-            if (!std::equal(seq.begin() + (std::size_t)start,
-                    seq.begin() + (std::size_t)start + L, pattern.begin(),
-                    pattern.end()))
+            if (!std::equal(seq.begin() + static_cast<std::ptrdiff_t>(start),
+                    seq.begin() + static_cast<std::ptrdiff_t>(start + L),
+                    pattern.begin(), pattern.end()))
                 break;
             k = j + 1;
         }
@@ -115,7 +115,7 @@ static void flush_expansion_segment(std::vector<std::string>& segment) {
     segment.clear();
 }
 
-void Expander::report_error(SpanRef failed_expr, std::string_view msg) {
+bool Expander::report_error(SpanRef failed_expr, std::string_view msg) {
     _had_error = true;
 
     auto failed_str = _arena.dump(failed_expr);
@@ -123,6 +123,15 @@ void Expander::report_error(SpanRef failed_expr, std::string_view msg) {
     Error("{}", msg);
     std::println(std::cerr, "  for: {}", failed_str);
 
+    dump_backtrace();
+
+    auto loc = _arena.loc(failed_expr);
+    std::println(std::cerr, "  at {}", loc.source_location());
+
+    return false;
+}
+
+void Expander::dump_backtrace() {
     struct Frame {
         int core_omitted;
         std::string dump;
@@ -153,55 +162,37 @@ void Expander::report_error(SpanRef failed_expr, std::string_view msg) {
         segment.push_back(dump);
     }
     flush_expansion_segment(segment);
-
-    auto loc = _arena.loc(failed_expr);
-    std::println(std::cerr, "  at {}", loc.source_location());
 }
 
 bool Expander::check_arity(SpanRef el, const SExprList& list,
     std::size_t min_arity, std::size_t max_arity) {
     // max_arity == 0 means no maximum
     auto size = list.elem.size();
-    if (size < min_arity + 1) {
-        report_error(el,
-            std::format("arity mismatch: expected{} {} arguments, got {}",
-                max_arity == 0 ? " at least" : "", min_arity, size - 1));
-        _had_error = true;
-        return false;
-    }
-    if (max_arity == min_arity && size != min_arity + 1) {
-        report_error(el,
-            std::format("arity mismatch: expected {} arguments, got {}",
-                min_arity, size - 1));
-        _had_error = true;
-        return false;
-    }
-    if (max_arity != 0 && size > max_arity + 1) {
-        report_error(el,
-            std::format("arity mismatch: expected at most {} arguments, got {}",
-                max_arity, size - 1));
-        _had_error = true;
-        return false;
-    }
-    if (!_arena.is_nil(list.elem.back())) {
-        report_error(el, "arity mismatch: improper list");
-        _had_error = true;
-        return false;
-    }
+    if (size < min_arity + 1)
+        return report_error(el,
+            "arity mismatch: expected{} {} arguments, got {}",
+            max_arity == 0 ? " at least" : "", min_arity, size - 1);
+    if (max_arity == min_arity && size != min_arity + 1)
+        return report_error(el, "arity mismatch: expected {} arguments, got {}",
+            min_arity, size - 1);
+    if (max_arity != 0 && size > max_arity + 1)
+        return report_error(el,
+            "arity mismatch: expected at most {} arguments, got {}", max_arity,
+            size - 1);
+    if (!_arena.is_nil(list.elem.back()))
+        return report_error(el, "arity mismatch: improper list");
     return true;
 }
 
 bool Expander::is_identifier_active(SpanRef id_ref) {
     const auto* id = _arena.get<LispIdent>(id_ref);
-    if (!id)
+    if (id == nullptr)
         return false;
     const auto* id_binding = _env.find_binding(id->name, _arena.scopes(id_ref));
     if (id_binding == nullptr)
         return false;
 
     auto matches = [&](SpanRef k) {
-        if (!k.is_valid())
-            return false;
         if (const auto* list = _arena.get<SExprList>(k)) {
             if (!list->elem.empty()) {
                 if (const auto* kid = _arena.get<LispIdent>(list->elem[0])) {
@@ -241,9 +232,8 @@ std::vector<SpanRef> Expander::expand_lambda(
     auto bind = [&](SpanRef p, bool is_rest, bool is_last) {
         if (const auto* id = _arena.get<LispIdent>(p)) {
             if (seen_names.contains(id->name)) {
-                report_error(p,
-                    std::format(
-                        "lambda: duplicate parameter name: {}", id->name));
+                report_error(
+                    p, "lambda: duplicate parameter name: {}", id->name);
                 bind_error = true;
                 return;
             }
@@ -490,47 +480,41 @@ std::vector<SpanRef> Expander::expand_define(
 std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
     SpanRef transformer_spec, std::string_view form_prefix) {
     if (!_arena.is_list(transformer_spec)) {
-        report_error(transformer_spec,
-            std::format("{}: expected (syntax-rules ...)", form_prefix));
+        report_error(
+            transformer_spec, "{}: expected (syntax-rules ...)", form_prefix);
         return std::nullopt;
     }
     const auto spec_list = _arena.get<SExprList>(transformer_spec)->elem;
     if (spec_list.empty()) {
-        report_error(transformer_spec,
-            std::format("{}: expected (syntax-rules ...)", form_prefix));
+        report_error(
+            transformer_spec, "{}: expected (syntax-rules ...)", form_prefix);
         return std::nullopt;
     }
     if (!_arena.is_ident(spec_list[0])) {
-        report_error(transformer_spec,
-            std::format("{}: expected syntax-rules keyword", form_prefix));
+        report_error(
+            transformer_spec, "{}: expected syntax-rules keyword", form_prefix);
         return std::nullopt;
     }
     if (_arena.get<LispIdent>(spec_list[0])->name != "syntax-rules") {
-        report_error(transformer_spec,
-            std::format("{}: expected syntax-rules keyword", form_prefix));
+        report_error(
+            transformer_spec, "{}: expected syntax-rules keyword", form_prefix);
         return std::nullopt;
     }
     std::vector<std::string> literals;
     if (spec_list.size() >= 2) {
         if (_arena.is_list(spec_list[1])) {
             const auto lit_list = _arena.get<SExprList>(spec_list[1])->elem;
-            for (const auto& lit : lit_list) {
-                if (_arena.is_nil(lit))
-                    continue;
-                if (_arena.is_ident(lit)) {
+            for (const auto& lit : lit_list)
+                if (_arena.is_ident(lit))
                     literals.push_back(_arena.get<LispIdent>(lit)->name);
-                } else {
+                else if (!_arena.is_nil(lit))
                     report_error(lit,
-                        std::format(
-                            "{}: invalid syntax-rule: not an identifier",
-                            form_prefix));
-                }
-            }
+                        "{}: invalid syntax-rule: not an identifier",
+                        form_prefix);
         } else {
             report_error(transformer_spec,
-                std::format(
-                    "{}: invalid syntax-rule: capture list is not a list",
-                    form_prefix));
+                "{}: invalid syntax-rule: capture list is not a list",
+                form_prefix);
             return std::nullopt;
         }
     }
@@ -540,8 +524,7 @@ std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
             if (i == spec_list.size() - 1 && _arena.is_nil(spec_list[i]))
                 continue;
             report_error(transformer_spec,
-                std::format(
-                    "{}: invalid syntax-rule: not a list", form_prefix));
+                "{}: invalid syntax-rule: not a list", form_prefix);
             continue;
         }
         const auto rule_parts = _arena.get<SExprList>(spec_list[i])->elem;
@@ -550,16 +533,16 @@ std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
                 = _arena.get<SExprList>(rule_parts[0])) {
                 if (pattern_list_ptr->elem.size() < 2) {
                     report_error(rule_parts[0],
-                        std::format("{}: invalid syntax-rule: pattern must "
-                                    "be a non-empty list",
-                            form_prefix));
+                        "{}: invalid syntax-rule: pattern must "
+                        "be a non-empty list",
+                        form_prefix);
                     continue;
                 }
             } else {
                 report_error(rule_parts[0],
-                    std::format("{}: invalid syntax-rule: pattern must be a "
-                                "list, got {}",
-                        form_prefix, _arena.dump(rule_parts[0])));
+                    "{}: invalid syntax-rule: pattern must be a "
+                    "list, got {}",
+                    form_prefix, _arena.dump(rule_parts[0]));
                 continue;
             }
             const auto pattern_list
@@ -574,8 +557,7 @@ std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
             rules.push_back({ pattern_tail, rule_parts[1] });
         } else
             report_error(transformer_spec,
-                std::format("{}: invalid syntax-rule: unexpected rule format",
-                    form_prefix));
+                "{}: invalid syntax-rule: unexpected rule format", form_prefix);
     }
     return std::make_unique<Transformer>(
         std::move(rules), std::move(literals), _arena);
@@ -623,14 +605,13 @@ std::vector<SpanRef> Expander::expand_let_letrec_syntax(
     std::string let_syntax_name = is_letrec ? "letrec-syntax" : "let-syntax";
     // (let-syntax ((name transformer) ...) body ...)
     if (list.elem.size() < 3) {
-        report_error(
-            root, std::format("{}: missing bindings or body", let_syntax_name));
+        report_error(root, "{}: missing bindings or body", let_syntax_name);
         return { SpanRef::invalid() };
     }
 
     if (!_arena.is_list(list.elem[1])) {
-        report_error(list.elem[1],
-            std::format("{}: expected list of bindings", let_syntax_name));
+        report_error(
+            list.elem[1], "{}: expected list of bindings", let_syntax_name);
         return { SpanRef::invalid() };
     }
 
@@ -642,15 +623,15 @@ std::vector<SpanRef> Expander::expand_let_letrec_syntax(
             continue;
         if (!_arena.is_list(binding)) {
             report_error(binding,
-                std::format("{}: expected (name transformer) for each binding",
-                    let_syntax_name));
+                "{}: expected (name transformer) for each binding",
+                let_syntax_name);
             return { SpanRef::invalid() };
         }
         auto pair = _arena.get<SExprList>(binding)->elem;
         if (pair.size() < 2) {
             report_error(binding,
-                std::format("{}: expected (name transformer) for each binding",
-                    let_syntax_name));
+                "{}: expected (name transformer) for each binding",
+                let_syntax_name);
             return { SpanRef::invalid() };
         }
 
@@ -773,17 +754,15 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
                     std::string msg;
                     if (!_arena.is_nil(list.elem.back())) {
                         report_error(parented_root,
-                            std::format(
-                                "syntax-error: syntax-error: syntax-error: "
-                                "syntax-error: syntax-error: syntax-error: "));
+                            "syntax-error: syntax-error: syntax-error: "
+                            "syntax-error: syntax-error: syntax-error: ");
                         return { SpanRef::invalid() };
                     }
                     if (list.elem.size() >= 3)
                         if (const auto* str
                             = _arena.get<LispString>(list.elem[1]))
                             msg = *str;
-                    report_error(
-                        parented_root, std::format("syntax-error: {}", msg));
+                    report_error(parented_root, "syntax-error: {}", msg);
                     return { SpanRef::invalid() };
                 }
             }
@@ -802,10 +781,8 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
         for (const auto& el : list.elem) {
             auto r = expand(el);
             if (std::ranges::any_of(
-                    r, [](const auto& r) { return !r.is_valid(); })) {
-                _had_error = true;
+                    r, [](const auto& r) { return !r.is_valid(); }))
                 continue;
-            }
             out.insert(out.end(), r.begin(), r.end());
         }
         return { _arena.expand(_arena.loc_ref(root), _parent,
@@ -833,10 +810,8 @@ void ExpandPass::load_core(CompilerContext& ctx) {
     if (const auto* list_ptr = user_arena.get<SExprList>(core_root)) {
         const auto list = *list_ptr;
         bool dummy_error = false;
-        for (const auto& form : list.elem) {
-            Expander expander(_env, ctx, dummy_error);
-            (void)expander.expand(form);
-        }
+        for (const auto& form : list.elem)
+            Expander(_env, ctx, dummy_error).expand(form);
     }
     _core_loaded = true;
 }
@@ -857,10 +832,8 @@ void ExpandPass::load_core(CompilerContext& ctx) {
         for (const auto& el : list.elem) {
             auto r = expander.expand(el);
             if (std::ranges::any_of(
-                    r, [](const auto& r) { return !r.is_valid(); })) {
-                _had_error = true;
+                    r, [](const auto& r) { return !r.is_valid(); }))
                 continue;
-            }
             out.insert(out.end(), r.begin(), r.end());
         }
         SExprRef final_expr

@@ -135,7 +135,16 @@ private:
 
     [[nodiscard]] SpanRef add_scope(SpanRef expr, ScopeID scope);
 
-    void report_error(SpanRef failed_expr, std::string_view msg);
+    bool report_error(SpanRef failed_expr, std::string_view msg);
+    void dump_backtrace();
+
+    template <typename... Args>
+    bool report_error(SpanRef failed_expr, std::format_string<Args...> fmt,
+        Args&&... args) {
+        return report_error(
+            failed_expr, std::format(fmt, std::forward<Args>(args)...));
+    }
+
     bool check_arity(SpanRef el, const SExprList& list, std::size_t min_arity,
         std::size_t max_arity);
     bool is_identifier_active(SpanRef id_ref);
