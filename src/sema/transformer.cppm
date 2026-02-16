@@ -1,4 +1,4 @@
-export module lpc.analysis.transformer;
+export module lpc.sema.transformer;
 
 import std;
 
@@ -6,7 +6,7 @@ import lpc.syntax.arenas;
 import lpc.syntax.ast;
 import lpc.syntax.refs;
 
-namespace lpc::analysis {
+namespace lpc::sema {
 
 using namespace lpc::syntax;
 
@@ -56,4 +56,4 @@ private:
         LocRef call_site_loc, SpanRef parent) const;
 };
 
-} // namespace lpc::analysis
+} // namespace lpc::sema

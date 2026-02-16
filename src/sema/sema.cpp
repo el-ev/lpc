@@ -1,13 +1,13 @@
-module lpc.analysis.sema;
+module lpc.sema.sema;
 
 import std;
 
-import lpc.analysis.core_form;
+import lpc.sema.core_form;
 import lpc.context;
 import lpc.syntax.ast;
 import lpc.utils.logging;
 
-namespace lpc::analysis {
+namespace lpc::sema {
 
 using namespace lpc::syntax;
 using lpc::utils::Error;
@@ -461,4 +461,4 @@ std::string SemaPass::dump(
     return dump_program(ctx.core_arena(), ctx.span_arena(), result);
 }
 
-} // namespace lpc::analysis
+} // namespace lpc::sema

@@ -2,7 +2,7 @@ export module lpc.cps.ir;
 
 import std;
 
-import lpc.analysis.core_form;
+import lpc.sema.core_form;
 import lpc.syntax.span;
 import lpc.syntax.refs;
 import lpc.utils.arena;
@@ -10,7 +10,7 @@ import lpc.utils.tagged_union;
 
 namespace lpc::cps {
 
-using namespace lpc::analysis;
+using namespace lpc::sema;
 using namespace lpc::syntax;
 
 using lpc::utils::TaggedUnion;
@@ -133,6 +133,6 @@ public:
 export template <>
 struct std::hash<lpc::cps::CpsVar> {
     std::size_t operator()(const lpc::cps::CpsVar& v) const noexcept {
-        return std::hash<lpc::analysis::VarId> {}(v.var);
+        return std::hash<lpc::sema::VarId> {}(v.var);
     }
 };

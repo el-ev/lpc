@@ -1,8 +1,8 @@
-export module lpc.analysis.expand;
+export module lpc.sema.expand;
 
 import std;
 
-import lpc.analysis.transformer;
+import lpc.sema.transformer;
 import lpc.context;
 import lpc.passes;
 import lpc.syntax.arenas;
@@ -10,7 +10,7 @@ import lpc.syntax.ast;
 import lpc.syntax.refs;
 import lpc.utils.tagged_union;
 
-namespace lpc::analysis {
+namespace lpc::sema {
 
 using namespace lpc::syntax;
 
@@ -239,4 +239,4 @@ public:
     explicit ExpandPass() noexcept;
 };
 
-} // namespace lpc::analysis
+} // namespace lpc::sema

@@ -3,14 +3,14 @@ module lpc.cps.lower;
 import std;
 import lpc.context;
 import lpc.cps.ir;
-import lpc.analysis.core_form;
+import lpc.sema.core_form;
 import lpc.syntax.refs;
 import lpc.syntax.arenas;
 import lpc.utils.logging;
 
 namespace lpc::cps {
 
-using namespace lpc::analysis;
+using namespace lpc::sema;
 
 namespace {
     template <typename... Ts>

@@ -4,12 +4,12 @@ import std;
 
 import lpc.context;
 import lpc.passes;
-import lpc.analysis.core_form;
+import lpc.sema.core_form;
 import lpc.cps.ir;
 
 namespace lpc::cps {
 
-using namespace lpc::analysis;
+using namespace lpc::sema;
 
 export class LowerPass final : public Pass<CoreExprRef, CpsExprRef> {
 private:

@@ -1,10 +1,10 @@
-module lpc.analysis.transformer;
+module lpc.sema.transformer;
 
 import std;
 
 import lpc.syntax.ast;
 
-namespace lpc::analysis {
+namespace lpc::sema {
 
 using namespace lpc::syntax;
 
@@ -100,8 +100,9 @@ bool Transformer::match(
             if (ellipsis_pos < 0) {
                 if (p_logical != i_logical)
                     return false;
-                for (const auto& [p, i] : std::views::zip(p_list->elem, i_list->elem)
-                                              | std::views::take(p_logical))
+                for (const auto& [p, i] :
+                    std::views::zip(p_list->elem, i_list->elem)
+                        | std::views::take(p_logical))
                     if (!match(p, i, bindings))
                         return false;
                 return true;
@@ -115,8 +116,9 @@ bool Transformer::match(
             if (i_logical < fixed_before + fixed_after)
                 return false;
 
-            for (const auto& [p, i] : std::views::zip(p_list->elem, i_list->elem)
-                                          | std::views::take(fixed_before))
+            for (const auto& [p, i] :
+                std::views::zip(p_list->elem, i_list->elem)
+                    | std::views::take(fixed_before))
                 if (!match(p, i, bindings))
                     return false;
 
@@ -160,8 +162,9 @@ bool Transformer::match(
             if (i_element_count < head_count)
                 return false;
 
-            for (const auto& [p, i] : std::views::zip(p_list->elem, i_list->elem)
-                                          | std::views::take(head_count))
+            for (const auto& [p, i] :
+                std::views::zip(p_list->elem, i_list->elem)
+                    | std::views::take(head_count))
                 if (!match(p, i, bindings))
                     return false;
             return match(tail_pattern,
@@ -178,7 +181,7 @@ bool Transformer::match(
             return false;
 
         for (const auto& [p, i] : std::views::zip(p_list->elem, i_list->elem)
-                                      | std::views::take(fixed_before))
+                | std::views::take(fixed_before))
             if (!match(p, i, bindings))
                 return false;
 
@@ -290,4 +293,4 @@ SpanRef Transformer::transcribe(SpanRef input, SpanRef parent) const {
     }
     return SpanRef::invalid();
 }
-} // namespace lpc::analysis
+} // namespace lpc::sema

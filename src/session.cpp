@@ -2,9 +2,9 @@ module lpc.session;
 
 import std;
 
-import lpc.analysis.expand;
-import lpc.analysis.sema;
-import lpc.analysis.mutability;
+import lpc.sema.expand;
+import lpc.sema.sema;
+import lpc.sema.mutability;
 import lpc.cps.lower;
 import lpc.context;
 import lpc.passes;
@@ -18,7 +18,7 @@ import lpc.utils.logging;
 namespace lpc {
 
 using namespace lpc::syntax;
-using namespace lpc::analysis;
+using namespace lpc::sema;
 using namespace lpc::cps;
 
 using lpc::utils::Error;

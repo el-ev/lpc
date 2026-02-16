@@ -1,15 +1,15 @@
-export module lpc.analysis.sema;
+export module lpc.sema.sema;
 
 import std;
 
-import lpc.analysis.core_form;
+import lpc.sema.core_form;
 import lpc.context;
 import lpc.passes;
 import lpc.syntax.arenas;
 import lpc.syntax.ast;
 import lpc.syntax.refs;
 
-namespace lpc::analysis {
+namespace lpc::sema {
 
 using namespace lpc::syntax;
 
@@ -71,10 +71,8 @@ public:
     }
 
     void define_builtin(const std::string& name, Arity arity) {
-        CoreVar id {
-            .id = VarId { .id = _next_id++, .debug_name = name },
-            .kind = CoreVarKind::Builtin
-        };
+        CoreVar id { .id = VarId { .id = _next_id++, .debug_name = name },
+            .kind = CoreVarKind::Builtin };
         _scopes.front().bindings[name] = id;
         _builtins[id] = arity;
         _defined_globals.insert(id);
@@ -190,4 +188,4 @@ public:
     explicit SemaPass() noexcept = default;
 };
 
-} // namespace lpc::analysis
+} // namespace lpc::sema

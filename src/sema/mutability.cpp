@@ -1,10 +1,10 @@
-module lpc.analysis.mutability;
+module lpc.sema.mutability;
 
 import std;
-import lpc.analysis.core_form;
+import lpc.sema.core_form;
 import lpc.context;
 
-namespace lpc::analysis {
+namespace lpc::sema {
 
 namespace {
     template <typename... Ts>
@@ -59,4 +59,4 @@ void MutabilityPass::visit(CoreExprRef ref, CompilerContext& ctx) {
     });
 }
 
-} // namespace lpc::analysis
+} // namespace lpc::sema

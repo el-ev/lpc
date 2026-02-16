@@ -1,4 +1,4 @@
-module lpc.analysis.expand;
+module lpc.sema.expand;
 
 import std;
 
@@ -7,7 +7,7 @@ import lpc.syntax.lexer;
 import lpc.syntax.syntax;
 import lpc.utils.logging;
 
-namespace lpc::analysis {
+namespace lpc::sema {
 
 using namespace lpc::syntax;
 
@@ -741,4 +741,4 @@ ExpandPass::ExpandPass() noexcept {
     _env.define_core_syntax("syntax-error");
 }
 
-} // namespace lpc::analysis
+} // namespace lpc::sema

@@ -1,11 +1,11 @@
-export module lpc.analysis.mutability;
+export module lpc.sema.mutability;
 
 import std;
-import lpc.analysis.core_form;
+import lpc.sema.core_form;
 import lpc.context;
 import lpc.passes;
 
-namespace lpc::analysis {
+namespace lpc::sema {
 
 export class MutabilityPass final : public Pass<CoreExprRef, CoreExprRef> {
 private:
@@ -19,8 +19,8 @@ public:
     [[nodiscard]] CoreExprRef run(
         CoreExprRef root, CompilerContext& ctx) noexcept final;
 
-    [[nodiscard]] std::string dump(const CoreExprRef& result,
-        CompilerContext& ctx) const noexcept final;
+    [[nodiscard]] std::string dump(
+        const CoreExprRef& result, CompilerContext& ctx) const noexcept final;
 
     void visit(CoreExprRef ref, CompilerContext& ctx);
 
@@ -29,5 +29,4 @@ public:
     }
 };
 
-
-} // namespace lpc::analysis
+} // namespace lpc::sema

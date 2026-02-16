@@ -2,7 +2,7 @@ export module lpc.context;
 
 import std;
 
-import lpc.analysis.core_form;
+import lpc.sema.core_form;
 import lpc.cps.ir;
 import lpc.syntax.arenas;
 
@@ -32,7 +32,7 @@ private:
     std::string _path;
     std::string _source;
     syntax::SpanArena _span_arena;
-    analysis::CoreExprArena _core_arena;
+    sema::CoreExprArena _core_arena;
     cps::CpsArena _cps_arena;
 
 public:
@@ -60,7 +60,7 @@ public:
         return _span_arena;
     }
 
-    [[nodiscard]] analysis::CoreExprArena& core_arena() noexcept {
+    [[nodiscard]] sema::CoreExprArena& core_arena() noexcept {
         return _core_arena;
     }
 

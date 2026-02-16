@@ -1,4 +1,4 @@
-export module lpc.analysis.core_form;
+export module lpc.sema.core_form;
 
 import std;
 
@@ -6,7 +6,7 @@ import lpc.syntax.refs;
 import lpc.utils.arena;
 import lpc.utils.tagged_union;
 
-namespace lpc::analysis {
+namespace lpc::sema {
 
 using namespace lpc::syntax;
 using lpc::utils::TaggedUnion;
@@ -141,18 +141,18 @@ public:
     }
 };
 
-} // namespace lpc::analysis
+} // namespace lpc::sema
 
 export template <>
-struct std::hash<lpc::analysis::VarId> {
-    std::size_t operator()(const lpc::analysis::VarId& v) const noexcept {
+struct std::hash<lpc::sema::VarId> {
+    std::size_t operator()(const lpc::sema::VarId& v) const noexcept {
         return std::hash<std::uint32_t> {}(v.id);
     }
 };
 
 export template <>
-struct std::hash<lpc::analysis::CoreVar> {
-    std::size_t operator()(const lpc::analysis::CoreVar& v) const noexcept {
-        return std::hash<lpc::analysis::VarId> {}(v.id);
+struct std::hash<lpc::sema::CoreVar> {
+    std::size_t operator()(const lpc::sema::CoreVar& v) const noexcept {
+        return std::hash<lpc::sema::VarId> {}(v.id);
     }
 };
