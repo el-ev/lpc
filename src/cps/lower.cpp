@@ -117,7 +117,12 @@ CpsExprRef CpsConverter::convert<CoreIf>(const CoreIf& c, Continuation k) {
 
     auto iff = convert(c.condition, [&](CpsAtom condition) {
         auto then_branch = convert(c.then_branch, join_k);
-        auto else_branch = convert(c.else_branch, join_k);
+        CpsExprRef else_branch;
+        if (c.else_branch.is_valid()) {
+            else_branch = convert(c.else_branch, join_k);
+        } else {
+            else_branch = join_k(CpsAtom(CpsUnit()));
+        }
         return _arena.emplace(CpsIf { .condition = std::move(condition),
             .then_branch = then_branch,
             .else_branch = else_branch });
