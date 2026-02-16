@@ -3,12 +3,14 @@ import std;
 import lpc.session;
 import lpc.utils.logging;
 import lpc.utils.option;
+import lpc.utils.crash_handler;
 
 using namespace lpc;
 
 using namespace lpc::utils;
 
 auto main(int argc, char* argv[]) noexcept -> int {
+    install_crash_handler();
     Session session;
     // maybe move the logger into the session, don't know though
     Logger::builder().output(std::cerr).build().make_active();
