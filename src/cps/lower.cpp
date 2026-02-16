@@ -134,6 +134,8 @@ CpsExprRef CpsConverter::convert<CoreIf>(const CoreIf& c, Continuation k) {
 template <>
 CpsExprRef CpsConverter::convert<CoreLambda>(
     const CoreLambda& c, Continuation k) {
+    auto forced_name = std::exchange(_forced_lambda_var, std::nullopt);
+
     std::vector<CpsVar> cps_params;
     std::vector<std::tuple<VarId, CpsVar, CpsVar>> boxed;
 
@@ -176,8 +178,7 @@ CpsExprRef CpsConverter::convert<CoreLambda>(
             .body = body });
     }
 
-    auto lambda_var = _forced_lambda_var ? *_forced_lambda_var : next_var("lambda");
-    _forced_lambda_var = std::nullopt;
+    auto lambda_var = forced_name ? *forced_name : next_var("lambda");
 
     auto lambda
         = _arena.emplace(CpsLambda(lambda_var, std::move(cps_params), body));
@@ -464,7 +465,8 @@ namespace {
             std::string out = "fix\n";
             for (const auto& func : f.functions)
                 out += indent + "  " + dump(func, indent + "  ") + "\n";
-            out += indent + "in\n" + indent + "  " + dump(f.body, indent + "  ");
+            out += indent + "in\n" + indent + "  "
+                + dump(f.body, indent + "  ");
             return out;
         }
 
