@@ -116,7 +116,7 @@ std::vector<SpanRef> Expander::expand_lambda(
                 return;
             }
             seen_names.insert(id->name);
-            auto resolved = _env.unique_name(id->name);
+            auto resolved = _env.unique_name(id->name, scope);
             _env.add_binding(id->name, _arena.scopes(p),
                 Binding(VarBinding(LispIdent(resolved))));
             params.push_back(
@@ -334,7 +334,11 @@ std::vector<SpanRef> Expander::expand_define(
                 exact->get_unchecked<VarBinding>()->id.name, _parent,
                 _arena.scope_ref(var));
         } else {
-            auto resolved = _env.unique_name(id->name);
+            auto scopes = _arena.scopes(var);
+            ScopeID scope = 0;
+            if (!scopes.empty())
+                scope = *scopes.rbegin();
+            auto resolved = _env.unique_name(id->name, scope);
             _env.add_binding(id->name, _arena.scopes(var),
                 Binding(VarBinding(LispIdent(resolved))));
             var = _arena.get_ident(
@@ -692,8 +696,13 @@ void ExpandPass::load_core(CompilerContext& ctx) {
     if (const auto* list_ptr = user_arena.get<SExprList>(core_root)) {
         const auto list = *list_ptr;
         bool dummy_error = false;
-        for (const auto& form : list.elem)
-            Expander(_env, ctx, dummy_error).expand(form);
+        for (const auto& form : list.elem) {
+            auto res = Expander(_env, ctx, dummy_error).expand(form);
+            if (std::ranges::any_of(
+                    res, [](const auto& r) { return !r.is_valid(); }))
+                continue;
+            _core_forms.append_range(res);
+        }
     }
     _core_loaded = true;
 }
@@ -710,7 +719,8 @@ void ExpandPass::load_core(CompilerContext& ctx) {
     if (const auto* list_ptr = arena.get<SExprList>(root)) {
         const auto list = *list_ptr;
         std::vector<SpanRef> out;
-        out.reserve(list.elem.size());
+        out.reserve(list.elem.size() + _core_forms.size());
+        out.append_range(_core_forms);
         for (const auto& el : list.elem) {
             auto r = expander.expand(el);
             if (std::ranges::any_of(

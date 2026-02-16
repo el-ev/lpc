@@ -1,0 +1,32 @@
+BUILTIN("__cons", 2, 2)
+BUILTIN("__car", 1, 1)
+BUILTIN("__cdr", 1, 1)
+
+PRIM("__fx+", 2, 2, FxAdd)
+PRIM("__fx-", 2, 2, FxSub)
+PRIM("__fx*", 2, 2, FxMul)
+PRIM("__fx/", 2, 2, FxDiv)
+PRIM("__fx<", 2, 2, FxLt)
+PRIM("__fx<=", 2, 2, FxLe)
+PRIM("__fx=", 2, 2, FxEq)
+
+PRIM("__alloc", 1, 0, Alloc)
+PRIM("__field-ref", 2, 2, Load)
+PRIM("__field-set!", 3, 3, Store)
+
+PRIM("__print", 1, 1, Print)
+PRIM("__exit", 1, 1, Exit)
+
+PRIM("__eq?", 2, 2, Eq)
+PRIM("__length", 1, 1, Length)
+
+PRIM("__pair?", 1, 1, IsPair)
+PRIM("__symbol?", 1, 1, IsSymbol)
+PRIM("__vector?", 1, 1, IsVector)
+
+PRIM("make-vector", 1, 2, Alloc) // size, fill (optional) -- WRONG SEMANTICS for Alloc
+BUILTIN("__vector", 0, 0)
+BUILTIN("__void", 0, 0)
+PRIM("__vector-ref", 2, 2, Load)
+PRIM("__vector-set!", 3, 3, Store)
+

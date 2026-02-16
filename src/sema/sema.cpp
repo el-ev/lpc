@@ -12,11 +12,16 @@ namespace lpc::sema {
 using namespace lpc::syntax;
 using lpc::utils::Error;
 
-// FIXME: bad
 void SymbolTable::init_builtins() {
-#define X(name, str, min, max) define_builtin(str, Arity { min, max });
-#include "../cps/primops.def"
-#undef X
+#ifndef PRIM
+#define PRIM(str, min, max, op) BUILTIN(str, min, max)
+#endif
+#ifndef BUILTIN
+#define BUILTIN(str, min, max) define_builtin(str, Arity { min, max });
+#endif
+#include "builtins.def"
+#undef PRIM
+#undef BUILTIN
 }
 
 void Lowerer::report_error(SpanRef ref, std::string_view msg) {
@@ -211,11 +216,12 @@ CoreExprRef Lowerer::lower_set(SpanRef ref, const SExprList& list) {
         return CoreExprRef::invalid();
     }
 
-    if (resolved->kind == CoreVarKind::Builtin) {
-        report_error(list.elem[1], "sema: cannot mutate builtin procedure: {}",
-            target_id->name);
-        return CoreExprRef::invalid();
-    }
+    // FIXME: bad & no longer works
+    // if (resolved->kind == CoreVarKind::Builtin) {
+    //     report_error(list.elem[1], "sema: cannot mutate builtin procedure: {}",
+    //         target_id->name);
+    //     return CoreExprRef::invalid();
+    // }
 
     auto value = lower(list.elem[2]);
     if (!value.is_valid())

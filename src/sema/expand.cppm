@@ -36,7 +36,8 @@ private:
     };
 
     std::unordered_map<std::string, std::vector<BindingEntry>> _bindings;
-    std::unordered_map<std::string, std::uint32_t> _name_counts;
+    std::unordered_map<ScopeID, std::unordered_map<std::string, std::uint32_t>>
+        _name_counts;
     ScopeID _next = 0;
 
 public:
@@ -46,8 +47,8 @@ public:
         return _next++;
     }
 
-    std::string unique_name(const std::string& name) {
-        auto& count = _name_counts[name];
+    std::string unique_name(const std::string& name, ScopeID scope) {
+        auto& count = _name_counts[scope][name];
         if (count++ == 0)
             return name;
         return name + "." + std::to_string(count - 1);
@@ -216,6 +217,7 @@ public:
 export class ExpandPass final : public Pass<SpanRef, SpanRef> {
 private:
     LexEnv _env;
+    std::vector<SpanRef> _core_forms;
     bool _core_loaded = false;
     bool _had_error = false;
 

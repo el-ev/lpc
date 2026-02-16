@@ -5,6 +5,8 @@ import lpc.context;
 import lpc.cps.ir;
 import lpc.sema.core_form;
 import lpc.syntax.refs;
+import lpc.syntax.token;
+import lpc.syntax.ast;
 import lpc.syntax.arenas;
 import lpc.utils.logging;
 
@@ -27,12 +29,6 @@ public:
         : _ctx(ctx)
         , _arena(ctx.cps_arena())
         , _core_arena(ctx.core_arena()) {
-#define X(op, str, min, max)                                                   \
-    if (auto builtin = _ctx.core_arena().get_builtin((str))) {                 \
-        _prim_mapping[*builtin] = PrimOp::op;                                  \
-    }
-#include "primops.def"
-#undef X
     }
 
     template <typename T>
@@ -87,6 +83,87 @@ private:
 
     [[nodiscard]] CpsAtom lookup(const CoreVar& source_id) const {
         return mapping.at(source_id);
+    }
+
+    [[nodiscard]] CpsExprRef try_builtin(
+        const std::string& name, std::vector<CpsAtom> args, Continuation k) {
+#ifndef PRIM
+#define PRIM(str, min, max, op)                                                \
+    if (name == (str))                                                         \
+        return emit_primop(PrimOp::op, std::move(args), k);
+#endif
+#ifndef BUILTIN
+#define BUILTIN(str, min, max)
+#endif
+#include "../sema/builtins.def"
+#undef BUILTIN
+#undef PRIM
+
+        if (name == "__alloc")
+            return emit_alloc(PrimOp::Alloc, -1, std::move(args), k);
+
+        if (name == "make-vector") {
+            // Unimplemented for now
+            return k(CpsAtom(CpsUnit()));
+        }
+
+        if (name == "__void") {
+            return k(CpsAtom(CpsUnit()));
+        }
+
+        // Standard Scheme (Complex)
+        if (name == "__cons")
+            return emit_alloc(
+                PrimOp::Alloc, 0 /* pair tag */, std::move(args), k);
+        if (name == "__car")
+            return emit_primop(PrimOp::Load,
+                { args[0], CpsAtom(CpsConstant { make_int(0) }) }, k);
+        if (name == "__cdr")
+            return emit_primop(PrimOp::Load,
+                { args[0], CpsAtom(CpsConstant { make_int(1) }) }, k);
+        if (name == "__vector-ref")
+            return emit_primop(PrimOp::Load, std::move(args), k);
+        if (name == "__vector-set!")
+            return emit_primop(PrimOp::Store, std::move(args), k);
+        if (name == "__eq?")
+            return emit_primop(PrimOp::Eq, std::move(args), k);
+        if (name == "__pair?")
+            return emit_primop(PrimOp::IsPair, std::move(args), k);
+        if (name == "__symbol?")
+            return emit_primop(PrimOp::IsSymbol, std::move(args), k);
+        if (name == "__vector?")
+            return emit_primop(PrimOp::IsVector, std::move(args), k);
+
+        return k(CpsAtom(CpsUnit()));
+    }
+
+    [[nodiscard]] CpsExprRef emit_primop(
+        PrimOp op, std::vector<CpsAtom> args, Continuation k) {
+        auto rv = next_var("prim_res");
+        return _arena.emplace(CpsLet { .target = rv,
+            .op = op,
+            .args = std::move(args),
+            .body = k(CpsAtom(rv)) });
+    }
+
+    [[nodiscard]] CpsExprRef emit_alloc(
+        PrimOp op, int tag, std::vector<CpsAtom> args, Continuation k) {
+        if (tag != -1)
+            args.insert(args.begin(), CpsAtom(CpsConstant { make_int(tag) }));
+        args.insert(args.begin() + 1,
+            CpsAtom(CpsConstant {
+                make_int(static_cast<syntax::LispNumber>(args.size() - 1)) }));
+
+        auto rv = next_var("alloc_res");
+        return _arena.emplace(CpsLet { .target = rv,
+            .op = op,
+            .args = std::move(args),
+            .body = k(CpsAtom(rv)) });
+    }
+
+    syntax::SpanRef make_int(syntax::LispNumber value) {
+        // FIXME Location
+        return _ctx.span_arena().from_loc(syntax::LocRef::invalid(), value);
     }
 
     void extend(const CoreVar& source_id, CpsAtom&& cps_val) {
@@ -238,15 +315,10 @@ CpsExprRef CpsConverter::convert<CoreApply>(
     const CoreApply& c, Continuation k) {
     const auto& func_expr = _core_arena[c.func];
     if (const auto* var = func_expr.get<CoreVar>()) {
-        if (auto it = _prim_mapping.find(*var); it != _prim_mapping.end()) {
-            auto op = it->second;
+        if (var->kind == CoreVarKind::Builtin) {
             return convert_args(
-                c.args, {}, [this, op, k](std::vector<CpsAtom> args) {
-                    auto rv = next_var("res");
-                    return _arena.emplace(CpsLet { .target = rv,
-                        .op = op,
-                        .args = std::move(args),
-                        .body = k(CpsAtom(rv)) });
+                c.args, {}, [this, var, k](std::vector<CpsAtom> args) {
+                    return try_builtin(var->id.debug_name, std::move(args), k);
                 });
         }
     }
@@ -318,13 +390,10 @@ CpsExprRef CpsConverter::lower_program(CoreExprRef root) {
 namespace {
     std::string primop_to_string(PrimOp op) {
         switch (op) {
-#define X(op, str, min, max)                                                   \
+#define X(op, str)                                                             \
     case PrimOp::op:                                                           \
         return str;
 #include "primops.def"
-            X(Box, "box", 1, 1)
-            X(BoxGet, "box-get", 1, 1)
-            X(BoxSet, "box-set", 2, 2)
 #undef X
         }
         return "unknown";
