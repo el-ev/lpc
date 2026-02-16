@@ -14,18 +14,9 @@ using lpc::utils::Error;
 
 // FIXME: bad
 void SymbolTable::init_builtins() {
-    define_builtin("+", Arity::at_least(0));
-    define_builtin("-", Arity::at_least(1));
-    define_builtin("*", Arity::at_least(0));
-    define_builtin("/", Arity::at_least(1));
-    define_builtin("=", Arity::at_least(2));
-    define_builtin("<", Arity::at_least(2));
-    define_builtin(">", Arity::at_least(2));
-    define_builtin("<=", Arity::at_least(2));
-    define_builtin(">=", Arity::at_least(2));
-    define_builtin("cons", Arity::fixed(2));
-    define_builtin("car", Arity::fixed(1));
-    define_builtin("cdr", Arity::fixed(1));
+#define X(name, str, min, max) define_builtin(str, Arity { min, max });
+#include "../cps/primops.def"
+#undef X
 }
 
 void Lowerer::report_error(SpanRef ref, std::string_view msg) {
@@ -330,6 +321,7 @@ CoreExprRef Lowerer::lower_application(SpanRef ref, const SExprList& list) {
 }
 
 CoreExprRef Lowerer::lower_program(SpanRef root) {
+    _core.init_builtins(_syms.get_builtins());
     const auto* top_list = _spans.get<SExprList>(root);
     std::vector<CoreExprRef> forms;
     bool seen_command = false;

@@ -58,21 +58,10 @@ export struct CpsApp {
 };
 
 export enum class PrimOp : std::uint8_t {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Eq,
-    Lt,
-    Gt,
-    Le,
-    Ge,
-    Cons,
-    Car,
-    Cdr,
-    Box,
-    BoxGet,
-    BoxSet,
+#define X(name, str, min, max) name,
+#include "primops.def"
+    X(Box, "box", 1, 1) X(BoxGet, "box-get", 1, 1) X(BoxSet, "box-set", 2, 2)
+#undef X
 };
 
 export struct CpsLet {

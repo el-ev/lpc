@@ -117,6 +117,7 @@ public:
 class CoreExprArena : lpc::utils::Arena<CoreExprTag, CoreExpr, std::uint32_t> {
 private:
     std::optional<std::set<CoreVar>> _mutated_vars;
+    std::map<std::string, CoreVar> _builtins;
 
 public:
     template <typename... Args>
@@ -128,6 +129,17 @@ public:
     }
     [[nodiscard]] const CoreExpr& operator[](CoreExprRef ref) const {
         return at(ref);
+    }
+
+    void init_builtins(std::map<std::string, CoreVar> vars) {
+        _builtins = std::move(vars);
+    }
+
+    [[nodiscard]] std::optional<CoreVar> get_builtin(
+        const std::string& name) const {
+        if (auto it = _builtins.find(name); it != _builtins.end())
+            return it->second;
+        return std::nullopt;
     }
 
     void set_mutated_vars(std::set<CoreVar> vars) {

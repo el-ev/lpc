@@ -85,6 +85,13 @@ public:
         return std::nullopt;
     }
 
+    [[nodiscard]] std::map<std::string, CoreVar> get_builtins() const {
+        std::map<std::string, CoreVar> builtins;
+        for (const auto& [var, arity] : _builtins)
+            builtins[var.id.debug_name] = var;
+        return builtins;
+    }
+
     [[nodiscard]] std::optional<CoreVar> resolve(
         const std::string& name) const noexcept {
         for (auto* s = _current; s != nullptr; s = s->parent)

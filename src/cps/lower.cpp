@@ -27,6 +27,12 @@ public:
         : _ctx(ctx)
         , _arena(ctx.cps_arena())
         , _core_arena(ctx.core_arena()) {
+#define X(op, str, min, max)                                                   \
+    if (auto builtin = _ctx.core_arena().get_builtin((str))) {                 \
+        extend(*builtin, CpsAtom { next_var((str)) });                         \
+    }
+#include "primops.def"
+#undef X
     }
 
     template <typename T>
@@ -51,7 +57,7 @@ private:
         if (expr.isa<CoreVar>()) {
             const auto* var = expr.get<CoreVar>();
             if (var->kind == CoreVarKind::Builtin)
-                return lookup(var->id);
+                return lookup(*var);
         }
         return std::nullopt;
     }
@@ -68,14 +74,15 @@ private:
     CompilerContext& _ctx;
     CpsArena& _arena;
     CoreExprArena& _core_arena;
-    std::unordered_map<VarId, CpsAtom> mapping;
+    std::unordered_map<CoreVar, CpsAtom> mapping;
     std::uint32_t _next_var_id = 0;
+    std::optional<CpsVar> _forced_lambda_var;
 
-    [[nodiscard]] CpsAtom lookup(const VarId& source_id) const {
+    [[nodiscard]] CpsAtom lookup(const CoreVar& source_id) const {
         return mapping.at(source_id);
     }
 
-    void extend(const VarId& source_id, CpsAtom&& cps_val) {
+    void extend(const CoreVar& source_id, CpsAtom&& cps_val) {
         mapping[source_id] = std::move(cps_val);
     }
 };
@@ -118,13 +125,15 @@ CpsExprRef CpsConverter::convert<CoreLambda>(
     std::vector<CpsVar> cps_params;
     std::vector<std::tuple<VarId, CpsVar, CpsVar>> boxed;
 
+    // FIXME should map builtin -> prim here
+
     auto scope = [&](const CoreVar& var, const CpsVar& p) {
         if (_ctx.core_arena().is_mutated(var)) {
             auto box = next_var(var.id.debug_name + "_box");
-            extend(var.id, CpsAtom(box));
+            extend(var, CpsAtom(box));
             boxed.emplace_back(var.id, p, box);
         } else {
-            extend(var.id, CpsAtom(p));
+            extend(var, CpsAtom(p));
         }
     };
 
@@ -157,7 +166,9 @@ CpsExprRef CpsConverter::convert<CoreLambda>(
             .body = body });
     }
 
-    auto lambda_var = next_var();
+    auto lambda_var = _forced_lambda_var ? *_forced_lambda_var : next_var();
+    _forced_lambda_var = std::nullopt;
+
     auto lambda
         = _arena.emplace(CpsLambda(lambda_var, std::move(cps_params), body));
     auto rest = k(CpsAtom(lambda_var));
@@ -167,7 +178,7 @@ CpsExprRef CpsConverter::convert<CoreLambda>(
 
 template <>
 CpsExprRef CpsConverter::convert<CoreVar>(const CoreVar& c, Continuation k) {
-    auto val = lookup(c.id);
+    auto val = lookup(c);
     // builtins are const by default
     if (!_ctx.core_arena().is_mutated(c))
         return k(val);
@@ -182,18 +193,32 @@ CpsExprRef CpsConverter::convert<CoreVar>(const CoreVar& c, Continuation k) {
 template <>
 CpsExprRef CpsConverter::convert<CoreDefine>(
     const CoreDefine& c, Continuation k) {
-    return convert(c.value, [&](const CpsAtom& val) {
-        if (!_ctx.core_arena().is_mutated(c.target)) {
-            extend(c.target.id, CpsAtom(val));
-            return k(CpsAtom(CpsUnit()));
-        }
-
+    if (_ctx.core_arena().is_mutated(c.target)) {
         auto box = next_var(c.target.id.debug_name + "_box");
-        extend(c.target.id, CpsAtom(box));
-        return _arena.emplace(CpsLet { .target = box,
-            .op = PrimOp::Box,
-            .args = { val },
-            .body = k(CpsAtom(CpsUnit())) });
+        extend(c.target, CpsAtom(box));
+        return convert(c.value, [&](const CpsAtom& val) {
+            return _arena.emplace(CpsLet { .target = box,
+                .op = PrimOp::Box,
+                .args = { val },
+                .body = k(CpsAtom(CpsUnit())) });
+        });
+    }
+
+    if (_core_arena[c.value].isa<CoreLambda>()) {
+        auto lambda_var = next_var(c.target.id.debug_name);
+        extend(c.target, CpsAtom(lambda_var));
+
+        auto old_forced = std::exchange(_forced_lambda_var, lambda_var);
+        auto res = convert(c.value, [&](const CpsAtom& /* val */) {
+            _forced_lambda_var = old_forced;
+            return k(CpsAtom(CpsUnit()));
+        });
+        return res;
+    }
+
+    return convert(c.value, [&](const CpsAtom& val) {
+        extend(c.target, CpsAtom(val));
+        return k(CpsAtom(CpsUnit()));
     });
 }
 
@@ -216,7 +241,7 @@ CpsExprRef CpsConverter::convert<CoreApply>(
 template <>
 CpsExprRef CpsConverter::convert<CoreSet>(const CoreSet& c, Continuation k) {
     return convert(c.value, [&](const CpsAtom& val) {
-        auto box = lookup(c.target.id);
+        auto box = lookup(c.target);
         return _arena.emplace(CpsLet { .target = next_var("unused"),
             .op = PrimOp::BoxSet,
             .args = { box, val },
@@ -267,36 +292,14 @@ CpsExprRef CpsConverter::lower_program(CoreExprRef root) {
 namespace {
     std::string primop_to_string(PrimOp op) {
         switch (op) {
-        case PrimOp::Add:
-            return "+";
-        case PrimOp::Sub:
-            return "-";
-        case PrimOp::Mul:
-            return "*";
-        case PrimOp::Div:
-            return "/";
-        case PrimOp::Eq:
-            return "=";
-        case PrimOp::Lt:
-            return "<";
-        case PrimOp::Gt:
-            return ">";
-        case PrimOp::Le:
-            return "<=";
-        case PrimOp::Ge:
-            return ">=";
-        case PrimOp::Cons:
-            return "cons";
-        case PrimOp::Car:
-            return "car";
-        case PrimOp::Cdr:
-            return "cdr";
-        case PrimOp::Box:
-            return "box";
-        case PrimOp::BoxGet:
-            return "box-get";
-        case PrimOp::BoxSet:
-            return "box-set";
+#define X(op, str, min, max)                                                   \
+    case PrimOp::op:                                                           \
+        return str;
+#include "primops.def"
+            X(Box, "box", 1, 1)
+            X(BoxGet, "box-get", 1, 1)
+            X(BoxSet, "box-set", 2, 2)
+#undef X
         }
         return "unknown";
     }
@@ -384,24 +387,26 @@ namespace {
             return atom.visit(CoreExprVisitor {
                 [](const CpsVar& v) { return v.var.debug_name; },
                 [&](const CpsConstant& c) {
-                    // FIXME: what?
                     return std::format("{}", span_arena.dump(c.value));
                 },
-                [](const CpsUnit&) { return std::string("#<unit>"); },
+                [](const CpsUnit&) { return std::string("()"); },
             });
         }
 
         std::string operator()(const CpsApp& app) const {
-            std::string out = "(" + atom_to_string(app.func);
-            for (const auto& arg : app.args)
-                out += " " + atom_to_string(arg);
+            std::string out = atom_to_string(app.func) + "(";
+            for (std::size_t i = 0; i < app.args.size(); ++i) {
+                if (i > 0)
+                    out += ", ";
+                out += atom_to_string(app.args[i]);
+            }
             out += ")";
             return out;
         }
 
         std::string operator()(const CpsLet& l) const {
             std::string out = "let " + l.target.var.debug_name + " = ";
-            out += std::format("#prim#{}(", primop_to_string(l.op));
+            out += std::format("{}(", primop_to_string(l.op));
             for (std::size_t i = 0; i < l.args.size(); ++i) {
                 if (i > 0)
                     out += ", ";
@@ -455,9 +460,8 @@ namespace {
 CpsExprRef LowerPass::run(CoreExprRef root, CompilerContext& ctx) noexcept {
     CpsConverter lowerer(ctx);
     auto entry = lowerer.lower_program(root);
-    if (entry == CpsExprRef::invalid()) {
+    if (entry == CpsExprRef::invalid())
         _failed = true;
-    }
     return entry;
 }
 
