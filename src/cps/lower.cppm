@@ -4,25 +4,33 @@ import std;
 
 import lpc.context;
 import lpc.passes;
-import lpc.syntax.arenas;
-import lpc.syntax.ast;
-import lpc.syntax.refs;
+import lpc.analysis.core_form;
+import lpc.cps.ir;
 
 namespace lpc::cps {
 
-using namespace lpc::syntax;
+using namespace lpc::analysis;
 
-// export class LowerPass final : public Pass {
-// public:
-//     [[nodiscard]] std::string name() const noexcept final {
-//         return "lower";
-//     }
+export class LowerPass final : public Pass<CoreExprRef, CpsExprRef> {
+private:
+    bool _failed = false;
 
-//     [[nodiscard]] SpanRef run(
-//         SpanRef root, CompilerContext& ctx) noexcept final;
+public:
+    [[nodiscard]] std::string name() const noexcept final {
+        return "lower";
+    }
 
-//     LowerPass() = default;
-//     ~LowerPass() final = default;
-// };
+    [[nodiscard]] CpsExprRef run(
+        CoreExprRef root, CompilerContext& ctx) noexcept final;
+
+    [[nodiscard]] std::string dump(
+        const CpsExprRef& result, CompilerContext& ctx) const noexcept final;
+
+    [[nodiscard]] bool is_failed() const noexcept final {
+        return _failed;
+    }
+
+    explicit LowerPass() noexcept = default;
+};
 
 } // namespace lpc::cps

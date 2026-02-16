@@ -26,32 +26,6 @@ void SymbolTable::init_builtins() {
     define_builtin("cons", Arity::fixed(2));
     define_builtin("car", Arity::fixed(1));
     define_builtin("cdr", Arity::fixed(1));
-    define_builtin("set-car!", Arity::fixed(2));
-    define_builtin("set-cdr!", Arity::fixed(2));
-    define_builtin("list", Arity::at_least(0));
-    define_builtin("null?", Arity::fixed(1));
-    define_builtin("pair?", Arity::fixed(1));
-    define_builtin("number?", Arity::fixed(1));
-    define_builtin("string?", Arity::fixed(1));
-    define_builtin("symbol?", Arity::fixed(1));
-    define_builtin("boolean?", Arity::fixed(1));
-    define_builtin("procedure?", Arity::fixed(1));
-    define_builtin("eq?", Arity::fixed(2));
-    define_builtin("eqv?", Arity::fixed(2));
-    define_builtin("equal?", Arity::fixed(2));
-    define_builtin("display", Arity::at_least(1));
-    define_builtin("newline", Arity::at_least(0));
-    define_builtin("not", Arity::fixed(1));
-    define_builtin("list->vector", Arity::fixed(1));
-    define_builtin("vector->list", Arity::fixed(1));
-    define_builtin("make-vector", Arity::at_least(1));
-    define_builtin("vector-ref", Arity::fixed(2));
-    define_builtin("vector-set!", Arity::fixed(3));
-    define_builtin("vector-length", Arity::fixed(1));
-    define_builtin("append", Arity::at_least(0));
-    define_builtin("apply", Arity::at_least(2));
-    define_builtin("map", Arity::at_least(2));
-    define_builtin("for-each", Arity::at_least(2));
 }
 
 void Lowerer::report_error(SpanRef ref, std::string_view msg) {
