@@ -4,6 +4,7 @@ import std;
 
 import lpc.analysis.expand;
 import lpc.analysis.sema;
+import lpc.cps.lower;
 import lpc.context;
 import lpc.passes;
 import lpc.syntax.arenas;
@@ -17,6 +18,7 @@ namespace lpc {
 
 using namespace lpc::syntax;
 using namespace lpc::analysis;
+using namespace lpc::cps;
 
 using lpc::utils::Error;
 
@@ -58,6 +60,7 @@ int Session::run() noexcept {
                       .add<ParsePass>()
                       .add<ExpandPass>()
                       .add<SemaPass>()
+                      .add<LowerPass>()
                       .build()
                       .run({}, ctx);
 

@@ -3,6 +3,7 @@ export module lpc.context;
 import std;
 
 import lpc.analysis.core_form;
+import lpc.cps.ir;
 import lpc.syntax.arenas;
 
 namespace lpc {
@@ -32,6 +33,7 @@ private:
     std::string _source;
     syntax::SpanArena _span_arena;
     analysis::CoreExprArena _core_arena;
+    cps::CpsArena _cps_arena;
 
 public:
     explicit CompilerContext(CompilerOptions&& options, std::string&& path,
@@ -60,6 +62,10 @@ public:
 
     [[nodiscard]] analysis::CoreExprArena& core_arena() noexcept {
         return _core_arena;
+    }
+
+    [[nodiscard]] cps::CpsArena& cps_arena() noexcept {
+        return _cps_arena;
     }
 };
 

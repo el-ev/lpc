@@ -24,6 +24,10 @@ export using CpsUnit = std::monostate;
 export struct CpsVar {
     VarId var;
 
+    [[nodiscard]] auto operator<=>(const CpsVar& other) const noexcept {
+        return var <=> other.var;
+    }
+
     [[nodiscard]] auto operator==(const CpsVar& other) const noexcept {
         return var == other.var;
     }
@@ -72,7 +76,7 @@ export enum class PrimOp : std::uint8_t {
 };
 
 export struct CpsLet {
-    VarId target;
+    CpsVar target;
     PrimOp op;
     std::vector<CpsAtom> args;
     CpsExprRef body;
@@ -85,13 +89,13 @@ export struct CpsIf {
 };
 
 export struct CpsLambda {
-    VarId name;
-    std::vector<VarId> params;
+    CpsVar name;
+    std::vector<CpsVar> params;
     CpsExprRef body;
 };
 
 export struct CpsFix {
-    std::vector<CpsLambda> functions;
+    std::vector<CpsExprRef> functions;
     CpsExprRef body;
 };
 
@@ -112,7 +116,7 @@ public:
 
     template <typename... Args>
     [[nodiscard]] CpsExprRef emplace(Args&&... args) {
-        return emplace(std::forward<Args>(args)...);
+        return Arena::emplace(std::forward<Args>(args)...);
     }
 
     [[nodiscard]] const CpsExpr& get(CpsExprRef ref) const {
@@ -125,3 +129,10 @@ public:
 };
 
 } // namespace lpc::cps
+
+export template <>
+struct std::hash<lpc::cps::CpsVar> {
+    std::size_t operator()(const lpc::cps::CpsVar& v) const noexcept {
+        return std::hash<lpc::analysis::VarId> {}(v.var);
+    }
+};

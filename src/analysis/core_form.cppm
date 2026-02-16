@@ -81,6 +81,7 @@ export struct CoreSet {
     CoreVar target;
     CoreExprRef value;
 };
+
 export struct CoreDefine {
     CoreVar target;
     CoreExprRef value;
@@ -121,6 +122,9 @@ public:
     }
     [[nodiscard]] const CoreExpr& at(CoreExprRef ref) const {
         return Arena::at(ref);
+    }
+    [[nodiscard]] const CoreExpr& operator[](CoreExprRef ref) const {
+        return at(ref);
     }
 };
 
