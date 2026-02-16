@@ -250,6 +250,7 @@ std::string SpanArena::dump(SpanRef ref) const {
             }
         },
         [](const LispBool& b) { return b ? "#t" : "#f"; },
+        [](const LispNil&) { return "()"; },
         [this](const SExprList& list) {
             if (list.elem.size() == 3 && is_nil(list.elem.back())
                 && is_ident(list.elem[0])) {
