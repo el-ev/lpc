@@ -9,10 +9,9 @@ namespace lpc::syntax {
 
 using lpc::utils::Error;
 
-std::size_t count_till_delimeter(std::string_view str) {
+std::size_t count_till_delimiter(std::string_view str) {
     const char* it = std::ranges::find_if(str.begin(), str.end(), [](char c) {
-        return std::ranges::find(lex_defs::DELIMETER, c)
-            != lex_defs::DELIMETER.end();
+        return lex_defs::DELIMETER.contains(c);
     });
     if (it == str.end())
         return str.size();
@@ -44,12 +43,10 @@ bool Lexer::skip_comment() noexcept {
 bool Lexer::skip_whitespaces() noexcept {
     if (is_eof())
         return false;
-    if (std::ranges::find(lex_defs::WHITESPACE, _cursor[0])
-        == lex_defs::WHITESPACE.end())
+    if (!lex_defs::WHITESPACE.contains(_cursor[0]))
         return false;
     while (!is_eof()
-        && std::ranges::find(lex_defs::WHITESPACE, _cursor[0])
-            != lex_defs::WHITESPACE.end()) {
+        && lex_defs::WHITESPACE.contains(_cursor[0])) {
         if (_cursor[0] == lex_defs::NEWLINE) {
             _line++;
             _line_start = _cursor.begin();
@@ -81,16 +78,13 @@ bool Lexer::read_ident() noexcept {
     // <subsequent> -> <letter> | <digit> | <special subsequent>
     // <letter> -> [a-zA-Z]
     // <digit> -> [0-9]
-    auto size = count_till_delimeter(_cursor);
-    if (std::ranges::find(lex_defs::SPECIAL_INITIAL, _cursor[0])
-            != lex_defs::SPECIAL_INITIAL.end()
+    auto size = count_till_delimiter(_cursor);
+    if (lex_defs::SPECIAL_INITIAL.contains(_cursor[0])
         || std::isalpha(_cursor[0]) != 0) {
         auto is_valid_subsequent = [](char c) {
             return std::isalpha(c) != 0 || std::isdigit(c) != 0
-                || std::ranges::find(lex_defs::SPECIAL_SUBSEQUENT, c)
-                != lex_defs::SPECIAL_SUBSEQUENT.end()
-                || std::ranges::find(lex_defs::SPECIAL_INITIAL, c)
-                != lex_defs::SPECIAL_INITIAL.end();
+                || lex_defs::SPECIAL_SUBSEQUENT.contains(c)
+                || lex_defs::SPECIAL_INITIAL.contains(c);
         };
         std::size_t pos = 1;
         while (pos < _cursor.size() && is_valid_subsequent(_cursor[pos]))
@@ -193,7 +187,7 @@ bool Lexer::read_number(int radix) noexcept {
     int radix_value = 10;
     bool number_pattern = false;
     auto value_start = _cursor;
-    auto size = count_till_delimeter(_cursor);
+    auto size = count_till_delimiter(_cursor);
 
     if (radix != 0) {
         // radix is explicitly provided
@@ -251,7 +245,15 @@ bool Lexer::read_number(int radix) noexcept {
         std::distance(_cursor.begin(), value_start.begin()));
     std::string value_string(
         value_start.substr(0, size - prefix_len - sharp_count));
-    std::int64_t value = std::stoll(value_string, nullptr, radix_value);
+    std::int64_t value = 0;
+    try {
+        value = std::stoll(value_string, nullptr, radix_value);
+    } catch (const std::exception& e) {
+        Error("Invalid number literal: \"{}\" at {}. Error: {}",
+            _cursor.substr(0, size), loc_string(), e.what());
+        _failed = true;
+        return false;
+    }
     _tokens.emplace_back(
         TokenType::NUMBER, loc(std::string(_cursor.substr(0, size))), value);
     _cursor.remove_prefix(size);
@@ -272,7 +274,7 @@ bool Lexer::read_character() noexcept {
     }
     if (std::isalpha(_cursor[2]) != 0) {
         // find till the next delimiter
-        auto end = count_till_delimeter(_cursor);
+        auto end = count_till_delimiter(_cursor);
         // if size is not 3, check against <char name>s, case insensitive
         if (end != 3) {
             std::string name(_cursor.substr(0, end));
@@ -343,7 +345,11 @@ bool Lexer::read_string() noexcept {
     std::string_view unescaped_value = content_view.substr(0, end);
 
     auto unescape = [](std::string_view str) {
+        if (str.find('\\') == std::string_view::npos)
+            return std::string(str);
+        
         std::string result;
+        result.reserve(str.size());
         for (std::size_t i = 0; i < str.size(); ++i) {
             if (str[i] == '\\') {
                 if (i + 1 < str.size()) {
@@ -393,7 +399,7 @@ bool Lexer::read_operator() noexcept {
         return true;
     case '.':
         // . requires a delimiter
-        if (count_till_delimeter(_cursor) > 1)
+        if (count_till_delimiter(_cursor) > 1)
             return false;
         _tokens.emplace_back(TokenType::DOT, loc("."));
         _cursor.remove_prefix(1);

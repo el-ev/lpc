@@ -11,15 +11,15 @@ private:
     std::string_view _file;
     std::uint32_t _line;
     std::uint32_t _column;
-    std::string _lexeme;
+    std::string_view _lexeme;
 
 public:
     explicit constexpr Location(std::string_view file, std::uint32_t line,
-        std::uint32_t column, std::string&& lexeme) noexcept
+        std::uint32_t column, std::string_view lexeme) noexcept
         : _file(file)
         , _line(line)
         , _column(column)
-        , _lexeme(std::move(lexeme)) {
+        , _lexeme(lexeme) {
     }
 
     [[nodiscard]] inline constexpr Location operator-(

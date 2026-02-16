@@ -36,7 +36,13 @@ int Session::run() noexcept {
         Error("Failed to open input file: {}", path);
         return 1;
     }
-    std::string source((std::istreambuf_iterator<char>(input_file)),
+
+    input_file.seekg(0, std::ios::end);
+    std::string source;
+    source.reserve(input_file.tellg());
+    input_file.seekg(0, std::ios::beg);
+
+    source.assign((std::istreambuf_iterator<char>(input_file)),
         std::istreambuf_iterator<char>());
     input_file.close();
 

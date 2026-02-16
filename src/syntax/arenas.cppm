@@ -50,10 +50,11 @@ public:
 
 class LocationArena
     : Arena<LocTag,
-          std::tuple<std::uint32_t, std::uint32_t, std::uint32_t, std::string>,
+          std::tuple<std::uint32_t, std::uint32_t, std::uint32_t, std::string_view>,
           std::uint32_t> {
 private:
     std::deque<std::string> _files;
+    std::deque<std::string> _lexemes;
 
 public:
     explicit LocationArena() noexcept = default;
@@ -65,7 +66,8 @@ public:
 
     [[nodiscard]] inline LocRef emplace(std::uint32_t file_idx,
         std::uint32_t line, std::uint32_t column, std::string&& lexeme) {
-        return Arena::emplace(file_idx, line, column, std::move(lexeme));
+        _lexemes.emplace_back(std::move(lexeme));
+        return Arena::emplace(file_idx, line, column, std::string_view(_lexemes.back()));
     }
 
     [[nodiscard]] inline std::string_view file(
@@ -79,7 +81,7 @@ public:
 
     [[nodiscard]] inline Location at(LocRef ref) const& {
         auto [file_idx, line, column, lexeme] = Arena::at(ref);
-        return Location(_files[file_idx], line, column, std::string(lexeme));
+        return Location(_files[file_idx], line, column, lexeme);
     }
 };
 

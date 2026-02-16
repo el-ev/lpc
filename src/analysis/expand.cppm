@@ -137,6 +137,23 @@ private:
 
     [[nodiscard]] SpanRef add_scope(SpanRef expr, ScopeID scope);
 
+    template <typename T>
+    SpanRef expand_list_like(SpanRef expr, const T& container, ScopeID scope) {
+        std::vector<SpanRef> v;
+        v.reserve(container.elem.size());
+        bool changed = false;
+        for (const auto& el : container.elem) {
+            auto new_el = add_scope(el, scope);
+            if (new_el != el)
+                changed = true;
+            v.push_back(new_el);
+        }
+        if (!changed)
+            return expr;
+        return _arena.expand(_arena.loc_ref(expr), _parent,
+            _arena.scope_arena().empty_set(), T(std::move(v)));
+    }
+
     bool report_error(SpanRef failed_expr, std::string_view msg);
     void dump_backtrace();
 

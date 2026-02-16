@@ -123,6 +123,8 @@ class TestChecker:
             if len(actual_lines) != len(expected_lines):
                 print("✗ stderr differs in number of lines")
                 print(f"Expected {len(expected_lines)} lines, got {len(actual_lines)} lines")
+                print(f"Expected: {expected_lines}")
+                print(f"Actual: {actual_lines}")
             else:
                 for i, (actual_line, expected_line) in enumerate(zip(actual_lines, expected_lines)):
                     if actual_line != expected_line:

@@ -100,8 +100,9 @@ bool Transformer::match(
             if (ellipsis_pos < 0) {
                 if (p_logical != i_logical)
                     return false;
-                for (std::size_t i = 0; i < p_logical; ++i)
-                    if (!match(p_list->elem[i], i_list->elem[i], bindings))
+                for (const auto& [p, i] : std::views::zip(p_list->elem, i_list->elem)
+                                              | std::views::take(p_logical))
+                    if (!match(p, i, bindings))
                         return false;
                 return true;
             }
@@ -114,8 +115,9 @@ bool Transformer::match(
             if (i_logical < fixed_before + fixed_after)
                 return false;
 
-            for (std::size_t i = 0; i < fixed_before; ++i)
-                if (!match(p_list->elem[i], i_list->elem[i], bindings))
+            for (const auto& [p, i] : std::views::zip(p_list->elem, i_list->elem)
+                                          | std::views::take(fixed_before))
+                if (!match(p, i, bindings))
                     return false;
 
             std::size_t repeat_count = i_logical - fixed_before - fixed_after;
@@ -158,8 +160,9 @@ bool Transformer::match(
             if (i_element_count < head_count)
                 return false;
 
-            for (std::size_t i = 0; i < head_count; ++i)
-                if (!match(p_list->elem[i], i_list->elem[i], bindings))
+            for (const auto& [p, i] : std::views::zip(p_list->elem, i_list->elem)
+                                          | std::views::take(head_count))
+                if (!match(p, i, bindings))
                     return false;
             return match(tail_pattern,
                 get_tail(*i_list, head_count, _arena, SpanRef::invalid()),
@@ -174,8 +177,9 @@ bool Transformer::match(
         if (i_element_count < fixed_before + fixed_after)
             return false;
 
-        for (std::size_t i = 0; i < fixed_before; ++i)
-            if (!match(p_list->elem[i], i_list->elem[i], bindings))
+        for (const auto& [p, i] : std::views::zip(p_list->elem, i_list->elem)
+                                      | std::views::take(fixed_before))
+            if (!match(p, i, bindings))
                 return false;
 
         std::size_t repeat_count = i_element_count - fixed_before - fixed_after;

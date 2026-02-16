@@ -16,10 +16,7 @@ auto main(int argc, char* argv[]) noexcept -> int {
     App::builder("lpc", "Iris Shi")
         .enable_help()
         .set_non_option_callback([&](auto&& args) {
-            std::vector<std::string> files;
-            files.reserve(args.size());
-            for (auto sv : args)
-                files.emplace_back(sv);
+            std::vector<std::string> files(args.begin(), args.end());
             session.set_input_files(std::move(files));
         })
         .add_option("output", 'o', "Output file path", "out.c",

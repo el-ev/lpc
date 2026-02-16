@@ -9,9 +9,7 @@ struct ElementReference {
 public:
     static const IndexType invalid_ref = std::numeric_limits<IndexType>::max();
 
-    ElementReference() noexcept
-        : _index(invalid_ref) {
-    }
+    ElementReference() noexcept = default;
     ElementReference(const ElementReference&) = default;
     ElementReference& operator=(const ElementReference&) = default;
 
@@ -19,15 +17,8 @@ public:
         return ElementReference(invalid_ref);
     }
 
-    [[nodiscard]] inline bool operator==(
-        const ElementReference& other) const noexcept {
-        return _index == other._index;
-    }
-
-    [[nodiscard]] inline std::strong_ordering operator<=>(
-        const ElementReference& other) const noexcept {
-        return _index <=> other._index;
-    }
+    [[nodiscard]] bool operator==(const ElementReference&) const = default;
+    [[nodiscard]] auto operator<=>(const ElementReference&) const = default;
 
     [[nodiscard]] inline bool is_valid() const noexcept {
         return _index != invalid_ref;
@@ -36,7 +27,7 @@ public:
     explicit ElementReference(IndexType idx) noexcept
         : _index(idx) { };
     
-    IndexType _index;
+    IndexType _index = invalid_ref;
 };
 
 export template <typename Tag, typename T, typename IndexType = std::size_t>

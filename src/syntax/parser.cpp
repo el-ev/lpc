@@ -19,13 +19,13 @@ struct Datum;
 struct List {
 static constexpr auto rule() noexcept {
   return 
-chain(
+Sequence(
     OneToken<TokenType::LPAREN>()
-  , any(
-        chain(
+  , Choice(
+        Sequence(
             Some<Def<Datum>>()
-          , any(
-                chain(
+          , Choice(
+                Sequence(
                     OneToken<TokenType::DOT>()
                   , Def<Datum>()
                 )
@@ -42,33 +42,33 @@ chain(
 struct Datum {
 static constexpr auto rule() noexcept {
 return
-any(
+Choice(
     GetConstant()
   , GetIdentifier()
   , CreateList(Def<List>())
   , CreateVector(
-        chain(
+        Sequence(
             OneToken<TokenType::SHELL_LPAREN>()
           , Many<Def<Datum>>()
           , Must(OneToken<TokenType::RPAREN>())
         )
     )
   , CreateList(
-        chain(
-            any(
-                chain(
+        Sequence(
+            Choice(
+                Sequence(
                     OneToken<TokenType::APOSTROPHE>()
                   , InsertKeyword<Keyword::QUOTE>()
                 )
-              , chain(
+              , Sequence(
                     OneToken<TokenType::BACKTICK>()
                   , InsertKeyword<Keyword::QUASIQUOTE>()
                 )
-              , chain(
+              , Sequence(
                     OneToken<TokenType::COMMA>()
                   , InsertKeyword<Keyword::UNQUOTE>()
                 )
-              , chain(
+              , Sequence(
                     OneToken<TokenType::COMMA_AT>()
                   , InsertKeyword<Keyword::UNQUOTE_SPLICING>()
                 )
@@ -84,8 +84,8 @@ any(
 struct Program {
 static constexpr auto rule() noexcept {
     return CreateList(
-        chain(
-            Many(Def<Datum>())
+        Sequence(
+            Many<Def<Datum>>()
           , CreateNil()
         )
     );

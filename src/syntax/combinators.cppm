@@ -62,8 +62,10 @@ struct GetConstant {
 template <ParserRule R>
 struct CreateList {
     using manages_rollback = std::true_type;
+    [[no_unique_address]] R r;
+
     explicit constexpr CreateList() noexcept = default;
-    explicit constexpr CreateList(R /* r */) noexcept { };
+    explicit constexpr CreateList(R r) noexcept : r(std::move(r)) { };
 
     [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
@@ -71,8 +73,10 @@ struct CreateList {
 template <ParserRule R>
 struct CreateVector {
     using manages_rollback = std::true_type;
+    [[no_unique_address]] R r;
+
     explicit constexpr CreateVector() noexcept = default;
-    explicit constexpr CreateVector(R /* r */) noexcept { };
+    explicit constexpr CreateVector(R r) noexcept : r(std::move(r)) { };
 
     [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
@@ -84,32 +88,95 @@ struct CreateNil {
     [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
 
-template <ParserRule Lhs, ParserRule Rhs>
-struct Any {
-    using manages_rollback = std::true_type;
+template <ParserRule R, auto F>
+struct Map {
+    using manages_rollback = typename R::manages_rollback;
+    R rule;
 
-    explicit constexpr Any() noexcept = default;
-    explicit constexpr Any(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
+    explicit constexpr Map() noexcept = default;
+    explicit constexpr Map(R r) noexcept
+        : rule(std::move(r)) { }
 
-    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
+    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept {
+        auto res = rule(cursor);
+        if (res)
+            return F(std::move(*res), cursor);
+        return std::nullopt;
+    }
 };
 
-template <ParserRule Lhs, ParserRule Rhs>
-struct Then {
+template <ParserRule... Rules>
+struct Choice {
+    using manages_rollback = std::true_type;
+    std::tuple<Rules...> rules;
+
+    explicit constexpr Choice() noexcept = default;
+    explicit constexpr Choice(Rules... r) noexcept
+        : rules(std::move(r)...) { }
+
+    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept {
+        ParseResult result;
+        auto try_rule = [&](const auto& rule) -> bool {
+            using R = std::decay_t<decltype(rule)>;
+            if constexpr (R::manages_rollback::value) {
+                result = rule(cursor);
+                return result.has_value();
+            } else {
+                auto save = cursor.save();
+                result = rule(cursor);
+                if (result)
+                    return true;
+                cursor.set(save);
+                return false;
+            }
+        };
+
+        bool found = std::apply(
+            [&](const auto&... args) { return (try_rule(args) || ...); },
+            rules);
+
+        if (found)
+            return result;
+        return std::nullopt;
+    }
+};
+
+template <ParserRule... Rules>
+struct Sequence {
     using manages_rollback = std::false_type;
+    std::tuple<Rules...> rules;
 
-    explicit constexpr Then() noexcept = default;
-    explicit constexpr Then(Lhs /* lhs */, Rhs /* rhs */) noexcept { };
+    explicit constexpr Sequence() noexcept = default;
+    explicit constexpr Sequence(Rules... r) noexcept
+        : rules(std::move(r)...) { }
 
-    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
+    [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept {
+        std::vector<SpanRef> combined;
+        bool ok = std::apply(
+            [&](const auto&... args) {
+                return ([&]() {
+                    auto res = args(cursor);
+                    if (!res)
+                        return false;
+                    combined.append_range(*res);
+                    return true;
+                }() && ...);
+            },
+            rules);
+
+        if (ok)
+            return combined;
+        return std::nullopt;
+    }
 };
 
 template <ParserRule R>
 struct Maybe {
     using manages_rollback = std::true_type;
+    [[no_unique_address]] R r;
 
     explicit constexpr Maybe() noexcept = default;
-    explicit constexpr Maybe(R /* r */) noexcept { };
+    explicit constexpr Maybe(R r) noexcept : r(std::move(r)) { };
 
     [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
@@ -117,9 +184,10 @@ struct Maybe {
 template <ParserRule R>
 struct Many {
     using manages_rollback = std::true_type;
+    [[no_unique_address]] R r;
 
     explicit constexpr Many() noexcept = default;
-    explicit constexpr Many(R /* r */) noexcept { };
+    explicit constexpr Many(R r) noexcept : r(std::move(r)) { };
 
     [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
@@ -127,60 +195,16 @@ struct Many {
 template <ParserRule R>
 struct Must {
     using manages_rollback = std::true_type;
+    [[no_unique_address]] R r;
 
     explicit constexpr Must() noexcept = default;
-    explicit constexpr Must(R /* r */) noexcept { };
+    explicit constexpr Must(R r) noexcept : r(std::move(r)) { };
 
     [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
 
 template <ParserRule R>
-using Some = Then<R, Many<R>>;
-
-template <template <typename, typename> class Rewrite, ParserRule... Rules>
-struct Chain;
-
-template <template <typename, typename> class Rewrite, ParserRule R>
-struct Chain<Rewrite, R> {
-    R rule;
-
-    explicit constexpr Chain(R r) noexcept
-        : rule(r) { };
-
-    [[nodiscard]] constexpr auto build() const noexcept {
-        return rule;
-    }
-};
-
-template <template <typename, typename> class Rewrite, ParserRule First,
-    ParserRule Second, ParserRule... Rest>
-struct Chain<Rewrite, First, Second, Rest...> {
-    First first;
-    Chain<Rewrite, Second, Rest...> rest;
-
-    explicit constexpr Chain(First f, Second s, Rest... r) noexcept
-        : first(f)
-        , rest(s, r...) { };
-
-    [[nodiscard]] constexpr auto build() const noexcept {
-        return Rewrite<First, decltype(rest.build())> { first, rest.build() };
-    }
-};
-
-template <template <typename, typename> class Rewrite, ParserRule... Rules>
-[[nodiscard]] constexpr auto build_chain(Rules... rules) noexcept {
-    return Chain<Rewrite, Rules...> { rules... }.build();
-}
-
-template <ParserRule... Rules>
-[[nodiscard]] constexpr auto chain(Rules... rules) noexcept {
-    return build_chain<Then>(rules...);
-}
-
-template <ParserRule... Rules>
-[[nodiscard]] constexpr auto any(Rules... rules) noexcept {
-    return build_chain<Any>(rules...);
-}
+using Some = Sequence<R, Many<R>>;
 
 template <TokenType T>
 ParseResult OneToken<T>::operator()(Cursor& cursor) const noexcept {
@@ -221,12 +245,12 @@ ParseResult CreateList<R>::operator()(Cursor& cursor) const noexcept {
     LocRef loc = cursor.loc();
     ParseResult res;
     if constexpr (R::manages_rollback::value) {
-        res = R()(cursor);
+        res = r(cursor);
         if (!res)
             return std::nullopt;
     } else {
         auto save = cursor.save();
-        res = R()(cursor);
+        res = r(cursor);
         if (!res) {
             cursor.set(save);
             return std::nullopt;
@@ -244,12 +268,12 @@ ParseResult CreateVector<R>::operator()(Cursor& cursor) const noexcept {
     LocRef loc = cursor.loc();
     ParseResult res;
     if constexpr (R::manages_rollback::value) {
-        res = R()(cursor);
+        res = r(cursor);
         if (!res)
             return std::nullopt;
     } else {
         auto save = cursor.save();
-        res = R()(cursor);
+        res = r(cursor);
         if (!res) {
             cursor.set(save);
             return std::nullopt;
@@ -265,73 +289,16 @@ ParseResult CreateNil::operator()(Cursor& cursor) const noexcept {
     return std::vector<SpanRef> { node };
 }
 
-template <ParserRule Lhs, ParserRule Rhs>
-ParseResult Any<Lhs, Rhs>::operator()(Cursor& cursor) const noexcept {
-    if constexpr (Lhs::manages_rollback::value
-        && Rhs::manages_rollback::value) {
-        auto left = Lhs()(cursor);
-        if (left)
-            return left;
-        if (cursor.is_failed())
-            return std::nullopt;
-        auto right = Rhs()(cursor);
-        return right;
-    } else if constexpr (Lhs::manages_rollback::value) {
-        auto left = Lhs()(cursor);
-        if (left)
-            return left;
-        auto save = cursor.save();
-        auto right = Rhs()(cursor);
-        if (!right)
-            cursor.set(save);
-        return right;
-    } else if constexpr (Rhs::manages_rollback::value) {
-        auto save = cursor.save();
-        auto left = Lhs()(cursor);
-        if (left)
-            return left;
-        cursor.set(save);
-        auto right = Rhs()(cursor);
-        return right;
-    } else {
-        auto save = cursor.save();
-        auto left = Lhs()(cursor);
-        if (left)
-            return left;
-        cursor.set(save);
-        auto right = Rhs()(cursor);
-        if (!right)
-            cursor.set(save);
-        return right;
-    }
-}
-
-template <ParserRule Lhs, ParserRule Rhs>
-ParseResult Then<Lhs, Rhs>::operator()(Cursor& cursor) const noexcept {
-    auto left = Lhs()(cursor);
-    if (!left)
-        return std::nullopt;
-    auto right = Rhs()(cursor);
-    if (!right)
-        return std::nullopt;
-
-    left->reserve(left->size() + right->size());
-    left->insert(left->end(), std::make_move_iterator(right->begin()),
-        std::make_move_iterator(right->end()));
-
-    return left;
-}
-
 template <ParserRule R>
 ParseResult Maybe<R>::operator()(Cursor& cursor) const noexcept {
     if constexpr (R::manages_rollback::value) {
-        auto result = R()(cursor);
+        auto result = r(cursor);
         if (result)
             return std::move(result.value());
         return {};
     } else {
         auto save = cursor.save();
-        auto result = R()(cursor);
+        auto result = r(cursor);
         if (!result) {
             cursor.set(save);
             return {};
@@ -344,19 +311,17 @@ template <ParserRule R>
 ParseResult Many<R>::operator()(Cursor& cursor) const noexcept {
     std::vector<SpanRef> result;
     if constexpr (R::manages_rollback::value) {
-        while (auto nl = R()(cursor)) {
+        while (auto nl = r(cursor)) {
             if (result.capacity() - result.size() < nl->size())
                 result.reserve(result.capacity() * 2);
-            result.insert(result.end(), std::make_move_iterator(nl->begin()),
-                std::make_move_iterator(nl->end()));
+            result.append_range(*nl);
         }
     } else {
         auto save = cursor.save();
-        while (auto nl = R()(cursor)) {
+        while (auto nl = r(cursor)) {
             if (result.capacity() - result.size() < nl->size())
                 result.reserve(result.capacity() * 2);
-            result.insert(result.end(), std::make_move_iterator(nl->begin()),
-                std::make_move_iterator(nl->end()));
+            result.append_range(*nl);
             save = cursor.save();
         }
         cursor.set(save);
@@ -366,7 +331,7 @@ ParseResult Many<R>::operator()(Cursor& cursor) const noexcept {
 
 template <ParserRule R>
 ParseResult Must<R>::operator()(Cursor& cursor) const noexcept {
-    auto result = R()(cursor);
+    auto result = r(cursor);
     if (!result) {
         cursor.fail();
     }

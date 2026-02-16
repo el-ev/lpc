@@ -30,9 +30,8 @@ namespace {
                 const auto start = n - ((j + 1) * L);
                 if (start + L > n)
                     break;
-                if (!std::equal(seq.begin() + static_cast<std::ptrdiff_t>(start),
-                        seq.begin() + static_cast<std::ptrdiff_t>(start + L),
-                        pattern.begin(), pattern.end()))
+                const auto subrange = seq.subspan(start, L);
+                if (!std::ranges::equal(subrange, pattern))
                     break;
                 k = j + 1;
             }

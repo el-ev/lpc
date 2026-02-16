@@ -18,36 +18,12 @@ using lpc::utils::Error;
         return expr;
 
     const auto& sexpr = _arena.expr(expr);
-    bool changed = false;
 
-    if (const auto* list = sexpr.get<SExprList>()) {
-        std::vector<SpanRef> v;
-        v.reserve(list->elem.size());
-        for (const auto& el : list->elem) {
-            auto new_el = add_scope(el, scope);
-            if (new_el != el)
-                changed = true;
-            v.push_back(new_el);
-        }
-        if (!changed)
-            return expr;
-        return _arena.expand(_arena.loc_ref(expr), _parent,
-            _arena.scope_arena().empty_set(), SExprList(std::move(v)));
-    }
-    if (const auto* vec = sexpr.get<SExprVector>()) {
-        std::vector<SpanRef> v;
-        v.reserve(vec->elem.size());
-        for (const auto& el : vec->elem) {
-            auto new_el = add_scope(el, scope);
-            if (new_el != el)
-                changed = true;
-            v.push_back(new_el);
-        }
-        if (!changed)
-            return expr;
-        return _arena.expand(_arena.loc_ref(expr), _parent,
-            _arena.scope_arena().empty_set(), SExprVector(std::move(v)));
-    }
+    if (const auto* list = sexpr.get<SExprList>())
+        return expand_list_like(expr, *list, scope);
+
+    if (const auto* vec = sexpr.get<SExprVector>())
+        return expand_list_like(expr, *vec, scope);
     if (_arena.is_ident(expr)) {
         auto scopes = _arena.scopes(expr);
         if (scopes.contains(scope))
@@ -197,7 +173,7 @@ std::vector<SpanRef> Expander::expand_lambda(
         auto r = as_sub_expression().expand(add_scope(list.elem[i], scope));
         if (r.size() != 1 || !r[0].is_valid())
             return { SpanRef::invalid() };
-        out.insert(out.end(), r.begin(), r.end());
+        out.append_range(r);
     }
     return { _arena.expand(_arena.loc_ref(root), _parent,
         ScopeSetRef::invalid(), SExprList(std::move(out))) };
@@ -251,7 +227,7 @@ std::vector<SpanRef> Expander::expand_begin(
             if (std::ranges::any_of(
                     r, [](const auto& r) { return !r.is_valid(); }))
                 return { SpanRef::invalid() };
-            out.insert(out.end(), r.begin(), r.end());
+            out.append_range(r);
         }
         return { _arena.expand(_arena.loc_ref(root), _parent,
             ScopeSetRef::invalid(), SExprList(std::move(out))) };
@@ -261,7 +237,7 @@ std::vector<SpanRef> Expander::expand_begin(
         auto r = expand(list.elem[i]);
         if (std::ranges::any_of(r, [](const auto& r) { return !r.is_valid(); }))
             return { SpanRef::invalid() };
-        out.insert(out.end(), r.begin(), r.end());
+        out.append_range(r);
     }
     return out;
 }
@@ -689,7 +665,7 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
             if (std::ranges::any_of(
                     r, [](const auto& r) { return !r.is_valid(); }))
                 continue;
-            out.insert(out.end(), r.begin(), r.end());
+            out.append_range(r);
         }
         return { _arena.expand(_arena.loc_ref(root), _parent,
             _arena.scope_ref(root), SExprList(std::move(out))) };
@@ -740,7 +716,7 @@ void ExpandPass::load_core(CompilerContext& ctx) {
             if (std::ranges::any_of(
                     r, [](const auto& r) { return !r.is_valid(); }))
                 continue;
-            out.insert(out.end(), r.begin(), r.end());
+            out.append_range(r);
         }
         SExprRef final_expr
             = arena.expr_arena().emplace(SExpr(SExprList(std::move(out))));
@@ -749,7 +725,7 @@ void ExpandPass::load_core(CompilerContext& ctx) {
             return SpanRef::invalid();
         return expanded;
     }
-    __builtin_unreachable();
+    std::unreachable();
 }
 
 ExpandPass::ExpandPass() noexcept {
