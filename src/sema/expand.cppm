@@ -48,7 +48,9 @@ public:
 
     std::string unique_name(const std::string& name) {
         auto& count = _name_counts[name];
-        return name + "." + std::to_string(count++);
+        if (count++ == 0)
+            return name;
+        return name + "." + std::to_string(count - 1);
     }
 
     void add_binding(const std::string& name, const std::set<ScopeID>& scopes,

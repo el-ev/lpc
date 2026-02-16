@@ -29,7 +29,7 @@ public:
         , _core_arena(ctx.core_arena()) {
 #define X(op, str, min, max)                                                   \
     if (auto builtin = _ctx.core_arena().get_builtin((str))) {                 \
-        extend(*builtin, CpsAtom { next_var((str)) });                         \
+        _prim_mapping[*builtin] = PrimOp::op;                                  \
     }
 #include "primops.def"
 #undef X
@@ -63,11 +63,16 @@ private:
     }
 
 public:
-    CpsVar next_var(std::string debug_name = "") {
+    CpsVar next_var(std::string_view debug_name = "") {
         auto id = _next_var_id++;
-        return CpsVar(VarId(id,
-            debug_name.empty() ? std::format("v_{}", id)
-                               : std::move(debug_name)));
+        if (debug_name.empty()) {
+            return CpsVar(VarId(id, std::format("v.{}", id)));
+        }
+        auto& count = _name_counts[std::string(debug_name)];
+        if (count++ == 0) {
+            return CpsVar(VarId(id, std::string(debug_name)));
+        }
+        return CpsVar(VarId(id, std::format("{}.{}", debug_name, count - 1)));
     }
 
 private:
@@ -75,6 +80,8 @@ private:
     CpsArena& _arena;
     CoreExprArena& _core_arena;
     std::unordered_map<CoreVar, CpsAtom> mapping;
+    std::unordered_map<CoreVar, PrimOp> _prim_mapping;
+    std::unordered_map<std::string, std::uint32_t> _name_counts;
     std::uint32_t _next_var_id = 0;
     std::optional<CpsVar> _forced_lambda_var;
 
@@ -101,7 +108,7 @@ CpsExprRef CpsConverter::convert<CoreSeq>(const CoreSeq& seq, Continuation k) {
 template <>
 CpsExprRef CpsConverter::convert<CoreIf>(const CoreIf& c, Continuation k) {
     auto kv = next_var("k_join");
-    auto rv = next_var("r");
+    auto rv = next_var("res");
     auto k_lambda = _arena.emplace(CpsLambda(kv, { rv }, k(CpsAtom(rv))));
 
     auto join_k = [this, kv](const CpsAtom& res) {
@@ -125,8 +132,6 @@ CpsExprRef CpsConverter::convert<CoreLambda>(
     std::vector<CpsVar> cps_params;
     std::vector<std::tuple<VarId, CpsVar, CpsVar>> boxed;
 
-    // FIXME should map builtin -> prim here
-
     auto scope = [&](const CoreVar& var, const CpsVar& p) {
         if (_ctx.core_arena().is_mutated(var)) {
             auto box = next_var(var.id.debug_name + "_box");
@@ -149,7 +154,7 @@ CpsExprRef CpsConverter::convert<CoreLambda>(
         scope(*c.rest_param, p);
     }
 
-    CpsVar k_dyn = next_var("k_dyn");
+    CpsVar k_dyn = next_var("k");
     cps_params.push_back(k_dyn);
 
     auto body_cont = [&](const CpsAtom& result) {
@@ -166,7 +171,7 @@ CpsExprRef CpsConverter::convert<CoreLambda>(
             .body = body });
     }
 
-    auto lambda_var = _forced_lambda_var ? *_forced_lambda_var : next_var();
+    auto lambda_var = _forced_lambda_var ? *_forced_lambda_var : next_var("lambda");
     _forced_lambda_var = std::nullopt;
 
     auto lambda
@@ -225,13 +230,28 @@ CpsExprRef CpsConverter::convert<CoreDefine>(
 template <>
 CpsExprRef CpsConverter::convert<CoreApply>(
     const CoreApply& c, Continuation k) {
+    const auto& func_expr = _core_arena[c.func];
+    if (const auto* var = func_expr.get<CoreVar>()) {
+        if (auto it = _prim_mapping.find(*var); it != _prim_mapping.end()) {
+            auto op = it->second;
+            return convert_args(
+                c.args, {}, [this, op, k](std::vector<CpsAtom> args) {
+                    auto rv = next_var("res");
+                    return _arena.emplace(CpsLet { .target = rv,
+                        .op = op,
+                        .args = std::move(args),
+                        .body = k(CpsAtom(rv)) });
+                });
+        }
+    }
+
     return convert(c.func, [&](const CpsAtom& func) {
         return convert_args(c.args, {}, [&](std::vector<CpsAtom> args) {
-            auto kv = next_var("k_ret");
-            auto rv = next_var("r");
+            auto kv = next_var("k");
+            auto rv = next_var("res");
             auto k_lambda
                 = _arena.emplace(CpsLambda(kv, { rv }, k(CpsAtom(rv))));
-            args.push_back(CpsAtom(kv));
+            args.emplace_back(kv);
             auto app = _arena.emplace(CpsApp(func, std::move(args)));
             return _arena.emplace(CpsFix({ k_lambda }, app));
         });
@@ -242,7 +262,7 @@ template <>
 CpsExprRef CpsConverter::convert<CoreSet>(const CoreSet& c, Continuation k) {
     return convert(c.value, [&](const CpsAtom& val) {
         auto box = lookup(c.target);
-        return _arena.emplace(CpsLet { .target = next_var("unused"),
+        return _arena.emplace(CpsLet { .target = next_var("_"),
             .op = PrimOp::BoxSet,
             .args = { box, val },
             .body = k(CpsAtom(CpsUnit())) });
@@ -439,7 +459,7 @@ namespace {
             std::string out = "fix\n";
             for (const auto& func : f.functions)
                 out += indent + "  " + dump(func, indent + "  ") + "\n";
-            out += indent + "in " + dump(f.body, indent);
+            out += indent + "in\n" + indent + "  " + dump(f.body, indent + "  ");
             return out;
         }
 
