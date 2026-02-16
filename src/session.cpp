@@ -4,6 +4,7 @@ import std;
 
 import lpc.analysis.expand;
 import lpc.analysis.sema;
+import lpc.analysis.mutability;
 import lpc.cps.lower;
 import lpc.context;
 import lpc.passes;
@@ -60,6 +61,7 @@ int Session::run() noexcept {
                       .add<ParsePass>()
                       .add<ExpandPass>()
                       .add<SemaPass>()
+                      .add<MutabilityPass>()
                       .add<LowerPass>()
                       .build()
                       .run({}, ctx);

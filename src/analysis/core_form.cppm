@@ -115,6 +115,9 @@ public:
 };
 
 class CoreExprArena : lpc::utils::Arena<CoreExprTag, CoreExpr, std::uint32_t> {
+private:
+    std::optional<std::set<CoreVar>> _mutated_vars;
+
 public:
     template <typename... Args>
     [[nodiscard]] CoreExprRef emplace(SpanRef origin, Args&&... args) {
@@ -125,6 +128,16 @@ public:
     }
     [[nodiscard]] const CoreExpr& operator[](CoreExprRef ref) const {
         return at(ref);
+    }
+
+    void set_mutated_vars(std::set<CoreVar> vars) {
+        _mutated_vars = std::move(vars);
+    }
+
+    [[nodiscard]] bool is_mutated(const CoreVar& var) const noexcept {
+        if (!_mutated_vars.has_value()) // no data
+            return true;
+        return _mutated_vars->contains(var);
     }
 };
 

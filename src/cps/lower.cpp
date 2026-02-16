@@ -72,10 +72,6 @@ private:
     std::uint32_t _next_var_id = 0;
 
     [[nodiscard]] CpsAtom lookup(const VarId& source_id) const {
-        // if (auto it = mapping.find(source_id); it != mapping.end())
-        //     return it->second;
-        // return std::nullopt;
-        // Should always exist if sema checks are correct
         return mapping.at(source_id);
     }
 
@@ -120,18 +116,28 @@ template <>
 CpsExprRef CpsConverter::convert<CoreLambda>(
     const CoreLambda& c, Continuation k) {
     std::vector<CpsVar> cps_params;
-    std::vector<std::pair<VarId, CpsVar>> to_box;
+    std::vector<std::tuple<VarId, CpsVar, CpsVar>> boxed;
+
+    auto scope = [&](const CoreVar& var, const CpsVar& p) {
+        if (_ctx.core_arena().is_mutated(var)) {
+            auto box = next_var(var.id.debug_name + "_box");
+            extend(var.id, CpsAtom(box));
+            boxed.emplace_back(var.id, p, box);
+        } else {
+            extend(var.id, CpsAtom(p));
+        }
+    };
 
     for (const auto& param : c.params) {
         auto p = next_var(param.id.debug_name);
         cps_params.push_back(p);
-        to_box.emplace_back(param.id, p);
+        scope(param, p);
     }
 
     if (c.rest_param) {
         auto p = next_var(c.rest_param->id.debug_name);
         cps_params.push_back(p);
-        to_box.emplace_back(c.rest_param->id, p);
+        scope(*c.rest_param, p);
     }
 
     CpsVar k_dyn = next_var("k_dyn");
@@ -143,10 +149,8 @@ CpsExprRef CpsConverter::convert<CoreLambda>(
 
     auto body = convert(c.body, body_cont);
 
-    for (auto i = to_box.size(); i > 0; --i) {
-        const auto& [id, p] = to_box[i - 1];
-        auto box = next_var(id.debug_name + "_box");
-        extend(id, CpsAtom(box));
+    for (auto i = boxed.size(); i > 0; --i) {
+        const auto& [id, p, box] = boxed[i - 1];
         body = _arena.emplace(CpsLet { .target = box,
             .op = PrimOp::Box,
             .args = { CpsAtom(p) },
@@ -164,10 +168,10 @@ CpsExprRef CpsConverter::convert<CoreLambda>(
 template <>
 CpsExprRef CpsConverter::convert<CoreVar>(const CoreVar& c, Continuation k) {
     auto val = lookup(c.id);
-    if (c.kind == CoreVarKind::Builtin)
+    // builtins are const by default
+    if (!_ctx.core_arena().is_mutated(c))
         return k(val);
 
-    // TODO: mutability analysis
     CpsVar unboxed = next_var(c.id.debug_name + "_val");
     return _arena.emplace(CpsLet { .target = unboxed,
         .op = PrimOp::BoxGet,
@@ -179,6 +183,11 @@ template <>
 CpsExprRef CpsConverter::convert<CoreDefine>(
     const CoreDefine& c, Continuation k) {
     return convert(c.value, [&](const CpsAtom& val) {
+        if (!_ctx.core_arena().is_mutated(c.target)) {
+            extend(c.target.id, CpsAtom(val));
+            return k(CpsAtom(CpsUnit()));
+        }
+
         auto box = next_var(c.target.id.debug_name + "_box");
         extend(c.target.id, CpsAtom(box));
         return _arena.emplace(CpsLet { .target = box,
