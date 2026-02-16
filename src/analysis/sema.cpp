@@ -98,7 +98,7 @@ CoreExprRef Lowerer::lower_variable(SpanRef ref, const LispIdent& id) {
     if (!resolved)
         resolved = _syms.declare_ref(id.name);
     _syms.mark_referenced(*resolved);
-    return _core.emplace(ref, CoreVar { .var = *resolved });
+    return _core.emplace(ref, *resolved);
 }
 
 CoreExprRef Lowerer::lower_literal(SpanRef ref) {
@@ -135,8 +135,8 @@ CoreExprRef Lowerer::lower_lambda(SpanRef ref, const SExprList& list) {
     // After expansion: list.elem = [lambda, formals, body1, ..., bodyN, nil]
     _syms.push_scope();
 
-    std::vector<VarId> params;
-    std::optional<VarId> rest_param;
+    std::vector<CoreVar> params;
+    std::optional<CoreVar> rest_param;
 
     auto formals_ref = list.elem[1];
     if (const auto* param_list = _spans.get<SExprList>(formals_ref)) {
@@ -246,7 +246,7 @@ CoreExprRef Lowerer::lower_set(SpanRef ref, const SExprList& list) {
         return CoreExprRef::invalid();
     }
 
-    if (resolved->kind == VarKind::Builtin) {
+    if (resolved->kind == CoreVarKind::Builtin) {
         report_error(list.elem[1], "sema: cannot mutate builtin procedure: {}",
             target_id->name);
         return CoreExprRef::invalid();
@@ -324,23 +324,23 @@ CoreExprRef Lowerer::lower_application(SpanRef ref, const SExprList& list) {
     }
 
     if (const auto* v = _core.at(func).get<CoreVar>()) {
-        if (auto arity = _syms.get_builtin_arity(v->var)) {
+        if (auto arity = _syms.get_builtin_arity(*v)) {
             if (!arity->is_applicable(
                     static_cast<std::uint32_t>(args.size()))) {
                 if (arity->is_variadic()) {
                     report_error(ref,
                         "sema: builtin '{}' requires at least {} arguments, "
                         "got {}",
-                        v->var.debug_name, arity->min_args, args.size());
+                        v->id.debug_name, arity->min_args, args.size());
                 } else if (arity->min_args == arity->max_args) {
                     report_error(ref,
                         "sema: builtin '{}' requires {} arguments, got {}",
-                        v->var.debug_name, arity->min_args, args.size());
+                        v->id.debug_name, arity->min_args, args.size());
                 } else {
                     report_error(ref,
                         "sema: builtin '{}' requires between {} and {} "
                         "arguments, got {}",
-                        v->var.debug_name, arity->min_args, arity->max_args,
+                        v->id.debug_name, arity->min_args, arity->max_args,
                         args.size());
                 }
                 // We still emplace it but we marked it as error
@@ -405,7 +405,7 @@ static std::string dump_core(
     const auto& expr = core.at(ref);
 
     if (const auto* var = expr.get<CoreVar>())
-        return var->var.debug_name;
+        return var->id.debug_name;
 
     if (const auto* lit = expr.get<CoreConstant>())
         return "'" + spans.dump(lit->value);
@@ -415,12 +415,12 @@ static std::string dump_core(
         for (std::size_t i = 0; i < lam->params.size(); ++i) {
             if (i > 0)
                 out += " ";
-            out += lam->params[i].debug_name;
+            out += lam->params[i].id.debug_name;
         }
         if (lam->rest_param) {
             if (!lam->params.empty())
                 out += " . ";
-            out += lam->rest_param->debug_name;
+            out += lam->rest_param->id.debug_name;
         }
         out += ") " + dump_core(core, spans, lam->body) + ")";
         return out;
@@ -435,11 +435,11 @@ static std::string dump_core(
     }
 
     if (const auto* set = expr.get<CoreSet>())
-        return "(set! " + set->target.debug_name + " "
+        return "(set! " + set->target.id.debug_name + " "
             + dump_core(core, spans, set->value) + ")";
 
     if (const auto* def = expr.get<CoreDefine>())
-        return "(define " + def->target.debug_name + " "
+        return "(define " + def->target.id.debug_name + " "
             + dump_core(core, spans, def->value) + ")";
 
     if (const auto* seq = expr.get<CoreSeq>()) {
@@ -475,7 +475,8 @@ static std::string dump_program(
 }
 
 CoreExprRef SemaPass::run(SpanRef root, CompilerContext& ctx) noexcept {
-    Lowerer lowerer(ctx.span_arena(), ctx.core_arena(), ctx.options().show_core_expansion);
+    Lowerer lowerer(
+        ctx.span_arena(), ctx.core_arena(), ctx.options().show_core_expansion);
     auto result = lowerer.lower_program(root);
     _failed = lowerer.had_error();
     return result;

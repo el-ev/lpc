@@ -11,19 +11,16 @@ namespace lpc::analysis {
 using namespace lpc::syntax;
 using lpc::utils::TaggedUnion;
 
-export enum class VarKind : std::int8_t {
-    Local,
-    Global,
-    Builtin
-};
-
 export struct VarId {
     std::uint32_t id;
     std::string debug_name;
-    VarKind kind = VarKind::Local;
 
     auto operator<=>(const VarId& other) const noexcept {
         return id <=> other.id;
+    }
+
+    bool operator==(const VarId& other) const noexcept {
+        return id == other.id;
     }
 };
 
@@ -53,9 +50,24 @@ export struct Arity {
     }
 };
 
+export enum class CoreVarKind : std::uint8_t { Local, Global, Builtin };
+
+export struct CoreVar {
+    VarId id;
+    CoreVarKind kind = CoreVarKind::Local;
+
+    [[nodiscard]] auto operator<=>(const CoreVar& other) const noexcept {
+        return id <=> other.id;
+    }
+
+    [[nodiscard]] bool operator==(const CoreVar& other) const noexcept {
+        return id == other.id;
+    }
+};
+
 export struct CoreLambda {
-    std::vector<VarId> params;
-    std::optional<VarId> rest_param;
+    std::vector<CoreVar> params;
+    std::optional<CoreVar> rest_param;
     CoreExprRef body;
 };
 
@@ -66,11 +78,11 @@ export struct CoreIf {
 };
 
 export struct CoreSet {
-    VarId target;
+    CoreVar target;
     CoreExprRef value;
 };
 export struct CoreDefine {
-    VarId target;
+    CoreVar target;
     CoreExprRef value;
 };
 
@@ -81,10 +93,6 @@ export struct CoreSeq {
 export struct CoreApply {
     CoreExprRef func;
     std::vector<CoreExprRef> args;
-};
-
-export struct CoreVar {
-    VarId var;
 };
 
 export struct CoreConstant {
@@ -117,3 +125,17 @@ public:
 };
 
 } // namespace lpc::analysis
+
+export template <>
+struct std::hash<lpc::analysis::VarId> {
+    std::size_t operator()(const lpc::analysis::VarId& v) const noexcept {
+        return std::hash<std::uint32_t> {}(v.id);
+    }
+};
+
+export template <>
+struct std::hash<lpc::analysis::CoreVar> {
+    std::size_t operator()(const lpc::analysis::CoreVar& v) const noexcept {
+        return std::hash<lpc::analysis::VarId> {}(v.id);
+    }
+};

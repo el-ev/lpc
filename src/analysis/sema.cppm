@@ -15,16 +15,16 @@ using namespace lpc::syntax;
 
 class SymbolTable {
     struct Scope {
-        std::unordered_map<std::string, VarId> bindings;
+        std::unordered_map<std::string, CoreVar> bindings;
         Scope* parent = nullptr;
     };
 
     std::deque<Scope> _scopes;
     Scope* _current = nullptr;
     std::uint32_t _next_id = 0;
-    std::unordered_map<std::uint32_t, Arity> _builtins;
-    std::set<std::uint32_t> _defined_globals;
-    std::set<VarId> _referenced_globals;
+    std::unordered_map<CoreVar, Arity> _builtins;
+    std::set<CoreVar> _defined_globals;
+    std::set<CoreVar> _referenced_globals;
 
 public:
     explicit SymbolTable() {
@@ -37,50 +37,57 @@ public:
         return _scopes.size() == 2;
     }
 
-    VarId declare_ref(const std::string& name) {
+    CoreVar declare_ref(const std::string& name) {
         if (auto it = _scopes[1].bindings.find(name);
             it != _scopes[1].bindings.end())
             return it->second;
 
-        VarId id { .id = _next_id++, .debug_name = name, .kind = VarKind::Global };
+        CoreVar id { .id = VarId { .id = _next_id++, .debug_name = name },
+            .kind = CoreVarKind::Global };
         _scopes[1].bindings[name] = id;
         return id;
     }
 
-    VarId define(const std::string& name, VarKind kind = VarKind::Local) {
+    CoreVar define(
+        const std::string& name, CoreVarKind kind = CoreVarKind::Local) {
         if (is_global_scope()) {
             if (auto it = _current->bindings.find(name);
                 it != _current->bindings.end()) {
                 auto& existing = it->second;
-                _defined_globals.insert(existing.id);
+                _defined_globals.insert(existing);
                 return existing;
             }
-            kind = VarKind::Global;
+            kind = CoreVarKind::Global;
         }
 
-        VarId id { .id = _next_id++, .debug_name = name, .kind = kind };
+        CoreVar id { .id = VarId { .id = _next_id++, .debug_name = name },
+            .kind = kind };
         _current->bindings[name] = id;
 
-        if (kind == VarKind::Global)
-            _defined_globals.insert(id.id);
-    
+        if (kind == CoreVarKind::Global)
+            _defined_globals.insert(id);
+
         return id;
     }
 
     void define_builtin(const std::string& name, Arity arity) {
-        VarId id { .id = _next_id++, .debug_name = name, .kind = VarKind::Builtin };
+        CoreVar id {
+            .id = VarId { .id = _next_id++, .debug_name = name },
+            .kind = CoreVarKind::Builtin
+        };
         _scopes.front().bindings[name] = id;
-        _builtins[id.id] = arity;
-        _defined_globals.insert(id.id);
+        _builtins[id] = arity;
+        _defined_globals.insert(id);
     }
 
-    [[nodiscard]] std::optional<Arity> get_builtin_arity(const VarId& id) const {
-        if (auto it = _builtins.find(id.id); it != _builtins.end())
+    [[nodiscard]] std::optional<Arity> get_builtin_arity(
+        const CoreVar& id) const {
+        if (auto it = _builtins.find(id); it != _builtins.end())
             return it->second;
         return std::nullopt;
     }
 
-    [[nodiscard]] std::optional<VarId> resolve(
+    [[nodiscard]] std::optional<CoreVar> resolve(
         const std::string& name) const noexcept {
         for (auto* s = _current; s != nullptr; s = s->parent)
             if (auto it = s->bindings.find(name); it != s->bindings.end())
@@ -88,17 +95,19 @@ public:
         return std::nullopt;
     }
 
-    void mark_referenced(const VarId& id) {
-        if (id.kind == VarKind::Global)
+    void mark_referenced(const CoreVar& id) {
+        if (id.kind == CoreVarKind::Global)
             _referenced_globals.insert(id);
     }
 
     [[nodiscard]] std::vector<std::string> get_undefined_globals() const {
-        return std::ranges::filter_view(_referenced_globals, [this](const VarId& var) {
-            return !_defined_globals.contains(var.id);
-        }) | std::views::transform([](const VarId& var){
-            return var.debug_name;
-        }) | std::ranges::to<std::vector>();
+        return std::ranges::filter_view(_referenced_globals,
+                   [this](const CoreVar& var) {
+                       return !_defined_globals.contains(var);
+                   })
+            | std::views::transform(
+                [](const CoreVar& var) { return var.id.debug_name; })
+            | std::ranges::to<std::vector>();
     }
 
     void push_scope() {
