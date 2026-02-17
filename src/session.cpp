@@ -14,6 +14,7 @@ import lpc.syntax.lexer;
 import lpc.syntax.refs;
 import lpc.syntax.syntax;
 import lpc.utils.logging;
+import lpc.cps.simplify;
 
 namespace lpc {
 
@@ -63,6 +64,7 @@ int Session::run() noexcept {
                       .add<SemaPass>()
                       .add<MutabilityPass>()
                       .add<LowerPass>()
+                      .add<SimplifyPass>()
                       .build()
                       .run({}, ctx);
 
