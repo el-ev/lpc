@@ -273,6 +273,17 @@ SpanRef Transformer::instantiate(SpanRef element, const Bindings& bindings,
             }
         }
 
+        bool tmpl_improper
+            = !list->elem.empty() && !_arena.is_nil(list->elem.back());
+        if (tmpl_improper && !out.empty()) {
+            auto tail = out.back();
+            if (const auto* tail_list = _arena.get<SExprList>(tail)) {
+                out.pop_back();
+                out.insert(
+                    out.end(), tail_list->elem.begin(), tail_list->elem.end());
+            }
+        }
+
         return _arena.expand(call_site_loc, parent, ScopeSetRef::invalid(),
             SExprList(std::move(out)));
     }
