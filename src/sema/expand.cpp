@@ -670,7 +670,7 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
         std::vector<SpanRef> out;
         out.reserve(list.elem.size());
         for (const auto& el : list.elem) {
-            auto r = expand(el);
+            auto r = as_sub_expression().expand(el);
             if (std::ranges::any_of(
                     r, [](const auto& r) { return !r.is_valid(); }))
                 continue;
