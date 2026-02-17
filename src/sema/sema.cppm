@@ -2,9 +2,9 @@ export module lpc.sema.sema;
 
 import std;
 
-import lpc.sema.core_form;
 import lpc.context;
 import lpc.passes;
+import lpc.sema.core_form;
 import lpc.syntax.arenas;
 import lpc.syntax.ast;
 import lpc.syntax.refs;

@@ -25,6 +25,9 @@ public:
         : _ctx(ctx)
         , _arena(ctx.cps_arena())
         , _core_arena(ctx.core_arena()) {
+#define X(name, str) _prim_mapping[str] = PrimOp::name;
+#include "primops.def"
+#undef X
     }
 
     template <typename T>
@@ -72,7 +75,7 @@ private:
     CpsArena& _arena;
     CoreExprArena& _core_arena;
     std::unordered_map<CoreVar, CpsAtom> mapping;
-    std::unordered_map<CoreVar, PrimOp> _prim_mapping;
+    std::unordered_map<std::string, PrimOp> _prim_mapping;
     std::unordered_map<std::string, std::uint32_t> _name_counts;
     std::uint32_t _next_var_id = 0;
     std::optional<CpsVar> _forced_lambda_var;
@@ -83,18 +86,6 @@ private:
 
     [[nodiscard]] CpsExprRef try_builtin(
         const std::string& name, std::vector<CpsAtom> args, Continuation k) {
-#ifndef PRIM
-#define PRIM(str, min, max, op)                                                \
-    if (name == (str))                                                         \
-        return emit_primop(PrimOp::op, std::move(args), k);
-#endif
-#ifndef BUILTIN
-#define BUILTIN(str, min, max)
-#endif
-#include "../sema/builtins.def"
-#undef BUILTIN
-#undef PRIM
-
         if (name == "__alloc")
             return emit_alloc(PrimOp::Alloc, -1, std::move(args), k);
 
@@ -119,14 +110,9 @@ private:
             return emit_primop(PrimOp::Load, std::move(args), k);
         if (name == "__vector-set!")
             return emit_primop(PrimOp::Store, std::move(args), k);
-        if (name == "__eq?")
-            return emit_primop(PrimOp::Eq, std::move(args), k);
-        if (name == "__pair?")
-            return emit_primop(PrimOp::IsPair, std::move(args), k);
-        if (name == "__symbol?")
-            return emit_primop(PrimOp::IsSymbol, std::move(args), k);
-        if (name == "__vector?")
-            return emit_primop(PrimOp::IsVector, std::move(args), k);
+
+        if (auto it = _prim_mapping.find(name); it != _prim_mapping.end())
+            return emit_primop(it->second, std::move(args), k);
 
         return k(CpsAtom(CpsUnit()));
     }

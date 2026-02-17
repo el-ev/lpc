@@ -30,48 +30,48 @@ std::string CpsDumpVisitor::atom_to_string(const CpsAtom& atom) const {
 }
 
 std::string CpsDumpVisitor::operator()(const CpsApp& app) const {
-    std::string out = atom_to_string(app.func) + "(";
+    std::string args_str;
     for (std::size_t i = 0; i < app.args.size(); ++i) {
         if (i > 0)
-            out += ", ";
-        out += atom_to_string(app.args[i]);
+            args_str += ", ";
+        args_str += atom_to_string(app.args[i]);
     }
-    out += ")";
-    return out;
+    return std::format("{}({})", atom_to_string(app.func), args_str);
 }
 
 std::string CpsDumpVisitor::operator()(const CpsLet& l) const {
     std::string out = dump(l.body, indent);
     if (!out.empty() && out.back() != '\n')
         out += '\n';
-    out += indent + "where " + l.target.var.debug_name + " = ";
-    out += std::format("{}(", primop_to_string(l.op));
+    
+    std::string args_str;
     for (std::size_t i = 0; i < l.args.size(); ++i) {
         if (i > 0)
-            out += ", ";
-        out += atom_to_string(l.args[i]);
+            args_str += ", ";
+        args_str += atom_to_string(l.args[i]);
     }
-    out += ")";
-    return out;
+
+    return std::format("{}{}where {} = {}({})", out, indent, l.target.var.debug_name, primop_to_string(l.op), args_str);
 }
 
 std::string CpsDumpVisitor::operator()(const CpsIf& i) const {
-    std::string out = "if " + atom_to_string(i.condition) + " then\n";
-    out += indent + "  " + dump(i.then_branch, indent + "  ") + "\n";
-    out += indent + "else\n";
-    out += indent + "  " + dump(i.else_branch, indent + "  ") + "\n";
-    return out;
+    return std::format("if {} then\n{}  {}\n{}else\n{}  {}\n", 
+        atom_to_string(i.condition),
+        indent, dump(i.then_branch, indent + "  "),
+        indent,
+        indent, dump(i.else_branch, indent + "  "));
 }
 
 std::string CpsDumpVisitor::operator()(const CpsLambda& l) const {
-    std::string out = "lambda " + l.name.var.debug_name + "(";
+    std::string params_str;
     for (std::size_t i = 0; i < l.params.size(); ++i) {
         if (i > 0)
-            out += ", ";
-        out += l.params[i].var.debug_name;
+            params_str += ", ";
+        params_str += l.params[i].var.debug_name;
     }
-    out += ") =\n" + indent + "  " + dump(l.body, indent + "  ");
-    return out;
+    return std::format("lambda {}({}) =\n{}  {}", 
+        l.name.var.debug_name, params_str, 
+        indent, dump(l.body, indent + "  "));
 }
 
 std::string CpsDumpVisitor::operator()(const CpsFix& f) const {
