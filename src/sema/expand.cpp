@@ -100,6 +100,8 @@ std::vector<SpanRef> Expander::expand_lambda(
     if (!check_arity(root, list, 2, 0))
         return { SpanRef::invalid() };
 
+    auto scope_guard = _env.scope_guard();
+
     ScopeID scope = _env.new_scope();
     auto scoped_params = add_scope(list.elem[1], scope);
 
@@ -119,6 +121,7 @@ std::vector<SpanRef> Expander::expand_lambda(
             auto resolved = _env.unique_name(id->name, scope);
             _env.add_binding(id->name, _arena.scopes(p),
                 Binding(VarBinding(LispIdent(resolved))));
+            _env.push_name(resolved);
             params.push_back(
                 _arena.get_ident(_arena.loc_ref(p), resolved, _parent));
         } else if (_arena.is_nil(p)) {
@@ -291,14 +294,15 @@ std::vector<SpanRef> Expander::expand_define(
         }
 
         std::vector<SpanRef> params;
-        std::size_t var_logical = elems.size();
-        if (_arena.is_nil(elems.back()))
-            var_logical--;
-        for (std::size_t i = 1; i < var_logical; ++i)
+        for (std::size_t i = 1; i < elems.size(); ++i)
             params.push_back(elems[i]);
-        params.push_back(_arena.nil(_arena.loc_ref(var), _parent));
-        auto params_node = _arena.expand(_arena.loc_ref(var), _parent,
-            ScopeSetRef::invalid(), SExprList(std::move(params)));
+
+        SpanRef params_node;
+        if (!_arena.is_nil(elems.back()) && params.size() == 1)
+            params_node = params[0];
+        else
+            params_node = _arena.expand(_arena.loc_ref(var), _parent,
+                ScopeSetRef::invalid(), SExprList(std::move(params)));
 
         std::vector<SpanRef> lam;
         lam.push_back(
@@ -341,6 +345,7 @@ std::vector<SpanRef> Expander::expand_define(
             auto resolved = _env.unique_name(id->name, scope);
             _env.add_binding(id->name, _arena.scopes(var),
                 Binding(VarBinding(LispIdent(resolved))));
+            _env.push_name(resolved);
             var = _arena.get_ident(
                 _arena.loc_ref(var), resolved, _parent, _arena.scope_ref(var));
         }

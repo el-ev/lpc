@@ -439,10 +439,17 @@ static std::string dump_program(
     const auto& expr = core.at(ref);
     if (const auto* seq = expr.get<CoreSeq>()) {
         std::string out;
-        for (const auto& e : seq->exprs)
+        for (const auto& e : seq->exprs) {
+            if (spans.is_core_binding(core.at(e).origin))
+                continue;
             out += dump_core(core, spans, e) + "\n";
+        }
         return out;
     }
+
+    if (spans.is_core_binding(expr.origin))
+        return "";
+
     return dump_core(core, spans, ref) + "\n";
 }
 

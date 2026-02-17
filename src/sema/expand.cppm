@@ -36,22 +36,68 @@ private:
     };
 
     std::unordered_map<std::string, std::vector<BindingEntry>> _bindings;
-    std::unordered_map<ScopeID, std::unordered_map<std::string, std::uint32_t>>
-        _name_counts;
+    std::unordered_map<std::string, int> _active_counts;
+    std::vector<std::vector<std::string>> _active_scopes;
     ScopeID _next = 0;
 
 public:
-    LexEnv() = default;
+    LexEnv() {
+        enter_scope(); // Global scope
+    }
 
     ScopeID new_scope() {
         return _next++;
     }
 
+    void enter_scope() {
+        _active_scopes.push_back({});
+    }
+
+    void leave_scope() {
+        if (_active_scopes.empty())
+            return;
+        for (const auto& name : _active_scopes.back()) {
+            _active_counts[name]--;
+        }
+        _active_scopes.pop_back();
+    }
+
+    class ScopeGuard {
+        LexEnv& _env;
+
+    public:
+        explicit ScopeGuard(LexEnv& env)
+            : _env(env) {
+            _env.enter_scope();
+        }
+        ~ScopeGuard() {
+            _env.leave_scope();
+        }
+    };
+
+    [[nodiscard]] ScopeGuard scope_guard() {
+        return ScopeGuard(*this);
+    }
+
+    void push_name(const std::string& name) {
+        _active_counts[name]++;
+        if (_active_scopes.empty())
+            _active_scopes.emplace_back();
+        _active_scopes.back().push_back(name);
+    }
+
     std::string unique_name(const std::string& name, ScopeID scope) {
-        auto& count = _name_counts[scope][name];
-        if (count++ == 0)
+        (void)scope;
+        if (_active_counts[name] == 0)
             return name;
-        return name + "." + std::to_string(count - 1);
+
+        int i = 1;
+        while (true) {
+            std::string candidate = std::format("{}.{}", name, i);
+            if (_active_counts[candidate] == 0)
+                return candidate;
+            i++;
+        }
     }
 
     void add_binding(const std::string& name, const std::set<ScopeID>& scopes,
@@ -233,7 +279,20 @@ public:
 
     [[nodiscard]] std::string dump(
         const SpanRef& result, CompilerContext& ctx) const noexcept final {
-        return ctx.span_arena().dump_root(result);
+        if (!result.is_valid())
+            return "";
+        const auto* list = ctx.span_arena().expr(result).get<SExprList>();
+        if (list == nullptr)
+            return "";
+
+        std::string s;
+        for (std::size_t i = _core_forms.size(); i < list->elem.size(); ++i) {
+            auto child = list->elem[i];
+            if (ctx.span_arena().is_nil(child))
+                continue;
+            s += ctx.span_arena().dump(child) + "\n";
+        }
+        return s;
     }
 
     [[nodiscard]] bool is_failed() const noexcept final {
