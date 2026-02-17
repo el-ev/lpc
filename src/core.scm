@@ -1,6 +1,8 @@
 ;static constexpr std::string_view CORE_SOURCE = R"CORE(
 ; Scheme uses ; for comments, that's good.
 
+;; Builtin macros
+
 (define-syntax and
   (syntax-rules ()
     ((and) #t)
@@ -40,11 +42,6 @@
      (let ((name1 val1))
        (let* (rest ...) body1 body2 ...)))))
 
-(define-syntax __undefined
-  (syntax-rules ()
-    ((__undefined)
-     (if #f #f))))
-
 (define-syntax letrec
   (syntax-rules ()
     ((_ ((v1 e1) ...) body ...)
@@ -59,7 +56,7 @@
         (t1 ...)
         ((v1 e1) ...)
         body ...)
-      (let ((v1 (__undefined)) ...)
+      (let ((v1 (__void)) ...)
         (let ((t1 e1) ...)
           (set! v1 t1)
           ...
@@ -171,5 +168,128 @@
 ;                  (set! run_once? #t)
 ;                  result)
 ;           result))))
+
+;; Builtin functions
+
+;; Wrappers for primitives
+(define (cons a b) (__cons a b))
+(define (car x) (__car x))
+(define (cdr x) (__cdr x))
+(define (eq? a b) (__eq? a b))
+(define (pair? x) (__pair? x))
+(define (symbol? x) (__symbol? x))
+(define (vector? x) (__vector? x))
+(define (vector-ref v i) (__vector-ref v i))
+(define (vector-set! v i obj) (__vector-set! v i obj))
+(define (length l) (__length l))
+
+;; vector as macro for now
+(define-syntax vector
+  (syntax-rules ()
+    ((_ . args) (__vector . args))))
+
+(define (void) (__void)) ; undefined value, also available as (if #f #f)
+(define (null? x) (eq? x '()))
+
+(define (boolean? x) (or (eq? x #t) (eq? x #f))) 
+(define (list . args) args)
+(define (not x) (eq? x #f))
+
+(define (equal? a b)
+  (cond ((eq? a b) #t)
+        ((and (pair? a) (pair? b))
+         (and (equal? (car a) (car b))
+              (equal? (cdr a) (cdr b))))
+        (else #f)))
+
+(define (__fold-left f acc lst)
+(if (null? lst)
+    acc
+    (__fold-left f 
+                  (f acc (car lst))
+                  (cdr lst))))
+
+(define (__fold-right f acc lst)
+(if (null? lst)
+    acc
+    (f (car lst) (__fold-right f acc (cdr lst)))))
+
+(define (__chain-cmp pred lst)
+  (if (null? lst) #t
+      (if (null? (cdr lst)) #t
+          (if (pred (car lst) (car (cdr lst)))
+              (__chain-cmp pred (cdr lst))
+              #f))))
+
+(define (fx+ a b) (__fx+ a b))
+(define (fx- a b) (__fx- a b))
+(define (fx* a b) (__fx* a b))
+(define (fx/ a b) (__fx/ a b))
+(define (fx< a b) (__fx< a b))
+(define (fx<= a b) (__fx<= a b))
+(define (fx> a b) (__fx< b a))
+(define (fx>= a b) (__fx<= b a))
+(define (fx= a b) (__fx= a b))
+
+; TODO When other numeric types are supported...
+(define (+ . args) (__fold-left fx+ 0 args))
+(define (- . args) (__fold-left fx- 0 args))
+(define (* . args) (__fold-left fx* 1 args))
+(define (/ . args) (__fold-left fx/ 1 args))
+(define (< . args) (__chain-cmp fx< args))
+(define (<= . args) (__chain-cmp fx<= args))
+(define (= . args) (__chain-cmp fx= args))
+(define (> . args) (__chain-cmp fx> args))
+(define (>= . args) (__chain-cmp fx>= args))
+
+(define (zero? x) (= x 0))
+
+(define (__append-2 l1 l2)
+  (if (null? l1) l2
+      (cons (car l1) (__append-2 (cdr l1) l2))))
+
+(define (append . lists)
+  (__fold-right __append-2 '() lists))
+
+(define (map proc lst)
+  (if (null? lst) '()
+      (cons (proc (car lst)) (map proc (cdr lst)))))
+
+(define (for-each proc lst)
+  (if (null? lst) (void)
+      (begin (proc (car lst))
+             (for-each proc (cdr lst)))))
+
+(define (reverse lst)
+  (letrec ((loop (lambda (l acc)
+                   (if (null? l) acc
+                       (loop (cdr l) (cons (car l) acc))))))
+    (loop lst '())))
+
+(define (list-tail lst k)
+  (if (zero? k) lst
+      (list-tail (cdr lst) (- k 1))))
+
+(define (list-ref lst k)
+  (car (list-tail lst k)))
+
+(define (memq item lst)
+  (cond ((null? lst) #f)
+        ((eq? item (car lst)) lst)
+        (else (memq item (cdr lst)))))
+
+(define (member item lst)
+  (cond ((null? lst) #f)
+        ((equal? item (car lst)) lst)
+        (else (member item (cdr lst)))))
+
+(define (abs x)
+  (if (< x 0) (- x) x))
+
+(define (__max2 a b) (if (> a b) a b))
+(define (max . args) (__fold-left __max2 (car args) (cdr args)))
+
+(define (__min2 a b) (if (< a b) a b))
+(define (min . args) (__fold-left __min2 (car args) (cdr args)))
 
 ;)CORE";
