@@ -31,9 +31,6 @@ std::string MutabilityPass::dump(
 }
 
 void MutabilityPass::visit(CoreExprRef ref, CompilerContext& ctx) {
-    if (!ref.is_valid())
-        return;
-
     ctx.core_arena().at(ref).visit(Visitor {
         [&](const CoreSet& s) {
             _mutated.insert(s.target);

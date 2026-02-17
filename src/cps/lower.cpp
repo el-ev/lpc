@@ -383,7 +383,7 @@ std::string LowerPass::dump(
     CpsDumpVisitor visitor {
         .arena = ctx.cps_arena(), .span_arena = ctx.span_arena(), .indent = "  "
     };
-    return visitor.dump(expr, "");
+    return std::format("{}\n", visitor.dump(expr, ""));
 }
 
 } // namespace lpc::cps

@@ -271,9 +271,6 @@ CoreExprRef Lowerer::lower_begin(SpanRef ref, const SExprList& list) {
         exprs.push_back(lowered);
     }
 
-    if (exprs.size() == 1)
-        return exprs[0];
-
     return _core.emplace(ref, CoreSeq { .exprs = std::move(exprs) });
 }
 
