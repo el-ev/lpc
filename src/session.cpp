@@ -2,19 +2,20 @@ module lpc.session;
 
 import std;
 
-import lpc.sema.expand;
-import lpc.sema.sema;
-import lpc.sema.mutability;
-import lpc.cps.lower;
+import lpc.backend.interpreter;
 import lpc.context;
+import lpc.cps.lower;
+import lpc.cps.simplify;
 import lpc.passes;
+import lpc.sema.expand;
+import lpc.sema.mutability;
+import lpc.sema.sema;
 import lpc.syntax.arenas;
 import lpc.syntax.ast;
 import lpc.syntax.lexer;
 import lpc.syntax.refs;
 import lpc.syntax.syntax;
 import lpc.utils.logging;
-import lpc.cps.simplify;
 
 namespace lpc {
 

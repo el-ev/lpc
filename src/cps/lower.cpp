@@ -1,25 +1,21 @@
 module lpc.cps.lower;
 
 import std;
+
 import lpc.context;
 import lpc.cps.ir;
 import lpc.sema.core_form;
+import lpc.syntax.arenas;
+import lpc.syntax.ast;
 import lpc.syntax.refs;
 import lpc.syntax.token;
-import lpc.syntax.ast;
-import lpc.syntax.arenas;
 import lpc.utils.logging;
+import lpc.utils.tagged_union;
 
 namespace lpc::cps {
 
 using namespace lpc::sema;
-
-namespace {
-    template <typename... Ts>
-    struct overloaded : Ts... {
-        using Ts::operator()...;
-    };
-}
+using lpc::utils::overloaded;
 
 using Continuation = const std::function<CpsExprRef(CpsAtom)>&;
 
@@ -107,11 +103,9 @@ private:
             return k(CpsAtom(CpsUnit()));
         }
 
-        if (name == "__void") {
+        if (name == "__void")
             return k(CpsAtom(CpsUnit()));
-        }
 
-        // Standard Scheme (Complex)
         if (name == "__cons")
             return emit_alloc(
                 PrimOp::Alloc, 0 /* pair tag */, std::move(args), k);

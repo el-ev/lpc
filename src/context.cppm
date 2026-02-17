@@ -2,8 +2,8 @@ export module lpc.context;
 
 import std;
 
-import lpc.sema.core_form;
 import lpc.cps.ir;
+import lpc.sema.core_form;
 import lpc.syntax.arenas;
 
 namespace lpc {

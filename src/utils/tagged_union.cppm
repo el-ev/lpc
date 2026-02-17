@@ -14,6 +14,14 @@ template <typename T, typename... Rest>
     }
 }
 
+export template <typename... Ts>
+struct overloaded : Ts... {
+    using Ts::operator()...;
+};
+
+export template <typename... Ts>
+overloaded(Ts...) -> overloaded<Ts...>;
+
 export template <typename... Types>
     requires(sizeof...(Types) > 0)
     && (sizeof...(Types) < std::numeric_limits<std::uint8_t>::max() - 1)

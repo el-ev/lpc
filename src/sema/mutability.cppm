@@ -1,9 +1,10 @@
 export module lpc.sema.mutability;
 
 import std;
-import lpc.sema.core_form;
+
 import lpc.context;
 import lpc.passes;
+import lpc.sema.core_form;
 
 namespace lpc::sema {
 

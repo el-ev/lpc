@@ -1,17 +1,15 @@
 module lpc.cps.simplify;
 
 import std;
-import lpc.cps.ir;
+
 import lpc.context;
+import lpc.cps.ir;
 import lpc.passes;
 import lpc.utils.logging;
+import lpc.utils.tagged_union;
 
 namespace lpc::cps {
 
-template <typename... Ts>
-struct overloaded : Ts... {
-    using Ts::operator()...;
-};
 
 class Flattener {
 private:
@@ -220,9 +218,7 @@ public:
                 auto next_ref = f->body;
                 auto cloned = _arena.get(next_ref).visit(
                     [](const auto& val) { return CpsExpr(val); });
-                // FIXME: hack
-                std::destroy_at(expr);
-                std::construct_at(expr, std::move(cloned));
+                *expr = std::move(cloned);
                 _changed = true;
                 run_impl(ref);
                 return;

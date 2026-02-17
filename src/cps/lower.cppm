@@ -3,9 +3,9 @@ export module lpc.cps.lower;
 import std;
 
 import lpc.context;
+import lpc.cps.ir;
 import lpc.passes;
 import lpc.sema.core_form;
-import lpc.cps.ir;
 
 namespace lpc::cps {
 

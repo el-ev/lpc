@@ -1,9 +1,9 @@
 import std;
 
 import lpc.session;
+import lpc.utils.crash_handler;
 import lpc.utils.logging;
 import lpc.utils.option;
-import lpc.utils.crash_handler;
 
 using namespace lpc;
 

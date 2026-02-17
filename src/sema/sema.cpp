@@ -2,8 +2,8 @@ module lpc.sema.sema;
 
 import std;
 
-import lpc.sema.core_form;
 import lpc.context;
+import lpc.sema.core_form;
 import lpc.syntax.ast;
 import lpc.utils.logging;
 
