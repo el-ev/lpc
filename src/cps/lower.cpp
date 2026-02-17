@@ -16,7 +16,7 @@ using namespace lpc::sema;
 
 namespace {
     template <typename... Ts>
-    struct CoreExprVisitor : Ts... {
+    struct overloaded : Ts... {
         using Ts::operator()...;
     };
 }
@@ -255,10 +255,12 @@ CpsExprRef CpsConverter::convert<CoreLambda>(
             .body = body });
     }
 
-    auto lambda_var = forced_name ? *forced_name : next_var("lambda");
+    auto lambda_var = forced_name ? *forced_name : next_var("lam");
 
-    auto lambda
-        = _arena.emplace(CpsLambda(lambda_var, std::move(cps_params), body));
+    auto lambda = _arena.emplace(CpsLambda { .name = lambda_var,
+        .params = std::move(cps_params),
+        .body = body,
+        .is_variadic = c.rest_param.has_value() });
     auto rest = k(CpsAtom(lambda_var));
 
     return _arena.emplace(CpsFix({ lambda }, rest));
@@ -329,7 +331,8 @@ CpsExprRef CpsConverter::convert<CoreApply>(
             auto rv = next_var("res");
             auto k_lambda
                 = _arena.emplace(CpsLambda(kv, { rv }, k(CpsAtom(rv))));
-            args.emplace_back(kv);
+            CpsAtom k_atom(kv);
+            args.emplace_back(std::move(k_atom));
             auto app = _arena.emplace(CpsApp(func, std::move(args)));
             return _arena.emplace(CpsFix({ k_lambda }, app));
         });
@@ -349,7 +352,7 @@ CpsExprRef CpsConverter::convert<CoreSet>(const CoreSet& c, Continuation k) {
 
 CpsExprRef CpsConverter::convert(CoreExprRef ref, Continuation k) {
     return _ctx.core_arena().at(ref).visit(
-        CoreExprVisitor { [this, k](const auto& c) { return convert(c, k); } });
+        overloaded { [this, k](const auto& c) { return convert(c, k); } });
 }
 
 CpsExprRef CpsConverter::convert_seq(
@@ -384,173 +387,7 @@ CpsExprRef CpsConverter::lower_program(CoreExprRef root) {
         return _arena.emplace(CpsHalt { std::move(result) });
     };
     return _ctx.core_arena().at(root).visit(
-        CoreExprVisitor { [this, k](const auto& c) { return convert(c, k); } });
-}
-
-namespace {
-    std::string primop_to_string(PrimOp op) {
-        switch (op) {
-#define X(op, str)                                                             \
-    case PrimOp::op:                                                           \
-        return str;
-#include "primops.def"
-#undef X
-        }
-        return "unknown";
-    }
-
-    struct CpsLispDumpVisitor {
-        const CpsArena& arena;
-        const syntax::SpanArena& span_arena;
-
-        [[nodiscard]] std::string atom_to_string(const CpsAtom& atom) const {
-            return atom.visit(CoreExprVisitor {
-                [](const CpsVar& v) { return v.var.debug_name; },
-                [&](const CpsConstant& c) {
-                    // FIXME: what?
-                    return std::format("{}", span_arena.dump(c.value));
-                },
-                [](const CpsUnit&) { return std::string("#<unit>"); },
-            });
-        }
-
-        std::string operator()(const CpsApp& app) const {
-            std::string out = "(" + atom_to_string(app.func);
-            for (const auto& arg : app.args) {
-                out += " " + atom_to_string(arg);
-            }
-            out += ")";
-            return out;
-        }
-
-        std::string operator()(const CpsLet& l) const {
-            std::string out = std::format("(let (({} ({} ",
-                l.target.var.debug_name, primop_to_string(l.op));
-            for (std::size_t i = 0; i < l.args.size(); ++i) {
-                if (i > 0)
-                    out += " ";
-                out += atom_to_string(l.args[i]);
-            }
-            out += "))) " + dump(l.body) + ")";
-            return out;
-        }
-
-        std::string operator()(const CpsIf& i) const {
-            return std::format("(if {} {} {})", atom_to_string(i.condition),
-                dump(i.then_branch), dump(i.else_branch));
-        }
-
-        std::string operator()(const CpsLambda& l) const {
-            std::string out = "(lambda (";
-            for (std::size_t i = 0; i < l.params.size(); ++i) {
-                if (i > 0)
-                    out += " ";
-                out += l.params[i].var.debug_name;
-            }
-            out += ") " + dump(l.body) + ")";
-            return out;
-        }
-
-        std::string operator()(const CpsFix& f) const {
-            std::string out = "(fix (";
-            for (std::size_t i = 0; i < f.functions.size(); ++i) {
-                if (i > 0)
-                    out += " ";
-                const auto& func = arena.get(f.functions[i]).get<CpsLambda>();
-                out += std::format(
-                    "({} {})", func->name.var.debug_name, dump(f.functions[i]));
-            }
-            out += ") " + dump(f.body) + ")";
-            return out;
-        }
-
-        std::string operator()(const CpsHalt& h) const {
-            return "(halt " + atom_to_string(h.value) + ")";
-        }
-
-        [[nodiscard]] std::string dump(CpsExprRef ref) const {
-            return arena.get(ref).visit(*this);
-        }
-    };
-
-    struct CpsDumpVisitor {
-        const CpsArena& arena;
-        const syntax::SpanArena& span_arena;
-        std::string indent;
-
-        [[nodiscard]] std::string atom_to_string(const CpsAtom& atom) const {
-            return atom.visit(CoreExprVisitor {
-                [](const CpsVar& v) { return v.var.debug_name; },
-                [&](const CpsConstant& c) {
-                    return std::format("{}", span_arena.dump(c.value));
-                },
-                [](const CpsUnit&) { return std::string("()"); },
-            });
-        }
-
-        std::string operator()(const CpsApp& app) const {
-            std::string out = atom_to_string(app.func) + "(";
-            for (std::size_t i = 0; i < app.args.size(); ++i) {
-                if (i > 0)
-                    out += ", ";
-                out += atom_to_string(app.args[i]);
-            }
-            out += ")";
-            return out;
-        }
-
-        std::string operator()(const CpsLet& l) const {
-            std::string out = "let " + l.target.var.debug_name + " = ";
-            out += std::format("{}(", primop_to_string(l.op));
-            for (std::size_t i = 0; i < l.args.size(); ++i) {
-                if (i > 0)
-                    out += ", ";
-                out += atom_to_string(l.args[i]);
-            }
-            out += ") in\n" + indent + dump(l.body, indent);
-            return out;
-        }
-
-        std::string operator()(const CpsIf& i) const {
-            std::string out = "if " + atom_to_string(i.condition) + " then\n";
-            out += indent + "  " + dump(i.then_branch, indent + "  ") + "\n";
-            out += indent + "else\n";
-            out += indent + "  " + dump(i.else_branch, indent + "  ");
-            return out;
-        }
-
-        std::string operator()(const CpsLambda& l) const {
-            std::string out = "lambda " + l.name.var.debug_name + "(";
-            for (std::size_t i = 0; i < l.params.size(); ++i) {
-                if (i > 0)
-                    out += ", ";
-                out += l.params[i].var.debug_name;
-            }
-            out += ") =\n" + indent + "  " + dump(l.body, indent + "  ");
-            return out;
-        }
-
-        std::string operator()(const CpsFix& f) const {
-            std::string out = "fix\n";
-            for (const auto& func : f.functions)
-                out += indent + "  " + dump(func, indent + "  ") + "\n";
-            out += indent + "in\n" + indent + "  "
-                + dump(f.body, indent + "  ");
-            return out;
-        }
-
-        std::string operator()(const CpsHalt& h) const {
-            return "halt " + atom_to_string(h.value);
-        }
-
-        [[nodiscard]] std::string dump(
-            CpsExprRef ref, std::string next_indent) const {
-            CpsDumpVisitor visitor { .arena = arena,
-                .span_arena = span_arena,
-                .indent = std::move(next_indent) };
-            return arena.get(ref).visit(visitor);
-        }
-    };
+        overloaded { [this, k](const auto& c) { return convert(c, k); } });
 }
 
 CpsExprRef LowerPass::run(CoreExprRef root, CompilerContext& ctx) noexcept {
@@ -562,13 +399,11 @@ CpsExprRef LowerPass::run(CoreExprRef root, CompilerContext& ctx) noexcept {
 }
 
 std::string LowerPass::dump(
-    const CpsExprRef& result, CompilerContext& ctx) const noexcept {
-    if (result == CpsExprRef::invalid())
-        return "<invalid>";
+    const CpsExprRef& expr, CompilerContext& ctx) const noexcept {
     CpsDumpVisitor visitor {
         .arena = ctx.cps_arena(), .span_arena = ctx.span_arena(), .indent = "  "
     };
-    return visitor.dump(result, "");
+    return visitor.dump(expr, "");
 }
 
 } // namespace lpc::cps

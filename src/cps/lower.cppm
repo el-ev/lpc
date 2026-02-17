@@ -24,7 +24,7 @@ public:
         CoreExprRef root, CompilerContext& ctx) noexcept final;
 
     [[nodiscard]] std::string dump(
-        const CpsExprRef& result, CompilerContext& ctx) const noexcept final;
+        const CpsExprRef& expr, CompilerContext& ctx) const noexcept final;
 
     [[nodiscard]] bool is_failed() const noexcept final {
         return _failed;
