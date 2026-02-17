@@ -14,13 +14,13 @@ enum class LogLevel : std::uint8_t {
 inline std::string to_string(const LogLevel& level) {
     switch (level) {
     case LogLevel::DEBUG:
-        return "[DEBUG]";
+        return "debug";
     case LogLevel::INFO:
-        return "[INFO ]";
+        return "info";
     case LogLevel::WARN:
-        return "[WARN ]";
+        return "warn";
     case LogLevel::ERROR:
-        return "[ERROR]";
+        return "error";
     }
 }
 
@@ -124,10 +124,11 @@ private:
 extern std::optional<Logger> logger;
 
 template <typename... Args>
-void Logger::vlog_impl(LogLevel level, const std::source_location& loc,
+void Logger::vlog_impl(LogLevel level, const std::source_location& /*loc*/,
     std::format_string<Args...> fmt, Args&&... args) {
     std::print(
-        _out, "{}[{}:{}] ", to_string(level), loc.file_name(), loc.line());
+        // _out, "{}[{}:{}] ", to_string(level), loc.file_name(), loc.line());
+        _out, "{}: ", to_string(level));
     std::println(_out, fmt, std::forward<Args>(args)...);
     if (_config._always_flush)
         _out.flush();
