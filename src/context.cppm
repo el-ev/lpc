@@ -10,6 +10,7 @@ namespace lpc {
 
 export struct CompilerOptions {
     bool show_core_expansion = false;
+    bool no_core = false;
     std::uint32_t max_expansion_depth = 1000;
     std::vector<std::string> print_passes;
     std::string stop_after;

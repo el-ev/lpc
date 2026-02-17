@@ -39,6 +39,9 @@ auto main(int argc, char* argv[]) noexcept -> int {
         .add_option("show-core-expansion", NO_SHORT_NAME,
             "Show core expansion frames in error stack traces.",
             [&](auto) { session.set_show_core_expansion(true); })
+        .add_option("no-core", NO_SHORT_NAME,
+            "Do not load the core library.",
+            [&](auto) { session.set_no_core(true); })
         .add_option("max-expansion-depth", NO_SHORT_NAME,
             "Maximum macro expansion depth.", "1000",
             [&](auto depth) {

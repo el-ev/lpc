@@ -52,6 +52,10 @@ public:
         _options.show_core_expansion = v;
     }
 
+    void set_no_core(bool v) noexcept {
+        _options.no_core = v;
+    }
+
     void set_max_expansion_depth(std::uint32_t v) noexcept {
         _options.max_expansion_depth = v;
     }
