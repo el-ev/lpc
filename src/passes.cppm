@@ -55,11 +55,11 @@ private:
         auto result = pass.run(std::forward<decltype(input)>(input), ctx);
 
         if (pass.is_failed()) {
-            Error("Pass failed: {}", pass.name());
+            Error("pass failed: {}", pass.name());
             return FinalOut {};
         }
 
-        Debug("Pass {} completed successfully", pass.name());
+        Debug("pass {} completed successfully", pass.name());
         if (ctx.options().should_print(pass.name()))
             std::print("{}", pass.dump(result, ctx));
 

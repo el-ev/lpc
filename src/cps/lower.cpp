@@ -89,11 +89,6 @@ private:
         if (name == "__alloc")
             return emit_alloc(PrimOp::Alloc, -1, std::move(args), k);
 
-        if (name == "make-vector") {
-            // Unimplemented for now
-            return k(CpsAtom(CpsUnit()));
-        }
-
         if (name == "__void")
             return k(CpsAtom(CpsUnit()));
 
