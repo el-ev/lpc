@@ -54,12 +54,9 @@ private:
         using FinalOut = typename last_type<In, Passes...>::type::out_type;
         auto result = pass.run(std::forward<decltype(input)>(input), ctx);
 
-        if (pass.is_failed()) {
-            Error("pass failed: {}", pass.name());
+        if (pass.is_failed())
             return FinalOut {};
-        }
 
-        Debug("pass {} completed successfully", pass.name());
         if (ctx.options().should_print(pass.name()))
             std::print("{}", pass.dump(result, ctx));
 
