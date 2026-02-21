@@ -42,6 +42,6 @@ PRIM("__procedure?", 1, 1, IsProcedure)
 PRIM("__make-vector", 1, 2, MakeVector)
 BUILTIN("__vector", 0, 0)
 BUILTIN("__void", 0, 0)
-PRIM("__vector-ref", 2, 2, Load)
-PRIM("__vector-set!", 3, 3, Store)
+BUILTIN("__vector-ref", 2, 2)
+BUILTIN("__vector-set!", 3, 3)
 

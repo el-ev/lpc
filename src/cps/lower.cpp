@@ -33,17 +33,38 @@ public:
     template <typename T>
     [[nodiscard]] CpsExprRef convert(const T&, Continuation);
 
+    [[nodiscard]] CpsExprRef convert(CoreExprRef ref, Continuation k);
     [[nodiscard]] CpsExprRef lower_program(CoreExprRef root);
 
-    [[nodiscard]] CpsExprRef convert(CoreExprRef ref, Continuation k);
+    CpsVar next_var(std::string_view debug_name = "") {
+        auto id = _next_var_id++;
+        if (debug_name.empty())
+            return CpsVar(VarId(id, std::format("v.{}", id)));
+        if (debug_name == "_")
+            return CpsVar(VarId(id, "_"));
+        auto& count = _name_counts[std::string(debug_name)];
+        if (count++ == 0)
+            return CpsVar(VarId(id, std::string(debug_name)));
+        return CpsVar(VarId(id, std::format("{}.{}", debug_name, count - 1)));
+    }
 
 private:
-    [[nodiscard]] CpsExprRef convert_seq(
-        std::span<const CoreExprRef> seq, Continuation k);
+    CompilerContext& _ctx;
+    CpsArena& _arena;
+    CoreExprArena& _core_arena;
+    std::unordered_map<CoreVar, CpsAtom> _mapping;
+    std::unordered_map<std::string, PrimOp> _prim_mapping;
+    std::unordered_map<std::string, std::uint32_t> _name_counts;
+    std::uint32_t _next_var_id = 0;
+    std::optional<CpsVar> _forced_lambda_var;
 
-    [[nodiscard]] CpsExprRef convert_args(std::span<const CoreExprRef> args,
-        std::vector<CpsAtom> acc,
-        const std::function<CpsExprRef(std::vector<CpsAtom>)>& k);
+    [[nodiscard]] CpsAtom lookup(const CoreVar& var) const {
+        return _mapping.at(var);
+    }
+
+    void extend(const CoreVar& var, CpsAtom cps_val) {
+        _mapping[var] = std::move(cps_val);
+    }
 
     [[nodiscard]] std::optional<CpsAtom> try_atom(CoreExprRef ref) const {
         const auto& expr = _core_arena[ref];
@@ -55,33 +76,6 @@ private:
                 return lookup(*var);
         }
         return std::nullopt;
-    }
-
-public:
-    CpsVar next_var(std::string_view debug_name = "") {
-        auto id = _next_var_id++;
-        if (debug_name.empty()) {
-            return CpsVar(VarId(id, std::format("v.{}", id)));
-        }
-        auto& count = _name_counts[std::string(debug_name)];
-        if (count++ == 0) {
-            return CpsVar(VarId(id, std::string(debug_name)));
-        }
-        return CpsVar(VarId(id, std::format("{}.{}", debug_name, count - 1)));
-    }
-
-private:
-    CompilerContext& _ctx;
-    CpsArena& _arena;
-    CoreExprArena& _core_arena;
-    std::unordered_map<CoreVar, CpsAtom> mapping;
-    std::unordered_map<std::string, PrimOp> _prim_mapping;
-    std::unordered_map<std::string, std::uint32_t> _name_counts;
-    std::uint32_t _next_var_id = 0;
-    std::optional<CpsVar> _forced_lambda_var;
-
-    [[nodiscard]] CpsAtom lookup(const CoreVar& source_id) const {
-        return mapping.at(source_id);
     }
 
     [[nodiscard]] CpsExprRef try_builtin(
@@ -141,9 +135,12 @@ private:
         return _ctx.span_arena().from_loc(syntax::LocRef::invalid(), value);
     }
 
-    void extend(const CoreVar& source_id, CpsAtom&& cps_val) {
-        mapping[source_id] = std::move(cps_val);
-    }
+    [[nodiscard]] CpsExprRef convert_seq(
+        std::span<const CoreExprRef> seq, Continuation k);
+
+    [[nodiscard]] CpsExprRef convert_args(std::span<const CoreExprRef> args,
+        std::vector<CpsAtom> acc,
+        const std::function<CpsExprRef(std::vector<CpsAtom>)>& k);
 };
 
 template <>
@@ -189,13 +186,13 @@ CpsExprRef CpsConverter::convert<CoreLambda>(
     auto forced_name = std::exchange(_forced_lambda_var, std::nullopt);
 
     std::vector<CpsVar> cps_params;
-    std::vector<std::tuple<VarId, CpsVar, CpsVar>> boxed;
+    std::vector<std::pair<CpsVar, CpsVar>> boxed;
 
     auto scope = [&](const CoreVar& var, const CpsVar& p) {
         if (_ctx.core_arena().is_mutated(var)) {
             auto box = next_var(var.id.debug_name + "_box");
             extend(var, CpsAtom(box));
-            boxed.emplace_back(var.id, p, box);
+            boxed.emplace_back(p, box);
         } else {
             extend(var, CpsAtom(p));
         }
@@ -223,7 +220,7 @@ CpsExprRef CpsConverter::convert<CoreLambda>(
     auto body = convert(c.body, body_cont);
 
     for (auto i = boxed.size(); i > 0; --i) {
-        const auto& [id, p, box] = boxed[i - 1];
+        const auto& [p, box] = boxed[i - 1];
         body = _arena.emplace(CpsLet { .target = box,
             .op = PrimOp::Box,
             .args = { CpsAtom(p) },
@@ -291,14 +288,12 @@ template <>
 CpsExprRef CpsConverter::convert<CoreApply>(
     const CoreApply& c, Continuation k) {
     const auto& func_expr = _core_arena[c.func];
-    if (const auto* var = func_expr.get<CoreVar>()) {
-        if (var->kind == CoreVarKind::Builtin) {
+    if (const auto* var = func_expr.get<CoreVar>())
+        if (var->kind == CoreVarKind::Builtin)
             return convert_args(
                 c.args, {}, [this, var, k](std::vector<CpsAtom> args) {
                     return try_builtin(var->id.debug_name, std::move(args), k);
                 });
-        }
-    }
 
     return convert(c.func, [&](const CpsAtom& func) {
         return convert_args(c.args, {}, [&](std::vector<CpsAtom> args) {
@@ -361,8 +356,7 @@ CpsExprRef CpsConverter::lower_program(CoreExprRef root) {
     auto k = [this](CpsAtom result) -> CpsExprRef {
         return _arena.emplace(CpsHalt { std::move(result) });
     };
-    return _ctx.core_arena().at(root).visit(
-        overloaded { [this, k](const auto& c) { return convert(c, k); } });
+    return convert(root, k);
 }
 
 CpsExprRef LowerPass::run(CoreExprRef root, CompilerContext& ctx) noexcept {
