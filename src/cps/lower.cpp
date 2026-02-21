@@ -100,6 +100,25 @@ private:
         if (name == "__vector-set!")
             return emit_primop(PrimOp::Store, std::move(args), k);
 
+        if (name == "__call/cc") {
+            auto escape_var = next_var("escape");
+            auto val_var = next_var("val");
+            auto discard_k = next_var("_k");
+            auto escape_body = k(CpsAtom(val_var));
+            auto escape_lambda = _arena.emplace(
+                CpsLambda(escape_var, { val_var, discard_k }, escape_body));
+
+            auto kv = next_var("k");
+            auto rv = next_var("res");
+            auto k_lambda
+                = _arena.emplace(CpsLambda(kv, { rv }, k(CpsAtom(rv))));
+
+            auto app = _arena.emplace(
+                CpsApp(args[0], { CpsAtom(escape_var), CpsAtom(kv) }));
+            auto with_k = _arena.emplace(CpsFix({ k_lambda }, app));
+            return _arena.emplace(CpsFix({ escape_lambda }, with_k));
+        }
+
         if (auto it = _prim_mapping.find(name); it != _prim_mapping.end())
             return emit_primop(it->second, std::move(args), k);
 

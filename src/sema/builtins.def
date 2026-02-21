@@ -44,4 +44,5 @@ BUILTIN("__vector", 0, 0)
 BUILTIN("__void", 0, 0)
 BUILTIN("__vector-ref", 2, 2)
 BUILTIN("__vector-set!", 3, 3)
+BUILTIN("__call/cc", 1, 1)
 

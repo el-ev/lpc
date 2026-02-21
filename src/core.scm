@@ -302,4 +302,7 @@
 (define (__min2 a b) (if (< a b) a b))
 (define (min . args) (__fold-left __min2 (car args) (cdr args)))
 
+(define (call-with-current-continuation f) (__call/cc f))
+(define (call/cc f) (__call/cc f))
+
 ;)CORE";
