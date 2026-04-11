@@ -176,12 +176,26 @@
 (define (car x) (__car x))
 (define (cdr x) (__cdr x))
 (define (eq? a b) (__eq? a b))
+(define (eqv? a b) (eq? a b))
 (define (pair? x) (__pair? x))
+(define (null? x) (__null? x))
+(define (boolean? x) (__boolean? x))
 (define (symbol? x) (__symbol? x))
 (define (vector? x) (__vector? x))
+(define (char? x) (__char? x))
+(define (string? x) (__string? x))
+(define (fixnum? x) (__fixnum? x))
+(define (number? x) (fixnum? x))
+(define (integer? x) (fixnum? x))
+(define (procedure? x) (__procedure? x))
 (define (vector-ref v i) (__vector-ref v i))
 (define (vector-set! v i obj) (__vector-set! v i obj))
-(define (length l) (__length l))
+(define (vector-length v) (__length v))
+(define (string-length s) (__length s))
+(define (make-vector k . fill)
+  (if (null? fill)
+      (__make-vector k)
+      (__make-vector k (car fill))))
 
 ;; vector as macro for now
 (define-syntax vector
@@ -189,11 +203,41 @@
     ((_ . args) (__vector . args))))
 
 (define (void) (__void)) ; undefined value, also available as (if #f #f)
-(define (null? x) (eq? x '()))
-
-(define (boolean? x) (or (eq? x #t) (eq? x #f))) 
 (define (list . args) args)
+(define (list* . args)
+  (if (null? args)
+      '()
+      (letrec ((loop (lambda (xs)
+                       (if (null? (cdr xs))
+                           (car xs)
+                           (cons (car xs) (loop (cdr xs)))))))
+        (loop args))))
 (define (not x) (eq? x #f))
+(define (force promise) (promise))
+
+(define (caar x) (car (car x)))
+(define (cadr x) (car (cdr x)))
+(define (cdar x) (cdr (car x)))
+(define (cddr x) (cdr (cdr x)))
+
+(define (caaar x) (car (caar x)))
+(define (caadr x) (car (cadr x)))
+(define (cadar x) (car (cdar x)))
+(define (caddr x) (car (cddr x)))
+(define (cdaar x) (cdr (caar x)))
+(define (cdadr x) (cdr (cadr x)))
+(define (cddar x) (cdr (cdar x)))
+(define (cdddr x) (cdr (cddr x)))
+
+(define (list? x)
+  (cond ((null? x) #t)
+        ((pair? x) (list? (cdr x)))
+        (else #f)))
+
+(define (length x)
+  (cond ((null? x) 0)
+        ((pair? x) (__fx+ 1 (length (cdr x))))
+        (else (__length x))))
 
 (define (equal? a b)
   (cond ((eq? a b) #t)
@@ -225,6 +269,7 @@
 (define (fx- a b) (__fx- a b))
 (define (fx* a b) (__fx* a b))
 (define (fx/ a b) (__fx/ a b))
+(define (fx% a b) (__fx% a b))
 (define (fx< a b) (__fx< a b))
 (define (fx<= a b) (__fx<= a b))
 (define (fx> a b) (__fx< b a))
@@ -253,6 +298,20 @@
 (define (>= . args) (__chain-cmp fx>= args))
 
 (define (zero? x) (= x 0))
+(define (positive? x) (> x 0))
+(define (negative? x) (< x 0))
+
+(define (quotient a b) (fx/ a b))
+(define (remainder a b) (fx% a b))
+(define (modulo a b)
+  (let ((r (remainder a b)))
+    (if (or (and (< r 0) (> b 0))
+            (and (> r 0) (< b 0)))
+        (+ r b)
+        r)))
+
+(define (odd? x) (not (zero? (remainder x 2))))
+(define (even? x) (zero? (remainder x 2)))
 
 (define (__append-2 l1 l2)
   (if (null? l1) l2
@@ -283,15 +342,58 @@
 (define (list-ref lst k)
   (car (list-tail lst k)))
 
+(define (list->vector lst)
+  (let ((v (make-vector (length lst))))
+    (letrec ((fill (lambda (i xs)
+                     (if (null? xs)
+                         v
+                         (begin
+                           (vector-set! v i (car xs))
+                           (fill (+ i 1) (cdr xs)))))))
+      (fill 0 lst))))
+
+(define (vector->list v)
+  (letrec ((loop (lambda (i acc)
+                   (if (< i 0)
+                       acc
+                       (loop (- i 1) (cons (vector-ref v i) acc))))))
+    (loop (- (vector-length v) 1) '())))
+
 (define (memq item lst)
   (cond ((null? lst) #f)
         ((eq? item (car lst)) lst)
         (else (memq item (cdr lst)))))
 
+(define (memv item lst)
+  (cond ((null? lst) #f)
+        ((eqv? item (car lst)) lst)
+        (else (memv item (cdr lst)))))
+
 (define (member item lst)
   (cond ((null? lst) #f)
         ((equal? item (car lst)) lst)
         (else (member item (cdr lst)))))
+
+(define (assq item alist)
+  (cond ((null? alist) #f)
+        ((and (pair? (car alist))
+              (eq? item (caar alist)))
+         (car alist))
+        (else (assq item (cdr alist)))))
+
+(define (assv item alist)
+  (cond ((null? alist) #f)
+        ((and (pair? (car alist))
+              (eqv? item (caar alist)))
+         (car alist))
+        (else (assv item (cdr alist)))))
+
+(define (assoc item alist)
+  (cond ((null? alist) #f)
+        ((and (pair? (car alist))
+              (equal? item (caar alist)))
+         (car alist))
+        (else (assoc item (cdr alist)))))
 
 (define (abs x)
   (if (< x 0) (- x) x))
