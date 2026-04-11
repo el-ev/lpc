@@ -31,6 +31,7 @@ using Binding = TaggedUnion<VarBinding, CoreBinding, MacroBinding>;
 class LexEnv {
 private:
     struct BindingEntry {
+        std::uint64_t id;
         std::set<ScopeID> scopes;
         Binding binding;
     };
@@ -39,6 +40,7 @@ private:
     std::unordered_map<std::string, int> _active_counts;
     std::vector<std::vector<std::string>> _active_scopes;
     ScopeID _next = 0;
+    std::uint64_t _next_binding_id = 1;
 
 public:
     LexEnv() {
@@ -102,22 +104,23 @@ public:
 
     void add_binding(const std::string& name, const std::set<ScopeID>& scopes,
         Binding binding) {
-        _bindings[name].push_back(
-            BindingEntry { .scopes = scopes, .binding = std::move(binding) });
+        _bindings[name].push_back(BindingEntry { .id = _next_binding_id++,
+            .scopes = scopes,
+            .binding = std::move(binding) });
     }
 
-    [[nodiscard]] const Binding* find_exact_binding(const std::string& name,
-        const std::set<ScopeID>& scopes) const noexcept {
+    [[nodiscard]] const BindingEntry* find_exact_binding_entry(
+        const std::string& name, const std::set<ScopeID>& scopes) const noexcept {
         auto it = _bindings.find(name);
         if (it == _bindings.end())
             return nullptr;
         for (const auto& entry : it->second)
             if (entry.scopes == scopes)
-                return &entry.binding;
+                return &entry;
         return nullptr;
     }
 
-    [[nodiscard]] const Binding* find_binding(const std::string& name,
+    [[nodiscard]] const BindingEntry* find_binding_entry(const std::string& name,
         const std::set<ScopeID>& scopes,
         std::optional<ScopeID> exclude_scope = std::nullopt) const noexcept {
 
@@ -148,9 +151,33 @@ public:
             }
         }
 
-        if (best != nullptr)
-            return &best->binding;
-        return nullptr;
+        return best;
+    }
+
+    [[nodiscard]] const Binding* find_exact_binding(const std::string& name,
+        const std::set<ScopeID>& scopes) const noexcept {
+        const auto* entry = find_exact_binding_entry(name, scopes);
+        if (entry == nullptr)
+            return nullptr;
+        return &entry->binding;
+    }
+
+    [[nodiscard]] const Binding* find_binding(const std::string& name,
+        const std::set<ScopeID>& scopes,
+        std::optional<ScopeID> exclude_scope = std::nullopt) const noexcept {
+        const auto* entry = find_binding_entry(name, scopes, exclude_scope);
+        if (entry == nullptr)
+            return nullptr;
+        return &entry->binding;
+    }
+
+    [[nodiscard]] std::string binding_key(const std::string& name,
+        const std::set<ScopeID>& scopes,
+        std::optional<ScopeID> exclude_scope = std::nullopt) const {
+        const auto* entry = find_binding_entry(name, scopes, exclude_scope);
+        if (entry == nullptr)
+            return std::format("unbound:{}", name);
+        return std::format("binding:{}", entry->id);
     }
 
     void define_core_syntax(const std::string& name) {

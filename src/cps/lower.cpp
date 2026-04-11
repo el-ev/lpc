@@ -58,15 +58,25 @@ private:
     std::uint32_t _next_var_id = 0;
     std::optional<CpsVar> _forced_lambda_var;
 
-    [[nodiscard]] CpsAtom lookup(const CoreVar& var) const {
-        return _mapping.at(var);
+    [[nodiscard]] CpsAtom lookup(const CoreVar& var) {
+        if (auto it = _mapping.find(var); it != _mapping.end())
+            return it->second;
+
+        if (var.kind == CoreVarKind::Global
+            || var.kind == CoreVarKind::Builtin) {
+            auto fresh = CpsAtom(next_var(var.id.debug_name));
+            _mapping.emplace(var, fresh);
+            return fresh;
+        }
+
+        throw std::out_of_range("Unbound local variable in CPS lowering");
     }
 
     void extend(const CoreVar& var, CpsAtom cps_val) {
         _mapping[var] = std::move(cps_val);
     }
 
-    [[nodiscard]] std::optional<CpsAtom> try_atom(CoreExprRef ref) const {
+    [[nodiscard]] std::optional<CpsAtom> try_atom(CoreExprRef ref) {
         const auto& expr = _core_arena[ref];
         if (expr.isa<CoreConstant>())
             return CpsAtom(CpsConstant { expr.get<CoreConstant>()->value });
@@ -156,6 +166,8 @@ private:
 
     [[nodiscard]] CpsExprRef convert_seq(
         std::span<const CoreExprRef> seq, Continuation k);
+
+    void collect_global_defines(CoreExprRef ref, std::set<CoreVar>& out);
 
     [[nodiscard]] CpsExprRef convert_args(std::span<const CoreExprRef> args,
         std::vector<CpsAtom> acc,
@@ -259,9 +271,11 @@ CpsExprRef CpsConverter::convert<CoreLambda>(
 
 template <>
 CpsExprRef CpsConverter::convert<CoreVar>(const CoreVar& c, Continuation k) {
+    if (c.kind == CoreVarKind::Builtin)
+        return k(lookup(c));
+
     auto val = lookup(c);
-    // builtins are const by default
-    if (!_ctx.core_arena().is_mutated(c))
+    if (c.kind != CoreVarKind::Global && !_ctx.core_arena().is_mutated(c))
         return k(val);
 
     CpsVar unboxed = next_var(c.id.debug_name + "_val");
@@ -274,6 +288,16 @@ CpsExprRef CpsConverter::convert<CoreVar>(const CoreVar& c, Continuation k) {
 template <>
 CpsExprRef CpsConverter::convert<CoreDefine>(
     const CoreDefine& c, Continuation k) {
+    if (c.target.kind == CoreVarKind::Global) {
+        auto box = lookup(c.target);
+        return convert(c.value, [&](const CpsAtom& val) {
+            return _arena.emplace(CpsLet { .target = next_var("_"),
+                .op = PrimOp::BoxSet,
+                .args = { box, val },
+                .body = k(CpsAtom(CpsUnit())) });
+        });
+    }
+
     if (_ctx.core_arena().is_mutated(c.target)) {
         auto box = next_var(c.target.id.debug_name + "_box");
         extend(c.target, CpsAtom(box));
@@ -310,12 +334,12 @@ CpsExprRef CpsConverter::convert<CoreApply>(
     if (const auto* var = func_expr.get<CoreVar>())
         if (var->kind == CoreVarKind::Builtin)
             return convert_args(
-                c.args, {}, [this, var, k](std::vector<CpsAtom> args) {
+                c.args, { }, [this, var, k](std::vector<CpsAtom> args) {
                     return try_builtin(var->id.debug_name, std::move(args), k);
                 });
 
     return convert(c.func, [&](const CpsAtom& func) {
-        return convert_args(c.args, {}, [&](std::vector<CpsAtom> args) {
+        return convert_args(c.args, { }, [&](std::vector<CpsAtom> args) {
             auto kv = next_var("k");
             auto rv = next_var("res");
             auto k_lambda
@@ -356,6 +380,39 @@ CpsExprRef CpsConverter::convert_seq(
     return convert(seq.front(), convert_rest);
 }
 
+void CpsConverter::collect_global_defines(
+    CoreExprRef ref, std::set<CoreVar>& out) {
+    if (!ref.is_valid())
+        return;
+
+    _core_arena[ref].visit(overloaded {
+        [&](const CoreDefine& d) {
+            if (d.target.kind == CoreVarKind::Global)
+                out.insert(d.target);
+            collect_global_defines(d.value, out);
+        },
+        [&](const CoreSet& s) { collect_global_defines(s.value, out); },
+        [&](const CoreLambda& l) { collect_global_defines(l.body, out); },
+        [&](const CoreIf& i) {
+            collect_global_defines(i.condition, out);
+            collect_global_defines(i.then_branch, out);
+            if (i.else_branch.is_valid())
+                collect_global_defines(i.else_branch, out);
+        },
+        [&](const CoreSeq& s) {
+            for (const auto& e : s.exprs)
+                collect_global_defines(e, out);
+        },
+        [&](const CoreApply& a) {
+            collect_global_defines(a.func, out);
+            for (const auto& arg : a.args)
+                collect_global_defines(arg, out);
+        },
+        [&](const CoreVar&) { },
+        [&](const CoreConstant&) { },
+    });
+}
+
 CpsExprRef CpsConverter::convert_args(std::span<const CoreExprRef> args,
     std::vector<CpsAtom> acc,
     const std::function<CpsExprRef(std::vector<CpsAtom>)>& k) {
@@ -372,10 +429,31 @@ CpsExprRef CpsConverter::convert_args(std::span<const CoreExprRef> args,
 }
 
 CpsExprRef CpsConverter::lower_program(CoreExprRef root) {
+    std::set<CoreVar> globals;
+    collect_global_defines(root, globals);
+
+    std::vector<CpsVar> global_boxes;
+    global_boxes.reserve(globals.size());
+    for (const auto& global : globals) {
+        auto box = next_var(global.id.debug_name + "_box");
+        extend(global, CpsAtom(box));
+        global_boxes.push_back(box);
+    }
+
     auto k = [this](CpsAtom result) -> CpsExprRef {
         return _arena.emplace(CpsHalt { std::move(result) });
     };
-    return convert(root, k);
+    auto body = convert(root, k);
+
+    for (auto i = global_boxes.size(); i > 0; --i) {
+        auto box = global_boxes[i - 1];
+        body = _arena.emplace(CpsLet { .target = box,
+            .op = PrimOp::Box,
+            .args = { CpsAtom(CpsUnit()) },
+            .body = body });
+    }
+
+    return body;
 }
 
 CpsExprRef LowerPass::run(CoreExprRef root, CompilerContext& ctx) noexcept {

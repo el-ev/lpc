@@ -21,6 +21,7 @@ class SymbolTable {
 
     std::deque<Scope> _scopes;
     Scope* _current = nullptr;
+    std::uint32_t _scope_depth = 0;
     std::uint32_t _next_id = 0;
     std::unordered_map<CoreVar, Arity> _builtins;
     std::set<CoreVar> _defined_globals;
@@ -34,7 +35,7 @@ public:
     }
 
     [[nodiscard]] bool is_global_scope() const noexcept {
-        return _scopes.size() == 2;
+        return _scope_depth == 2;
     }
 
     CoreVar declare_ref(const std::string& name) {
@@ -118,10 +119,14 @@ public:
     void push_scope() {
         _scopes.push_back(Scope { .bindings = {}, .parent = _current });
         _current = &_scopes.back();
+        _scope_depth++;
     }
 
     void pop_scope() {
+        if (_current == nullptr || _scope_depth == 0)
+            return;
         _current = _current->parent;
+        _scope_depth--;
     }
 
 private:

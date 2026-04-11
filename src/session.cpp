@@ -68,8 +68,11 @@ int Session::run() noexcept {
                           .build()
                           .run({ }, ctx);
 
-        if (!result.is_valid())
+        if (!result.is_valid()) {
+            if (ctx.stopped_after())
+                return 0;
             return 1;
+        }
 
         backend::Interpreter interpreter(ctx.cps_arena(), ctx.span_arena());
         static_cast<void>(interpreter.run(result));

@@ -60,8 +60,10 @@ private:
         if (ctx.options().should_print(pass.name()))
             std::print("{}", pass.dump(result, ctx));
 
-        if (ctx.options().should_stop(pass.name()))
+        if (ctx.options().should_stop(pass.name())) {
+            ctx.mark_stopped_after();
             return FinalOut {};
+        }
 
         return run_impl<Rest...>(std::move(result), ctx);
     }

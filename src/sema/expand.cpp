@@ -100,6 +100,12 @@ std::vector<SpanRef> Expander::expand_lambda(
     if (!check_arity(root, list, 2, 0))
         return { SpanRef::invalid() };
 
+    if (list.elem.size() == 3 && _arena.is_nil(list.elem.back())) {
+        report_error(
+            root, "arity mismatch: expected at least 3 arguments, got 2");
+        return { SpanRef::invalid() };
+    }
+
     auto scope_guard = _env.scope_guard();
 
     ScopeID scope = _env.new_scope();
@@ -325,6 +331,9 @@ std::vector<SpanRef> Expander::expand_define(
     }
 
     // (define var expr)
+    if (!check_arity(root, list, 3, 3))
+        return { SpanRef::invalid() };
+
     if (const auto* id = _arena.get<LispIdent>(var)) {
         if (is_identifier_active(var)) {
             report_error(root, "define: invalid context for definition");
@@ -392,13 +401,17 @@ std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
         return std::nullopt;
     }
     std::vector<std::string> literals;
+    std::unordered_map<std::string, std::string> literal_binding_keys;
     if (spec_list.size() >= 2) {
         if (_arena.is_list(spec_list[1])) {
             const auto lit_list = _arena.get<SExprList>(spec_list[1])->elem;
             for (const auto& lit : lit_list)
-                if (_arena.is_ident(lit))
-                    literals.push_back(_arena.get<LispIdent>(lit)->name);
-                else if (!_arena.is_nil(lit))
+                if (_arena.is_ident(lit)) {
+                    const auto lit_name = _arena.get<LispIdent>(lit)->name;
+                    literals.push_back(lit_name);
+                    literal_binding_keys[lit_name]
+                        = _env.binding_key(lit_name, _arena.scopes(lit));
+                } else if (!_arena.is_nil(lit))
                     report_error(lit,
                         "{}: invalid syntax-rule: not an identifier",
                         form_prefix);
@@ -410,6 +423,9 @@ std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
         }
     }
     std::vector<Transformer::SyntaxRule> rules;
+    std::set<std::string> literal_set(std::make_move_iterator(literals.begin()),
+        std::make_move_iterator(literals.end()));
+
     for (std::size_t i = 2; i < spec_list.size(); ++i) {
         if (!_arena.is_list(spec_list[i])) {
             if (i == spec_list.size() - 1 && _arena.is_nil(spec_list[i]))
@@ -445,13 +461,60 @@ std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
             auto pattern_tail = _arena.expand(_arena.loc_ref(rule_parts[0]),
                 _parent, ScopeSetRef::invalid(),
                 SExprList(std::move(pattern_tail_list)));
+
+            std::set<std::string> seen_pattern_vars;
+            std::optional<std::string> duplicate_pattern_var;
+            std::function<void(SpanRef)> validate_pattern =
+                [&](SpanRef pattern_ref) {
+                    if (!pattern_ref.is_valid()
+                        || duplicate_pattern_var.has_value())
+                        return;
+
+                    if (const auto* id = _arena.get<LispIdent>(pattern_ref)) {
+                        if (id->name == "_" || id->name == "..."
+                            || literal_set.contains(id->name))
+                            return;
+                        if (!seen_pattern_vars.insert(id->name).second)
+                            duplicate_pattern_var = id->name;
+                        return;
+                    }
+
+                    if (const auto* list = _arena.get<SExprList>(pattern_ref)) {
+                        for (const auto& el : list->elem)
+                            validate_pattern(el);
+                        return;
+                    }
+
+                    if (const auto* vec
+                        = _arena.get<SExprVector>(pattern_ref)) {
+                        for (const auto& el : vec->elem)
+                            validate_pattern(el);
+                    }
+                };
+            validate_pattern(pattern_tail);
+
+            if (duplicate_pattern_var.has_value()) {
+                report_error(rule_parts[0],
+                    "{}: invalid syntax-rule: duplicate pattern variable: {}",
+                    form_prefix, *duplicate_pattern_var);
+                continue;
+            }
+
             rules.push_back({ pattern_tail, rule_parts[1] });
         } else
             report_error(transformer_spec,
                 "{}: invalid syntax-rule: unexpected rule format", form_prefix);
     }
-    return std::make_unique<Transformer>(
-        std::move(rules), std::move(literals), _arena);
+
+    auto binding_key_resolver = [&env = _env](const std::string& name,
+                                    const std::set<ScopeID>& scopes) {
+        return env.binding_key(name, scopes);
+    };
+
+    return std::make_unique<Transformer>(std::move(rules),
+        std::vector<std::string>(literal_set.begin(), literal_set.end()),
+        std::move(literal_binding_keys), std::move(binding_key_resolver),
+        _arena);
 }
 
 std::vector<SpanRef> Expander::expand_define_syntax(
@@ -488,7 +551,7 @@ std::vector<SpanRef> Expander::expand_define_syntax(
     _env.add_binding(macro_name.name, _arena.scopes(name_ex),
         Binding(MacroBinding { .transformer = std::move(*transformer),
             .output_excluded_scope = std::nullopt }));
-    return {};
+    return { };
 }
 
 std::vector<SpanRef> Expander::expand_let_letrec_syntax(

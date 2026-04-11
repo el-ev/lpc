@@ -8,6 +8,31 @@ namespace lpc::cps {
 
 using lpc::utils::overloaded;
 
+namespace {
+
+    std::string join_atoms(
+        const std::vector<CpsAtom>& atoms, const CpsDumpVisitor& visitor) {
+        std::string out;
+        for (std::size_t i = 0; i < atoms.size(); ++i) {
+            if (i > 0)
+                out += " ";
+            out += visitor.atom_to_string(atoms[i]);
+        }
+        return out;
+    }
+
+    std::string join_var_names(std::span<const CpsVar> vars) {
+        std::string out;
+        for (std::size_t i = 0; i < vars.size(); ++i) {
+            if (i > 0)
+                out += " ";
+            out += vars[i].var.debug_name;
+        }
+        return out;
+    }
+
+} // namespace
+
 std::string primop_to_string(PrimOp op) {
     switch (op) {
 #define X(op, str)                                                             \
@@ -23,74 +48,122 @@ std::string CpsDumpVisitor::atom_to_string(const CpsAtom& atom) const {
     return atom.visit(overloaded {
         [](const CpsVar& v) { return v.var.debug_name; },
         [&](const CpsConstant& c) {
-            return std::format("{}", span_arena.dump(c.value));
+            auto value = span_arena.dump(c.value);
+            if (value == "()")
+                return std::string("'()");
+            return value;
         },
-        [](const CpsUnit&) { return std::string("()"); },
+        [](const CpsUnit&) { return std::string("(void)"); },
     });
 }
 
 std::string CpsDumpVisitor::operator()(const CpsApp& app) const {
-    std::string args_str;
-    for (std::size_t i = 0; i < app.args.size(); ++i) {
-        if (i > 0)
-            args_str += ", ";
-        args_str += atom_to_string(app.args[i]);
+    std::string out = "(";
+    out += atom_to_string(app.func);
+    if (!app.args.empty()) {
+        out += " ";
+        out += join_atoms(app.args, *this);
     }
-    return std::format("{}({})", atom_to_string(app.func), args_str);
+    out += ")";
+    return out;
 }
 
 std::string CpsDumpVisitor::operator()(const CpsLet& l) const {
-    std::string out = dump(l.body, indent);
-    if (!out.empty() && out.back() != '\n')
-        out += '\n';
-    
-    std::string args_str;
-    for (std::size_t i = 0; i < l.args.size(); ++i) {
-        if (i > 0)
-            args_str += ", ";
-        args_str += atom_to_string(l.args[i]);
-    }
+    auto next_indent = indent + "  ";
 
-    return std::format("{}{}where {} = {}({})", out, indent, l.target.var.debug_name, primop_to_string(l.op), args_str);
+    std::string binding = std::format(
+        "({} ({}", l.target.var.debug_name, primop_to_string(l.op));
+    if (!l.args.empty()) {
+        binding += " ";
+        binding += join_atoms(l.args, *this);
+    }
+    binding += "))";
+
+    return std::format("(let ({})\n{}{}\n{})", binding, next_indent,
+        dump(l.body, next_indent), indent);
 }
 
 std::string CpsDumpVisitor::operator()(const CpsIf& i) const {
-    return std::format("if {} then\n{}  {}\n{}else\n{}  {}\n", 
-        atom_to_string(i.condition),
-        indent, dump(i.then_branch, indent + "  "),
-        indent,
-        indent, dump(i.else_branch, indent + "  "));
+    auto next_indent = indent + "  ";
+    return std::format("(if {}\n{}{}\n{}{}\n{})", atom_to_string(i.condition),
+        next_indent, dump(i.then_branch, next_indent), next_indent,
+        dump(i.else_branch, next_indent), indent);
 }
 
 std::string CpsDumpVisitor::operator()(const CpsLambda& l) const {
-    std::string params_str;
-    for (std::size_t i = 0; i < l.params.size(); ++i) {
-        if (i > 0)
-            params_str += ", ";
-        params_str += l.params[i].var.debug_name;
+    auto next_indent = indent + "  ";
+
+    if (l.is_variadic && l.params.size() >= 2) {
+        const auto fixed_count = l.params.size() - 2;
+        const auto& rest_name = l.params[fixed_count].var.debug_name;
+        const auto& cont_name = l.params.back().var.debug_name;
+        const auto tail_name = std::format("__cps_tail_{}", l.name.var.id);
+
+        std::string out;
+        if (fixed_count == 0) {
+            out += std::format("(lambda {}", tail_name);
+        } else {
+            out += std::format("(lambda ({} . {})",
+                join_var_names(std::span(l.params).first(fixed_count)),
+                tail_name);
+        }
+
+        out += "\n";
+        out += std::format("{}(let (({} (let loop ((xs {}))\n", next_indent,
+            rest_name, tail_name);
+        out += std::format("{}                  (if (null? xs)\n", next_indent);
+        out += std::format("{}                      '()\n", next_indent);
+        out += std::format(
+            "{}                      (if (null? (cdr xs))\n", next_indent);
+        out += std::format("{}                          '()\n", next_indent);
+        out += std::format(
+            "{}                          (cons (car xs) (loop (cdr xs))))))\n",
+            next_indent);
+        out += std::format("{}      ({} (let loop ((xs {}))\n", next_indent,
+            cont_name, tail_name);
+        out += std::format("{}           (if (null? xs)\n", next_indent);
+        out += std::format("{}               (void)\n", next_indent);
+        out += std::format(
+            "{}               (if (null? (cdr xs))\n", next_indent);
+        out += std::format("{}                   (car xs)\n", next_indent);
+        out += std::format(
+            "{}                   (loop (cdr xs))))))\n", next_indent);
+        out += std::format(
+            "{}{}\n", next_indent + "  ", dump(l.body, next_indent + "  "));
+        out += std::format("{})\n", next_indent);
+        out += std::format("{})", indent);
+        return out;
     }
-    return std::format("lambda {}({}) =\n{}  {}", 
-        l.name.var.debug_name, params_str, 
-        indent, dump(l.body, indent + "  "));
+
+    return std::format("(lambda ({})\n{}{}\n{})", join_var_names(l.params),
+        next_indent, dump(l.body, next_indent), indent);
 }
 
 std::string CpsDumpVisitor::operator()(const CpsFix& f) const {
-    std::string out = dump(f.body, indent);
     if (f.functions.empty())
-        return out;
+        return dump(f.body, indent);
 
-    if (!out.empty() && out.back() != '\n')
-        out += '\n';
-    out += indent + "where fix\n";
-    for (const auto& func : f.functions)
-        out += indent + "  " + dump(func, indent + "  ") + "\n";
-    if (!out.empty() && out.back() == '\n')
-        out.pop_back();
+    auto next_indent = indent + "  ";
+    std::string out = "(letrec (\n";
+    for (std::size_t i = 0; i < f.functions.size(); ++i) {
+        auto function_ref = f.functions[i];
+        std::string function_name = std::format("__fun_{}", i);
+        if (const auto* lambda = arena.get(function_ref).get<CpsLambda>())
+            function_name = lambda->name.var.debug_name;
+
+        out += std::format("{}({} {})", next_indent, function_name,
+            dump(function_ref, next_indent + "  "));
+        if (i + 1 < f.functions.size())
+            out += "\n";
+    }
+    out += ")\n";
+    out += std::format("{}{}\n", next_indent, dump(f.body, next_indent));
+    out += std::format("{})", indent);
     return out;
 }
 
 std::string CpsDumpVisitor::operator()(const CpsHalt& h) const {
-    return "halt " + atom_to_string(h.value);
+    return atom_to_string(h.value);
 }
 
 std::string CpsDumpVisitor::dump(

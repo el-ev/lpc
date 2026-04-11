@@ -35,6 +35,7 @@ private:
     syntax::SpanArena _span_arena;
     sema::CoreExprArena _core_arena;
     cps::CpsArena _cps_arena;
+    bool _stopped_after = false;
 
 public:
     explicit CompilerContext(CompilerOptions&& options, std::string&& path,
@@ -67,6 +68,14 @@ public:
 
     [[nodiscard]] cps::CpsArena& cps_arena() noexcept {
         return _cps_arena;
+    }
+
+    void mark_stopped_after() noexcept {
+        _stopped_after = true;
+    }
+
+    [[nodiscard]] bool stopped_after() const noexcept {
+        return _stopped_after;
     }
 };
 

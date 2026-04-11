@@ -62,12 +62,29 @@ bool Transformer::match(
             return true;
 
         if (_literals.contains(p_id->name)) {
-            if (const auto* i_id = i_expr.get<LispIdent>())
-                if (i_id->name == p_id->name)
-                    return true;
+            if (!i_expr.isa<LispIdent>())
+                return false;
+
+            auto lit_it = _literal_binding_keys.find(p_id->name);
+            if (lit_it == _literal_binding_keys.end())
+                return false;
+
+            const auto* i_id = i_expr.get<LispIdent>();
+            if (lit_it->second.starts_with("unbound:"))
+                return i_id->name == p_id->name;
+
+            auto input_key
+                = _binding_key_resolver(i_id->name, _arena.scopes(input));
+            if (input_key == lit_it->second)
+                return true;
             return false;
         }
 
+        if (auto it = bindings.find(p_id->name); it != bindings.end()) {
+            if (it->second.is_list || it->second.values.empty())
+                return false;
+            return it->second.values[0] == input;
+        }
         bindings[p_id->name] = BindingValue::single(input);
         return true;
     }
@@ -129,7 +146,7 @@ bool Transformer::match(
             collect_pattern_vars(repeat_pattern, _arena, ellipsis_vars);
 
             for (const auto& var : ellipsis_vars)
-                bindings[var] = BindingValue::list({});
+                bindings[var] = BindingValue::list({ });
 
             for (std::size_t i = 0; i < repeat_count; ++i) {
                 Bindings temp;
@@ -191,7 +208,7 @@ bool Transformer::match(
         std::set<std::string> ellipsis_vars;
         collect_pattern_vars(repeat_pattern, _arena, ellipsis_vars);
         for (const auto& var : ellipsis_vars)
-            bindings[var] = BindingValue::list({});
+            bindings[var] = BindingValue::list({ });
 
         for (std::size_t i = 0; i < repeat_count; ++i) {
             Bindings temp;

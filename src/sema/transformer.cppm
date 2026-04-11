@@ -36,14 +36,23 @@ private:
     std::vector<SyntaxRule> _rules;
     SpanArena& _arena;
     std::set<std::string> _literals;
+    std::unordered_map<std::string, std::string> _literal_binding_keys;
+    std::function<std::string(const std::string&, const std::set<ScopeID>&)>
+        _binding_key_resolver;
 
 public:
     explicit Transformer(std::vector<SyntaxRule> rules,
-        std::vector<std::string> literals, SpanArena& arena)
+        std::vector<std::string> literals,
+        std::unordered_map<std::string, std::string> literal_binding_keys,
+        std::function<std::string(const std::string&, const std::set<ScopeID>&)>
+            binding_key_resolver,
+        SpanArena& arena)
         : _rules(std::move(rules))
         , _arena(arena)
         , _literals(std::make_move_iterator(literals.begin()),
-              std::make_move_iterator(literals.end())) {
+              std::make_move_iterator(literals.end()))
+        , _literal_binding_keys(std::move(literal_binding_keys))
+        , _binding_key_resolver(std::move(binding_key_resolver)) {
     }
 
     [[nodiscard]] SpanRef transcribe(SpanRef input, SpanRef parent) const;

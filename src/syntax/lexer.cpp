@@ -135,6 +135,13 @@ bool Lexer::read_sharp() noexcept {
     }
     char c = _cursor[1];
     if (c == 't' || c == 'f') {
+        if (_cursor.length() > 2 && !lex_defs::DELIMETER.contains(_cursor[2])) {
+            auto lexeme_size = count_till_delimiter(_cursor);
+            Error("Invalid boolean literal: \"{}\" at {}",
+                _cursor.substr(0, lexeme_size), loc_string());
+            _failed = true;
+            return false;
+        }
         bool value = (c == 't');
         _tokens.emplace_back(
             TokenType::BOOLEAN, loc(value ? "#t" : "#f"), value);
@@ -301,6 +308,14 @@ bool Lexer::read_character() noexcept {
         }
         // if size is 3, it is a single character, fall through
     }
+    if (_cursor.length() > 3 && !lex_defs::DELIMETER.contains(_cursor[3])) {
+        auto end = count_till_delimiter(_cursor);
+        Error("Invalid character literal: \"{}\" at {}", _cursor.substr(0, end),
+            loc_string());
+        _failed = true;
+        return false;
+    }
+
     // it is a single character
     auto character = _cursor.substr(0, 3);
     _tokens.emplace_back(
