@@ -1,6 +1,5 @@
 module lpc.utils.option;
 
-
 namespace lpc::utils {
 
 void App::display_help() const noexcept {
@@ -108,8 +107,7 @@ void App::parse(std::vector<std::string_view> args) noexcept {
         if (found_option->accepts_value) {
             ++it;
             if (it == args.end()) {
-                Error("Option '{}' requires a value",
-                    found_option->long_name);
+                Error("Option '{}' requires a value", found_option->long_name);
                 std::quick_exit(1);
             }
             if (found_option->callback)
@@ -129,15 +127,16 @@ void App::add_option(Option&& option) noexcept {
     }
 
     if (option.short_name != NO_SHORT_NAME
-        && std::isalpha(option.short_name) == 0) {
+        && std::isalpha(static_cast<unsigned char>(option.short_name)) == 0) {
         Error("Invalid short option name: '-{}'. Must be a letter.",
             option.short_name);
         return;
     }
 
-    if (std::isalpha(option.long_name[0]) == 0
-        || !std::ranges::all_of(option.long_name,
-            [](char c) { return std::isalnum(c) || c == '-'; })) {
+    if (std::isalpha(static_cast<unsigned char>(option.long_name[0])) == 0
+        || !std::ranges::all_of(option.long_name, [](char c) {
+               return std::isalnum(static_cast<unsigned char>(c)) || c == '-';
+           })) {
         Error("Invalid option name: '--{}'", option.long_name);
         return;
     }
@@ -157,8 +156,8 @@ void App::add_option(Option&& option) noexcept {
         if (existing.long_name == option.long_name
             || (existing.short_name != NO_SHORT_NAME
                 && existing.short_name == option.short_name)) {
-            Error("Option already exists: '--{}' or '-{}'",
-                existing.long_name, existing.short_name);
+            Error("Option already exists: '--{}' or '-{}'", existing.long_name,
+                existing.short_name);
             return;
         }
     }

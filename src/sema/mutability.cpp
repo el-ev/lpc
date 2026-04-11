@@ -41,7 +41,8 @@ void MutabilityPass::visit(CoreExprRef ref, CompilerContext& ctx) {
         [&](const CoreIf& i) {
             visit(i.condition, ctx);
             visit(i.then_branch, ctx);
-            visit(i.else_branch, ctx);
+            if (i.else_branch.is_valid())
+                visit(i.else_branch, ctx);
         },
         [&](const CoreSeq& s) {
             for (const auto& e : s.exprs)
@@ -52,8 +53,8 @@ void MutabilityPass::visit(CoreExprRef ref, CompilerContext& ctx) {
             for (const auto& arg : a.args)
                 visit(arg, ctx);
         },
-        [&](const CoreVar&) {},
-        [&](const CoreConstant&) {},
+        [&](const CoreVar&) { },
+        [&](const CoreConstant&) { },
     });
 }
 

@@ -10,9 +10,8 @@ namespace lpc::syntax {
 using lpc::utils::Error;
 
 std::size_t count_till_delimiter(std::string_view str) {
-    const char* it = std::ranges::find_if(str.begin(), str.end(), [](char c) {
-        return lex_defs::DELIMETER.contains(c);
-    });
+    const char* it = std::ranges::find_if(str.begin(), str.end(),
+        [](char c) { return lex_defs::DELIMETER.contains(c); });
     if (it == str.end())
         return str.size();
     return std::ranges::distance(str.begin(), it);
@@ -45,8 +44,7 @@ bool Lexer::skip_whitespaces() noexcept {
         return false;
     if (!lex_defs::WHITESPACE.contains(_cursor[0]))
         return false;
-    while (!is_eof()
-        && lex_defs::WHITESPACE.contains(_cursor[0])) {
+    while (!is_eof() && lex_defs::WHITESPACE.contains(_cursor[0])) {
         if (_cursor[0] == lex_defs::NEWLINE) {
             _line++;
             _line_start = _cursor.begin();
@@ -80,9 +78,10 @@ bool Lexer::read_ident() noexcept {
     // <digit> -> [0-9]
     auto size = count_till_delimiter(_cursor);
     if (lex_defs::SPECIAL_INITIAL.contains(_cursor[0])
-        || std::isalpha(_cursor[0]) != 0) {
+        || std::isalpha(static_cast<unsigned char>(_cursor[0])) != 0) {
         auto is_valid_subsequent = [](char c) {
-            return std::isalpha(c) != 0 || std::isdigit(c) != 0
+            return std::isalpha(static_cast<unsigned char>(c)) != 0
+                || std::isdigit(static_cast<unsigned char>(c)) != 0
                 || lex_defs::SPECIAL_SUBSEQUENT.contains(c)
                 || lex_defs::SPECIAL_INITIAL.contains(c);
         };
@@ -176,7 +175,7 @@ bool Lexer::read_sharp() noexcept {
     case 10:
         return c >= '0' && c <= '9';
     case 16:
-        return (std::isxdigit(c) != 0);
+        return (std::isxdigit(static_cast<unsigned char>(c)) != 0);
     default:
         return false;
     }
@@ -204,7 +203,7 @@ bool Lexer::read_number(int radix) noexcept {
     auto pos = value_start;
 
     // check for sign
-    if (pos[0] == '+' || pos[0] == '-')
+    if (!pos.empty() && (pos[0] == '+' || pos[0] == '-'))
         pos.remove_prefix(1);
 
     std::size_t digit_count = 0;
@@ -272,15 +271,17 @@ bool Lexer::read_character() noexcept {
         _failed = true;
         return false;
     }
-    if (std::isalpha(_cursor[2]) != 0) {
+    if (std::isalpha(static_cast<unsigned char>(_cursor[2])) != 0) {
         // find till the next delimiter
         auto end = count_till_delimiter(_cursor);
         // if size is not 3, check against <char name>s, case insensitive
         if (end != 3) {
             std::string name(_cursor.substr(0, end));
             auto cmp_ci = [](std::string_view a, std::string_view b) {
-                return std::ranges::equal(a, b,
-                    [](char c1, char c2) { return std::tolower(c1) == c2; });
+                return std::ranges::equal(a, b, [](char c1, char c2) {
+                    return std::tolower(static_cast<unsigned char>(c1))
+                        == std::tolower(static_cast<unsigned char>(c2));
+                });
             };
             if (cmp_ci(name, "#\\newline")) {
                 _tokens.emplace_back(
@@ -347,7 +348,7 @@ bool Lexer::read_string() noexcept {
     auto unescape = [](std::string_view str) {
         if (str.find('\\') == std::string_view::npos)
             return std::string(str);
-        
+
         std::string result;
         result.reserve(str.size());
         for (std::size_t i = 0; i < str.size(); ++i) {
@@ -413,12 +414,13 @@ std::vector<Token> LexPass::run(std::monostate, CompilerContext& ctx) noexcept {
     Lexer lexer(ctx.span_arena().location_arena(), ctx.path(), ctx.source());
     if (lexer.is_failed()) {
         _failed = true;
-        return {};
+        return { };
     }
     return lexer.tokens();
 }
 
-std::string LexPass::dump(const std::vector<Token>& result, CompilerContext& ctx) const noexcept {
+std::string LexPass::dump(
+    const std::vector<Token>& result, CompilerContext& ctx) const noexcept {
     std::string out;
     for (const auto& token : result)
         out += std::format("{} ", ctx.span_arena().loc(token.loc()).lexeme());
