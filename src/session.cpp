@@ -2,7 +2,7 @@ module lpc.session;
 
 import std;
 
-import lpc.backend.interpreter;
+import lpc.backend.interp;
 import lpc.context;
 import lpc.cps.lower;
 import lpc.cps.simplify;
