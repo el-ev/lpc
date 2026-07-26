@@ -1,6 +1,8 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-PROJECT_ROOT="$(dirname "$(realpath "$0")")/.."
+set -euo pipefail
+
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 # Portable CPU count (macOS doesn't have nproc)
 if command -v nproc &> /dev/null; then
@@ -9,8 +11,7 @@ else
     JOBS=$(sysctl -n hw.ncpu 2>/dev/null || echo 4)
 fi
 
-getopts "dra" opt;
-if [ -z "$opt" ]; then
+if ! getopts "dra" opt; then
     echo "Usage: $0 (-d (debug) | -r (release) | -a (all))"
     exit 1
 fi

@@ -35,7 +35,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(LIBCXX_MODULES_JSON "" CACHE FILEPATH "Path to libc++.modules.json")
 
 if(NOT LIBCXX_MODULES_JSON AND DEFINED ENV{LIBCXX_MODULES_JSON})
-  set(LIBCXX_MODULES_JSON "$ENV{LIBCXX_MODULES_JSON}")
+  set(LIBCXX_MODULES_JSON "$ENV{LIBCXX_MODULES_JSON}" CACHE FILEPATH
+    "Path to libc++.modules.json" FORCE)
 endif()
 
 if(NOT LIBCXX_MODULES_JSON)
@@ -46,24 +47,31 @@ if(NOT LIBCXX_MODULES_JSON)
     ERROR_QUIET
   )
   if(IS_ABSOLUTE "${_libcxx_manifest}" AND EXISTS "${_libcxx_manifest}")
-    set(LIBCXX_MODULES_JSON "${_libcxx_manifest}")
+    set(LIBCXX_MODULES_JSON "${_libcxx_manifest}" CACHE FILEPATH
+      "Path to libc++.modules.json" FORCE)
   endif()
   unset(_libcxx_manifest)
 endif()
 
 if(NOT LIBCXX_MODULES_JSON)
   get_filename_component(_cxx_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
-  find_file(LIBCXX_MODULES_JSON
+  find_file(_libcxx_modules_json
     NAMES libc++.modules.json
     PATHS
       "${_cxx_dir}/../lib/c++"
       "${_cxx_dir}/../lib"
       "/opt/homebrew/opt/llvm/lib/c++"
       "/opt/homebrew/lib/c++"
+      "/usr/local/opt/llvm/lib/c++"
       "/usr/local/lib/c++"
       "/usr/lib/c++"
     NO_DEFAULT_PATH
   )
+  if(_libcxx_modules_json)
+    set(LIBCXX_MODULES_JSON "${_libcxx_modules_json}" CACHE FILEPATH
+      "Path to libc++.modules.json" FORCE)
+  endif()
+  unset(_libcxx_modules_json CACHE)
   unset(_cxx_dir)
 endif()
 
