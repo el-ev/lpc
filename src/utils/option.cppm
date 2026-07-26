@@ -64,16 +64,16 @@ public:
     App& operator=(App&&) = default;
 
     [[nodiscard]] static AppBuilder builder(std::string name,
-        std::string author, std::string description = "") noexcept;
+        std::string author, std::string description = "");
 
-    void enable_help() noexcept;
+    void enable_help();
 
-    void display_help() const noexcept;
+    void display_help() const;
 
-    void parse(std::vector<std::string_view> args) noexcept;
+    void parse(std::vector<std::string_view> args);
 
 private:
-    void add_option(Option&& option) noexcept;
+    void add_option(Option&& option);
 
     friend class AppBuilder;
 };
@@ -94,14 +94,14 @@ public:
     AppBuilder(AppBuilder&&) = default;
     AppBuilder& operator=(AppBuilder&&) = default;
 
-    [[nodiscard]] AppBuilder&& enable_help() noexcept {
+    [[nodiscard]] AppBuilder&& enable_help() {
         _app.enable_help();
         return std::move(*this);
     }
 
     [[nodiscard]] AppBuilder&& add_option(std::string long_name,
         char short_name, std::string description = "",
-        std::function<void(std::string_view)> callback = nullptr) noexcept {
+        std::function<void(std::string_view)> callback = nullptr) {
         _app.add_option(
             Option { short_name, std::move(long_name), std::move(description),
                 false, "", std::move(callback) });
@@ -111,7 +111,7 @@ public:
     [[nodiscard]] AppBuilder&& add_option(std::string long_name,
         char short_name, std::string description = "",
         std::string default_value = "",
-        std::function<void(std::string_view)> callback = nullptr) noexcept {
+        std::function<void(std::string_view)> callback = nullptr) {
         _app.add_option(
             Option { short_name, std::move(long_name), std::move(description),
                 true, std::move(default_value), std::move(callback) });
@@ -120,7 +120,7 @@ public:
 
     [[nodiscard]] AppBuilder&& set_non_option_callback(
         std::function<void(std::vector<std::string_view>&&)>
-            callback) noexcept {
+            callback) {
         _app._non_option_callback = std::move(callback);
         return std::move(*this);
     }
@@ -131,7 +131,7 @@ public:
 };
 
 AppBuilder App::builder(
-    std::string name, std::string author, std::string description) noexcept {
+    std::string name, std::string author, std::string description) {
     return AppBuilder(
         std::move(name), std::move(author), std::move(description));
 }

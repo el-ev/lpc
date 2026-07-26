@@ -21,10 +21,10 @@ public:
 
     [[nodiscard]] virtual std::string name() const noexcept = 0;
     [[nodiscard]] virtual out_type run(
-        in_type input, CompilerContext& ctx) noexcept
+        in_type input, CompilerContext& ctx)
         = 0;
     [[nodiscard]] virtual std::string dump(
-        const out_type& result, CompilerContext& ctx) const noexcept
+        const out_type& result, CompilerContext& ctx) const
         = 0;
     [[nodiscard]] virtual bool is_failed() const noexcept = 0;
 };
@@ -37,19 +37,19 @@ struct last_type {
 export template <typename In, typename... Passes>
 class Pipeline {
 public:
-    [[nodiscard]] auto run(In input, CompilerContext& ctx) noexcept {
+    [[nodiscard]] auto run(In input, CompilerContext& ctx) {
         return run_impl<Passes...>(std::move(input), ctx);
     }
 
 private:
     template <typename... Rest>
         requires(sizeof...(Rest) == 0)
-    auto run_impl(auto&& input, CompilerContext& /* ctx */) noexcept {
+    auto run_impl(auto&& input, CompilerContext& /* ctx */) {
         return std::forward<decltype(input)>(input);
     }
 
     template <typename P, typename... Rest>
-    auto run_impl(auto&& input, CompilerContext& ctx) noexcept {
+    auto run_impl(auto&& input, CompilerContext& ctx) {
         P pass;
         using FinalOut = typename last_type<In, Passes...>::type::out_type;
         auto result = pass.run(std::forward<decltype(input)>(input), ctx);

@@ -17,11 +17,11 @@ std::size_t count_till_delimiter(std::string_view str) {
     return std::ranges::distance(str.begin(), it);
 }
 
-bool Lexer::skip_atmosphere() noexcept {
+bool Lexer::skip_atmosphere() {
     return skip_comment() || skip_whitespaces();
 }
 
-bool Lexer::skip_comment() noexcept {
+bool Lexer::skip_comment() {
     if (is_eof())
         return false;
     if (_cursor[0] == lex_defs::COMMENT_START) {
@@ -39,7 +39,7 @@ bool Lexer::skip_comment() noexcept {
     return false;
 }
 
-bool Lexer::skip_whitespaces() noexcept {
+bool Lexer::skip_whitespaces() {
     if (is_eof())
         return false;
     if (!lex_defs::WHITESPACE.contains(_cursor[0]))
@@ -54,7 +54,7 @@ bool Lexer::skip_whitespaces() noexcept {
     return true;
 }
 
-bool Lexer::advance() noexcept {
+bool Lexer::advance() {
     while (skip_atmosphere())
         ;
     if (is_eof())
@@ -70,7 +70,7 @@ bool Lexer::advance() noexcept {
     return false;
 }
 
-bool Lexer::read_ident() noexcept {
+bool Lexer::read_ident() {
     // <identifier> -> <initial> <subsequent>* | <peculiar identifier>
     // <initial> -> <letter> | <special initial>
     // <subsequent> -> <letter> | <digit> | <special subsequent>
@@ -127,7 +127,7 @@ bool Lexer::read_ident() noexcept {
     return false;
 }
 
-bool Lexer::read_sharp() noexcept {
+bool Lexer::read_sharp() {
     // <boolean> -> #t | #f
     if (_cursor.length() < 2) {
         Error("Incomplete token \"#\" at {}", loc_string());
@@ -189,7 +189,7 @@ bool Lexer::read_sharp() noexcept {
 }
 
 // TODO: only signed integers are supported for now
-bool Lexer::read_number(int radix) noexcept {
+bool Lexer::read_number(int radix) {
     int radix_value = 10;
     bool number_pattern = false;
     auto value_start = _cursor;
@@ -266,7 +266,7 @@ bool Lexer::read_number(int radix) noexcept {
     return true;
 }
 
-bool Lexer::read_character() noexcept {
+bool Lexer::read_character() {
     // <character> -> #\<char> | #\<char name>
     // <char> -> (any character)
     // <char name> -> newline | space
@@ -324,7 +324,7 @@ bool Lexer::read_character() noexcept {
     return true;
 }
 
-bool Lexer::read_string() noexcept {
+bool Lexer::read_string() {
     // <string> -> "<string element>*"
     // <string element> -> <string char> | \\ | \"
     // <string char> -> [^"\\]
@@ -386,7 +386,7 @@ bool Lexer::read_string() noexcept {
     return true;
 }
 
-bool Lexer::read_operator() noexcept {
+bool Lexer::read_operator() {
     switch (_cursor[0]) {
     case '(':
         _tokens.emplace_back(TokenType::LPAREN, loc("("));
@@ -425,7 +425,7 @@ bool Lexer::read_operator() noexcept {
     };
 }
 
-std::vector<Token> LexPass::run(std::monostate, CompilerContext& ctx) noexcept {
+std::vector<Token> LexPass::run(std::monostate, CompilerContext& ctx) {
     Lexer lexer(ctx.span_arena().location_arena(), ctx.path(), ctx.source());
     if (lexer.is_failed()) {
         _failed = true;
@@ -435,7 +435,7 @@ std::vector<Token> LexPass::run(std::monostate, CompilerContext& ctx) noexcept {
 }
 
 std::string LexPass::dump(
-    const std::vector<Token>& result, CompilerContext& ctx) const noexcept {
+    const std::vector<Token>& result, CompilerContext& ctx) const {
     std::string out;
     for (const auto& token : result)
         out += std::format("{} ", ctx.span_arena().loc(token.loc()).lexeme());

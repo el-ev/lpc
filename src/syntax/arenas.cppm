@@ -95,9 +95,9 @@ public:
 
     [[nodiscard]] const SExpr& at(SExprRef ref) const&;
 
-    [[nodiscard]] SExprRef nil() noexcept;
-    [[nodiscard]] SExprRef get_bool(bool value) noexcept;
-    [[nodiscard]] SExprRef get_ident(const std::string& name) noexcept;
+    [[nodiscard]] SExprRef nil();
+    [[nodiscard]] SExprRef get_bool(bool value);
+    [[nodiscard]] SExprRef get_ident(const std::string& name);
 
 private:
     SExprRef _nil_node;
@@ -173,15 +173,15 @@ public:
     [[nodiscard]] ScopeSetRef scope_ref(SpanRef ref) const noexcept;
 
     [[nodiscard]] SpanRef nil(LocRef loc, SpanRef parent = SpanRef::invalid(),
-        ScopeSetRef scopes = ScopeSetRef::invalid()) noexcept;
+        ScopeSetRef scopes = ScopeSetRef::invalid());
     [[nodiscard]] SpanRef get_bool(LocRef loc, bool value,
         SpanRef parent = SpanRef::invalid(),
-        ScopeSetRef scopes = ScopeSetRef::invalid()) noexcept;
+        ScopeSetRef scopes = ScopeSetRef::invalid());
     [[nodiscard]] SpanRef get_ident(LocRef loc, const std::string& name,
         SpanRef parent = SpanRef::invalid(),
-        ScopeSetRef scopes = ScopeSetRef::invalid()) noexcept;
+        ScopeSetRef scopes = ScopeSetRef::invalid());
 
-    [[nodiscard]] bool is_core_binding(SpanRef ref) const noexcept;
+    [[nodiscard]] bool is_core_binding(SpanRef ref) const;
 
     void walk(SpanRef ref, const std::function<void(SpanRef)>& f);
 

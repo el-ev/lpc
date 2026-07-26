@@ -78,13 +78,13 @@ namespace {
     return Arena::at(ref);
 }
 
-SExprRef SExprArena::nil() noexcept {
+SExprRef SExprArena::nil() {
     if (!_nil_node.is_valid())
         _nil_node = Arena::emplace(LispNil());
     return _nil_node;
 }
 
-SExprRef SExprArena::get_bool(bool value) noexcept {
+SExprRef SExprArena::get_bool(bool value) {
     if (value) {
         if (!_bool_nodes.first.is_valid())
             _bool_nodes.first = Arena::emplace(LispBool(true));
@@ -95,7 +95,7 @@ SExprRef SExprArena::get_bool(bool value) noexcept {
     return _bool_nodes.second;
 }
 
-SExprRef SExprArena::get_ident(const std::string& name) noexcept {
+SExprRef SExprArena::get_ident(const std::string& name) {
     if (auto it = _ident_nodes.find(name); it != _ident_nodes.end())
         return it->second;
     auto ref = Arena::emplace(LispIdent(name));
@@ -193,8 +193,7 @@ ScopeSetRef SpanArena::scope_ref(SpanRef ref) const noexcept {
     return at(ref).scopes();
 }
 
-SpanRef SpanArena::nil(
-    LocRef loc, SpanRef parent, ScopeSetRef scopes) noexcept {
+SpanRef SpanArena::nil(LocRef loc, SpanRef parent, ScopeSetRef scopes) {
     if (!scopes.is_valid())
         scopes = parent.is_valid() ? at(parent).scopes()
                                    : _scope_arena.empty_set();
@@ -202,22 +201,22 @@ SpanRef SpanArena::nil(
 }
 
 SpanRef SpanArena::get_bool(
-    LocRef loc, bool value, SpanRef parent, ScopeSetRef scopes) noexcept {
+    LocRef loc, bool value, SpanRef parent, ScopeSetRef scopes) {
     if (!scopes.is_valid())
         scopes = parent.is_valid() ? at(parent).scopes()
                                    : _scope_arena.empty_set();
     return emplace(loc, _expr_arena.get_bool(value), parent, scopes);
 }
 
-SpanRef SpanArena::get_ident(LocRef loc, const std::string& name,
-    SpanRef parent, ScopeSetRef scopes) noexcept {
+SpanRef SpanArena::get_ident(
+    LocRef loc, const std::string& name, SpanRef parent, ScopeSetRef scopes) {
     if (!scopes.is_valid())
         scopes = parent.is_valid() ? at(parent).scopes()
                                    : _scope_arena.empty_set();
     return emplace(loc, _expr_arena.get_ident(name), parent, scopes);
 }
 
-bool SpanArena::is_core_binding(SpanRef ref) const noexcept {
+bool SpanArena::is_core_binding(SpanRef ref) const {
     return loc(ref).file() == " <core> ";
 }
 

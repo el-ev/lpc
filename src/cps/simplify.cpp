@@ -264,12 +264,221 @@ namespace {
         }
     };
 
+    class DCE {
+    private:
+        struct LambdaInfo {
+            CpsVar name;
+            std::unordered_set<CpsVar> free_vars;
+        };
+
+        bool _changed = false;
+        CpsArena& _arena;
+
+        [[nodiscard]] static bool can_eliminate_dead_let(PrimOp op) noexcept {
+            switch (op) {
+            case PrimOp::Eq:
+            case PrimOp::IsPair:
+            case PrimOp::IsSymbol:
+            case PrimOp::IsVector:
+            case PrimOp::IsFixnum:
+            case PrimOp::IsNil:
+            case PrimOp::IsBoolean:
+            case PrimOp::IsChar:
+            case PrimOp::IsString:
+            case PrimOp::IsProcedure:
+            case PrimOp::Box:
+                return true;
+            default:
+                return false;
+            }
+        }
+
+        [[nodiscard]] static bool can_eliminate_dead_box_set(const CpsLet& l,
+            const std::unordered_set<CpsVar>& free_vars) noexcept {
+            if (l.op != PrimOp::BoxSet || l.args.size() < 2)
+                return false;
+            const auto* box = l.args[0].get<CpsVar>();
+            if (box == nullptr)
+                return false;
+            return !free_vars.contains(*box);
+        }
+
+        static void collect_used_from_atom(
+            const CpsAtom& atom, std::unordered_set<CpsVar>& out) {
+            if (const auto* var = atom.get<CpsVar>())
+                out.insert(*var);
+        }
+
+        static void collect_used_from_atoms(
+            std::span<const CpsAtom> atoms, std::unordered_set<CpsVar>& out) {
+            for (const auto& atom : atoms)
+                collect_used_from_atom(atom, out);
+        }
+
+        [[nodiscard]] CpsExpr clone_expr(CpsExprRef ref) const {
+            return _arena.get(ref).visit(
+                [](const auto& value) { return CpsExpr(value); });
+        }
+
+        static void merge_sets(std::unordered_set<CpsVar>& dst,
+            const std::unordered_set<CpsVar>& src) {
+            dst.insert(src.begin(), src.end());
+        }
+
+        [[nodiscard]] std::unordered_set<CpsVar> run_fix(CpsFix& f) {
+            std::vector<LambdaInfo> lambda_infos;
+            lambda_infos.reserve(f.functions.size());
+
+            std::unordered_map<CpsVar, std::size_t> index_by_name;
+            std::unordered_set<CpsVar> function_names;
+
+            for (const auto& function_ref : f.functions) {
+                const auto* lambda = _arena.get(function_ref).get<CpsLambda>();
+                auto free_vars = run_impl(function_ref);
+                if (lambda == nullptr)
+                    continue;
+
+                index_by_name.emplace(lambda->name, lambda_infos.size());
+                function_names.insert(lambda->name);
+                lambda_infos.push_back({ .name = lambda->name,
+                    .free_vars = std::move(free_vars) });
+            }
+
+            auto body_free_vars = run_impl(f.body);
+
+            std::unordered_set<CpsVar> reachable;
+            std::vector<CpsVar> worklist;
+
+            for (const auto& var : body_free_vars) {
+                if (!function_names.contains(var))
+                    continue;
+                if (reachable.insert(var).second)
+                    worklist.push_back(var);
+            }
+
+            while (!worklist.empty()) {
+                auto current = worklist.back();
+                worklist.pop_back();
+
+                auto it = index_by_name.find(current);
+                if (it == index_by_name.end())
+                    continue;
+
+                for (const auto& used : lambda_infos[it->second].free_vars) {
+                    if (!function_names.contains(used))
+                        continue;
+                    if (reachable.insert(used).second)
+                        worklist.push_back(used);
+                }
+            }
+
+            std::vector<CpsExprRef> kept;
+            kept.reserve(f.functions.size());
+            for (const auto& function_ref : f.functions) {
+                const auto* lambda = _arena.get(function_ref).get<CpsLambda>();
+                if (lambda == nullptr || reachable.contains(lambda->name)) {
+                    kept.push_back(function_ref);
+                }
+            }
+            if (kept.size() != f.functions.size()) {
+                f.functions = std::move(kept);
+                _changed = true;
+            }
+
+            auto free_vars = std::move(body_free_vars);
+            for (const auto& function_ref : f.functions) {
+                if (const auto* lambda
+                    = _arena.get(function_ref).get<CpsLambda>()) {
+                    if (auto it = index_by_name.find(lambda->name);
+                        it != index_by_name.end()) {
+                        merge_sets(
+                            free_vars, lambda_infos[it->second].free_vars);
+                    }
+                    continue;
+                }
+                merge_sets(free_vars, run_impl(function_ref));
+            }
+            for (const auto& function_name : function_names)
+                free_vars.erase(function_name);
+            return free_vars;
+        }
+
+        [[nodiscard]] std::unordered_set<CpsVar> run_let(
+            CpsExprRef ref, CpsLet& l) {
+            auto free_vars = run_impl(l.body);
+            const bool dead_target = !free_vars.contains(l.target);
+            if (dead_target
+                && (can_eliminate_dead_let(l.op)
+                    || can_eliminate_dead_box_set(l, free_vars))) {
+                _arena.get(ref) = clone_expr(l.body);
+                _changed = true;
+                return run_impl(ref);
+            }
+
+            free_vars.erase(l.target);
+            collect_used_from_atoms(l.args, free_vars);
+            return free_vars;
+        }
+
+        [[nodiscard]] std::unordered_set<CpsVar> run_impl(CpsExprRef ref) {
+            auto& expr = _arena.get(ref);
+
+            if (const auto* app = expr.get<CpsApp>()) {
+                std::unordered_set<CpsVar> free_vars;
+                collect_used_from_atom(app->func, free_vars);
+                collect_used_from_atoms(app->args, free_vars);
+                return free_vars;
+            }
+
+            if (auto* let_expr = expr.get<CpsLet>())
+                return run_let(ref, *let_expr);
+
+            if (auto* if_expr = expr.get<CpsIf>()) {
+                auto then_free_vars = run_impl(if_expr->then_branch);
+                auto else_free_vars = run_impl(if_expr->else_branch);
+                merge_sets(then_free_vars, else_free_vars);
+                collect_used_from_atom(if_expr->condition, then_free_vars);
+                return then_free_vars;
+            }
+
+            if (auto* lambda = expr.get<CpsLambda>()) {
+                auto free_vars = run_impl(lambda->body);
+                for (const auto& param : lambda->params)
+                    free_vars.erase(param);
+                return free_vars;
+            }
+
+            if (auto* fix = expr.get<CpsFix>())
+                return run_fix(*fix);
+
+            if (const auto* halt = expr.get<CpsHalt>()) {
+                std::unordered_set<CpsVar> free_vars;
+                collect_used_from_atom(halt->value, free_vars);
+                return free_vars;
+            }
+
+            return { };
+        }
+
+    public:
+        [[nodiscard]] explicit DCE(CpsArena& arena) noexcept
+            : _arena(arena) {
+        }
+
+        [[nodiscard]] bool run(CpsExprRef expr) {
+            _changed = false;
+            static_cast<void>(run_impl(expr));
+            return _changed;
+        }
+    };
+
 } // namespace
 
 [[nodiscard]] CpsExprRef SimplifyPass::run(
-    CpsExprRef expr, CompilerContext& ctx) noexcept {
+    CpsExprRef expr, CompilerContext& ctx) {
     Flattener flattener { ctx.cps_arena() };
     EtaReducer eta_reducer { ctx.cps_arena() };
+    DCE dce { ctx.cps_arena() };
     EmptyFixRemover empty_fix_remover { ctx.cps_arena() };
 
     bool changed = false;
@@ -277,13 +486,14 @@ namespace {
         changed = false;
         changed |= flattener.run(expr);
         changed |= eta_reducer.run(expr);
+        changed |= dce.run(expr);
         changed |= empty_fix_remover.run(expr);
     } while (changed);
     return expr;
 }
 
 [[nodiscard]] std::string SimplifyPass::dump(
-    const CpsExprRef& expr, CompilerContext& ctx) const noexcept {
+    const CpsExprRef& expr, CompilerContext& ctx) const {
     CpsDumpVisitor visitor {
         .arena = ctx.cps_arena(), .span_arena = ctx.span_arena(), .indent = "  "
     };

@@ -2,7 +2,7 @@ module lpc.utils.option;
 
 namespace lpc::utils {
 
-void App::display_help() const noexcept {
+void App::display_help() const {
     std::println("Help for {}", _name);
     std::println("Author: {}", _author);
     if (!_description.empty())
@@ -29,7 +29,7 @@ void App::display_help() const noexcept {
     }
 }
 
-void App::enable_help() noexcept {
+void App::enable_help() {
     for (const auto& option : _options)
         if (option.long_name == "help" || option.short_name == 'h') {
             Error("Option already exists: '--help' or '-h'");
@@ -41,7 +41,7 @@ void App::enable_help() noexcept {
     _help_enabled = true;
 }
 
-void App::parse(std::vector<std::string_view> args) noexcept {
+void App::parse(std::vector<std::string_view> args) {
     // Apply default values
     for (const auto& option : _options)
         if (!option.default_value.empty() && option.callback)
@@ -120,7 +120,7 @@ void App::parse(std::vector<std::string_view> args) noexcept {
         _non_option_callback(std::move(non_option_args));
 }
 
-void App::add_option(Option&& option) noexcept {
+void App::add_option(Option&& option) {
     if (option.long_name.empty()) {
         Error("Option name cannot be empty");
         return;

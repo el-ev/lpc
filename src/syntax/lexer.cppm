@@ -24,7 +24,7 @@ private:
 
 public:
     explicit Lexer(LocationArena& loc_arena, std::string_view file,
-        std::string_view source) noexcept
+        std::string_view source)
         : _source(source)
         , _cursor(source)
         , _line_start(source.begin())
@@ -55,34 +55,34 @@ private:
         return _file_idx;
     }
 
-    [[nodiscard]] inline constexpr LocRef loc(std::string&& lexeme) noexcept {
+    [[nodiscard]] inline constexpr LocRef loc(std::string&& lexeme) {
         return _loc_arena.emplace(_file_idx, _line,
             (_line == 1 ? 1 : 0) + std::distance(_line_start, _cursor.begin()),
             std::move(lexeme));
     }
 
-    [[nodiscard]] inline constexpr std::string loc_string() noexcept {
+    [[nodiscard]] inline constexpr std::string loc_string() {
         return std::format("{}:{}:{}", _loc_arena.file(_file_idx), _line,
             (_line == 1 ? 1 : 0) + std::distance(_line_start, _cursor.begin()));
     }
 
-    [[nodiscard]] inline constexpr std::string loc_string(LocRef ref) noexcept {
+    [[nodiscard]] inline constexpr std::string loc_string(LocRef ref) {
         return _loc_arena.at(ref).source_location();
     }
 
-    bool skip_atmosphere() noexcept;
-    bool skip_comment() noexcept;
-    bool skip_whitespaces() noexcept;
+    bool skip_atmosphere();
+    bool skip_comment();
+    bool skip_whitespaces();
 
-    [[nodiscard]] bool advance() noexcept;
+    [[nodiscard]] bool advance();
 
-    [[nodiscard]] bool read_ident() noexcept;
-    [[nodiscard]] bool read_sharp() noexcept;
-    [[nodiscard]] bool read_number(int radix = 0) noexcept;
+    [[nodiscard]] bool read_ident();
+    [[nodiscard]] bool read_sharp();
+    [[nodiscard]] bool read_number(int radix = 0);
     [[nodiscard]] bool read_boolean() noexcept;
-    [[nodiscard]] bool read_character() noexcept;
-    [[nodiscard]] bool read_string() noexcept;
-    [[nodiscard]] bool read_operator() noexcept;
+    [[nodiscard]] bool read_character();
+    [[nodiscard]] bool read_string();
+    [[nodiscard]] bool read_operator();
 };
 
 export class LexPass final : public Pass<std::monostate, std::vector<Token>> {
@@ -95,10 +95,10 @@ public:
     }
 
     [[nodiscard]] std::vector<Token> run(
-        std::monostate, CompilerContext& ctx) noexcept final;
+        std::monostate, CompilerContext& ctx) final;
 
     [[nodiscard]] std::string dump(
-        const std::vector<Token>& result, CompilerContext& ctx) const noexcept final;
+        const std::vector<Token>& result, CompilerContext& ctx) const final;
 
     [[nodiscard]] bool is_failed() const noexcept final {
         return _failed;

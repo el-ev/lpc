@@ -218,7 +218,8 @@ CoreExprRef Lowerer::lower_set(SpanRef ref, const SExprList& list) {
 
     // FIXME: bad & no longer works
     // if (resolved->kind == CoreVarKind::Builtin) {
-    //     report_error(list.elem[1], "sema: cannot mutate builtin procedure: {}",
+    //     report_error(list.elem[1], "sema: cannot mutate builtin procedure:
+    //     {}",
     //         target_id->name);
     //     return CoreExprRef::invalid();
     // }
@@ -450,7 +451,7 @@ static std::string dump_program(
     return dump_core(core, spans, ref) + "\n";
 }
 
-CoreExprRef SemaPass::run(SpanRef root, CompilerContext& ctx) noexcept {
+CoreExprRef SemaPass::run(SpanRef root, CompilerContext& ctx) {
     Lowerer lowerer(
         ctx.span_arena(), ctx.core_arena(), ctx.options().show_core_expansion);
     auto result = lowerer.lower_program(root);
@@ -459,7 +460,7 @@ CoreExprRef SemaPass::run(SpanRef root, CompilerContext& ctx) noexcept {
 }
 
 std::string SemaPass::dump(
-    const CoreExprRef& result, CompilerContext& ctx) const noexcept {
+    const CoreExprRef& result, CompilerContext& ctx) const {
     return dump_program(ctx.core_arena(), ctx.span_arena(), result);
 }
 

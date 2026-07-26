@@ -110,7 +110,7 @@ public:
     }
 
     [[nodiscard]] const BindingEntry* find_exact_binding_entry(
-        const std::string& name, const std::set<ScopeID>& scopes) const noexcept {
+        const std::string& name, const std::set<ScopeID>& scopes) const {
         auto it = _bindings.find(name);
         if (it == _bindings.end())
             return nullptr;
@@ -122,7 +122,7 @@ public:
 
     [[nodiscard]] const BindingEntry* find_binding_entry(const std::string& name,
         const std::set<ScopeID>& scopes,
-        std::optional<ScopeID> exclude_scope = std::nullopt) const noexcept {
+        std::optional<ScopeID> exclude_scope = std::nullopt) const {
 
         auto it = _bindings.find(name);
         if (it == _bindings.end())
@@ -155,7 +155,7 @@ public:
     }
 
     [[nodiscard]] const Binding* find_exact_binding(const std::string& name,
-        const std::set<ScopeID>& scopes) const noexcept {
+        const std::set<ScopeID>& scopes) const {
         const auto* entry = find_exact_binding_entry(name, scopes);
         if (entry == nullptr)
             return nullptr;
@@ -164,7 +164,7 @@ public:
 
     [[nodiscard]] const Binding* find_binding(const std::string& name,
         const std::set<ScopeID>& scopes,
-        std::optional<ScopeID> exclude_scope = std::nullopt) const noexcept {
+        std::optional<ScopeID> exclude_scope = std::nullopt) const {
         const auto* entry = find_binding_entry(name, scopes, exclude_scope);
         if (entry == nullptr)
             return nullptr;
@@ -302,10 +302,10 @@ public:
     }
 
     [[nodiscard]] SpanRef run(
-        SpanRef root, CompilerContext& ctx) noexcept final;
+        SpanRef root, CompilerContext& ctx) final;
 
     [[nodiscard]] std::string dump(
-        const SpanRef& result, CompilerContext& ctx) const noexcept final {
+        const SpanRef& result, CompilerContext& ctx) const final {
         if (!result.is_valid())
             return "";
         const auto* list = ctx.span_arena().expr(result).get<SExprList>();
@@ -326,7 +326,7 @@ public:
         return _had_error;
     }
 
-    explicit ExpandPass() noexcept;
+    explicit ExpandPass();
 };
 
 } // namespace lpc::sema

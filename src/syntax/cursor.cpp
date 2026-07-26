@@ -7,14 +7,14 @@ import lpc.utils.logging;
 
 namespace lpc::syntax {
 
-SpanRef Cursor::get_ident() noexcept {
+SpanRef Cursor::get_ident() {
     if (type() != TokenType::IDENT)
         return SpanRef::invalid();
     std::string name = *value().get_unchecked<std::string>();
     return arena().get_ident(loc(), name);
 }
 
-SpanRef Cursor::get_constant() noexcept {
+SpanRef Cursor::get_constant() {
     SpanRef ref;
     switch (type()) {
     case TokenType::NUMBER: {

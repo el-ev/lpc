@@ -21,10 +21,10 @@ public:
     }
 
     [[nodiscard]] CpsExprRef run(
-        CoreExprRef root, CompilerContext& ctx) noexcept final;
+        CoreExprRef root, CompilerContext& ctx) final;
 
     [[nodiscard]] std::string dump(
-        const CpsExprRef& expr, CompilerContext& ctx) const noexcept final;
+        const CpsExprRef& expr, CompilerContext& ctx) const final;
 
     [[nodiscard]] bool is_failed() const noexcept final {
         return _failed;

@@ -18,10 +18,10 @@ public:
     }
 
     [[nodiscard]] CoreExprRef run(
-        CoreExprRef root, CompilerContext& ctx) noexcept final;
+        CoreExprRef root, CompilerContext& ctx) final;
 
     [[nodiscard]] std::string dump(
-        const CoreExprRef& result, CompilerContext& ctx) const noexcept final;
+        const CoreExprRef& result, CompilerContext& ctx) const final;
 
     void visit(CoreExprRef ref, CompilerContext& ctx);
 

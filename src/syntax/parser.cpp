@@ -95,7 +95,7 @@ static constexpr auto rule() noexcept {
 }
 // clang-format on
 
-void Parser::parse() noexcept {
+void Parser::parse() {
     auto program = rules::Program::rule()(_cursor);
     if (_cursor.is_failed())
         return;
@@ -110,8 +110,7 @@ void Parser::parse() noexcept {
     _root = program.value()[0];
 }
 
-SpanRef ParsePass::run(
-    std::vector<Token> tokens, CompilerContext& ctx) noexcept {
+SpanRef ParsePass::run(std::vector<Token> tokens, CompilerContext& ctx) {
     Parser parser(std::move(tokens), ctx.span_arena());
     if (parser.is_failed()) {
         _failed = true;

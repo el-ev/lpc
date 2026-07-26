@@ -25,7 +25,7 @@ using namespace lpc::cps;
 
 using lpc::utils::Error;
 
-int Session::run() noexcept {
+int Session::run() {
     try {
         if (_input_file_paths.empty()) {
             Error("No input file. Require exactly one input file.");

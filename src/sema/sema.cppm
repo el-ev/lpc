@@ -94,7 +94,7 @@ public:
     }
 
     [[nodiscard]] std::optional<CoreVar> resolve(
-        const std::string& name) const noexcept {
+        const std::string& name) const {
         for (auto* s = _current; s != nullptr; s = s->parent)
             if (auto it = s->bindings.find(name); it != s->bindings.end())
                 return it->second;
@@ -188,10 +188,10 @@ public:
     }
 
     [[nodiscard]] CoreExprRef run(
-        SpanRef root, CompilerContext& ctx) noexcept final;
+        SpanRef root, CompilerContext& ctx) final;
 
     [[nodiscard]] std::string dump(
-        const CoreExprRef& result, CompilerContext& ctx) const noexcept final;
+        const CoreExprRef& result, CompilerContext& ctx) const final;
 
     [[nodiscard]] bool is_failed() const noexcept final {
         return _failed;

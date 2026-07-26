@@ -456,7 +456,7 @@ CpsExprRef CpsConverter::lower_program(CoreExprRef root) {
     return body;
 }
 
-CpsExprRef LowerPass::run(CoreExprRef root, CompilerContext& ctx) noexcept {
+CpsExprRef LowerPass::run(CoreExprRef root, CompilerContext& ctx) {
     CpsConverter lowerer(ctx);
     auto entry = lowerer.lower_program(root);
     if (entry == CpsExprRef::invalid())
@@ -465,7 +465,7 @@ CpsExprRef LowerPass::run(CoreExprRef root, CompilerContext& ctx) noexcept {
 }
 
 std::string LowerPass::dump(
-    const CpsExprRef& expr, CompilerContext& ctx) const noexcept {
+    const CpsExprRef& expr, CompilerContext& ctx) const {
     CpsDumpVisitor visitor {
         .arena = ctx.cps_arena(), .span_arena = ctx.span_arena(), .indent = "  "
     };

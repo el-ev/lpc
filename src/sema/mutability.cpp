@@ -14,15 +14,14 @@ namespace {
     };
 } // namespace
 
-CoreExprRef MutabilityPass::run(
-    CoreExprRef root, CompilerContext& ctx) noexcept {
+CoreExprRef MutabilityPass::run(CoreExprRef root, CompilerContext& ctx) {
     visit(root, ctx);
     ctx.core_arena().set_mutated_vars(_mutated);
     return root;
 }
 
 std::string MutabilityPass::dump(
-    const CoreExprRef& /* root */, CompilerContext& /* ctx */) const noexcept {
+    const CoreExprRef& /* root */, CompilerContext& /* ctx */) const {
     std::string out = "Mutated:\n";
     for (const auto& var : _mutated) {
         out += std::format("  {}\n", var.id.debug_name);

@@ -48,7 +48,7 @@ public:
             ++_token;
     }
 
-    void fail() noexcept {
+    void fail() {
         if (!_failed) {
             auto loc = _arena.loc(this->loc());
             lpc::utils::Error("Unexpected token \"{}\" at {}", loc.lexeme(),
@@ -94,8 +94,8 @@ public:
         return type() == T;
     }
 
-    [[nodiscard]] SpanRef get_ident() noexcept;
-    [[nodiscard]] SpanRef get_constant() noexcept;
+    [[nodiscard]] SpanRef get_ident();
+    [[nodiscard]] SpanRef get_constant();
 };
 
 } // namespace lpc::syntax

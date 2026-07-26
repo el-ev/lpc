@@ -15,10 +15,10 @@ public:
     }
 
     [[nodiscard]] CpsExprRef run(
-        CpsExprRef expr, CompilerContext& ctx) noexcept final;
+        CpsExprRef expr, CompilerContext& ctx) final;
 
     [[nodiscard]] std::string dump(
-        const CpsExprRef& expr, CompilerContext& ctx) const noexcept final;
+        const CpsExprRef& expr, CompilerContext& ctx) const final;
 
     [[nodiscard]] bool is_failed() const noexcept final {
         return false;

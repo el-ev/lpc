@@ -780,8 +780,7 @@ void ExpandPass::load_core(CompilerContext& ctx) {
     _core_loaded = true;
 }
 
-[[nodiscard]] SpanRef ExpandPass::run(
-    SpanRef root, CompilerContext& ctx) noexcept {
+[[nodiscard]] SpanRef ExpandPass::run(SpanRef root, CompilerContext& ctx) {
     if (!_core_loaded)
         load_core(ctx);
 
@@ -811,7 +810,7 @@ void ExpandPass::load_core(CompilerContext& ctx) {
     std::unreachable();
 }
 
-ExpandPass::ExpandPass() noexcept {
+ExpandPass::ExpandPass() {
     _env.define_core_syntax("lambda");
     _env.define_core_syntax("quote");
     _env.define_core_syntax("if");

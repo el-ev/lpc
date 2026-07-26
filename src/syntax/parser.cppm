@@ -18,11 +18,11 @@ private:
     Cursor _cursor;
     SpanRef _root;
 
-    void parse() noexcept;
+    void parse();
 
 public:
     explicit constexpr Parser(
-        std::vector<Token>&& tokens, SpanArena& arena) noexcept
+        std::vector<Token>&& tokens, SpanArena& arena)
         : _tokens(std::move(tokens))
         , _arena(arena)
         , _cursor(_tokens, _arena)
@@ -58,10 +58,10 @@ public:
     }
 
     [[nodiscard]] SpanRef run(
-        std::vector<Token> tokens, CompilerContext& ctx) noexcept final;
+        std::vector<Token> tokens, CompilerContext& ctx) final;
 
     [[nodiscard]] std::string dump(
-        const SpanRef& result, CompilerContext& ctx) const noexcept final {
+        const SpanRef& result, CompilerContext& ctx) const final {
         return ctx.span_arena().dump_root(result);
     }
 

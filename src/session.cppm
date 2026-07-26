@@ -39,7 +39,7 @@ public:
         });
     }
 
-    bool set_backend(std::string_view backend) noexcept {
+    bool set_backend(std::string_view backend) {
         if (backend != "interp") {
             std::println(std::cerr, "Unsupported backend: {}", backend);
             return false;
@@ -60,11 +60,11 @@ public:
         _options.max_expansion_depth = v;
     }
 
-    void set_stop_after(std::string_view pass) noexcept {
+    void set_stop_after(std::string_view pass) {
         _options.stop_after = std::string(pass);
     }
 
-    [[nodiscard]] int run() noexcept;
+    [[nodiscard]] int run();
 };
 
 } // namespace lpc
