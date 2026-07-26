@@ -274,6 +274,8 @@ namespace {
         bool _changed = false;
         CpsArena& _arena;
 
+        std::unordered_set<CpsVar> _extra_used;
+
         [[nodiscard]] static bool can_eliminate_dead_let(PrimOp op) noexcept {
             switch (op) {
             case PrimOp::Eq:
@@ -293,14 +295,14 @@ namespace {
             }
         }
 
-        [[nodiscard]] static bool can_eliminate_dead_box_set(const CpsLet& l,
-            const std::unordered_set<CpsVar>& free_vars) noexcept {
+        [[nodiscard]] bool can_eliminate_dead_box_set(const CpsLet& l,
+            const std::unordered_set<CpsVar>& free_vars) const noexcept {
             if (l.op != PrimOp::BoxSet)
                 return false;
             Assert(l.args.size() == 2);
             const auto* box = l.args[0].get<CpsVar>();
             Assert(box != nullptr);
-            return !free_vars.contains(*box);
+            return !free_vars.contains(*box) && !_extra_used.contains(*box);
         }
 
         static void collect_used_from_atom(
@@ -343,7 +345,11 @@ namespace {
                     .free_vars = std::move(free_vars) });
             }
 
+            auto saved_extra_used = _extra_used;
+            for (const auto& info : lambda_infos)
+                merge_sets(_extra_used, info.free_vars);
             auto body_free_vars = run_impl(f.body);
+            _extra_used = std::move(saved_extra_used);
 
             std::unordered_set<CpsVar> reachable;
             std::vector<CpsVar> worklist;
@@ -404,7 +410,8 @@ namespace {
         [[nodiscard]] std::unordered_set<CpsVar> run_let(
             CpsExprRef ref, CpsLet& l) {
             auto free_vars = run_impl(l.body);
-            const bool dead_target = !free_vars.contains(l.target);
+            const bool dead_target = !free_vars.contains(l.target)
+                && !_extra_used.contains(l.target);
             if (dead_target
                 && (can_eliminate_dead_let(l.op)
                     || can_eliminate_dead_box_set(l, free_vars))) {
