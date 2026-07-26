@@ -7,11 +7,69 @@ namespace lpc::backend {
 using lpc::utils::Assert;
 
 namespace {
+    constexpr std::size_t inline_argument_capacity = 4;
+    constexpr std::size_t expected_local_bindings = 8;
+
     [[nodiscard]] bool is_truthy(const Value& value) {
         if (const auto* boolean_value = value.get<bool>())
             return *boolean_value;
         return true;
     }
+
+    class EvaluatedArgs {
+    public:
+        explicit EvaluatedArgs(std::size_t expected_size)
+            : _inline(expected_size <= inline_argument_capacity) {
+            if (!_inline) {
+                _overflow_values.reserve(expected_size);
+                _overflow_refs.reserve(expected_size);
+            }
+        }
+
+        void push_borrowed(const Value& value) {
+            if (_inline) {
+                _inline_refs[_size] = &value;
+            } else {
+                _overflow_refs.push_back(&value);
+            }
+            ++_size;
+        }
+
+        void push_owned(Value value) {
+            if (_inline) {
+                _inline_values[_size].emplace(std::move(value));
+                _inline_refs[_size] = &*_inline_values[_size];
+            } else {
+                _overflow_values.push_back(std::move(value));
+                _overflow_refs.push_back(&_overflow_values.back());
+            }
+            ++_size;
+        }
+
+        [[nodiscard]] bool empty() const noexcept {
+            return _size == 0;
+        }
+        [[nodiscard]] std::size_t size() const noexcept {
+            return _size;
+        }
+
+        [[nodiscard]] Value& operator[](std::size_t index) {
+            return const_cast<Value&>(std::as_const(*this)[index]);
+        }
+
+        [[nodiscard]] const Value& operator[](std::size_t index) const {
+            return *(_inline ? _inline_refs[index] : _overflow_refs[index]);
+        }
+
+    private:
+        std::array<std::optional<Value>, inline_argument_capacity>
+            _inline_values;
+        std::array<const Value*, inline_argument_capacity> _inline_refs { };
+        std::vector<Value> _overflow_values;
+        std::vector<const Value*> _overflow_refs;
+        std::size_t _size = 0;
+        bool _inline;
+    };
 
 } // namespace
 
@@ -21,7 +79,7 @@ Interp::Interp(const CpsArena& cps_arena, const SpanArena& span_arena)
 }
 
 Value Interp::run(CpsExprRef root) {
-    auto root_env = std::make_shared<Environment>();
+    auto root_env = std::make_shared<Env>(expected_local_bindings);
     return eval(root, std::move(root_env));
 }
 
@@ -34,15 +92,18 @@ std::int64_t Interp::as_int(const Value& value) {
     throw std::runtime_error(message.str());
 }
 
+Value& Interp::lookup_variable(
+    const CpsVar& variable, const std::shared_ptr<Env>& env) {
+    if (Value* bound = env->lookup(variable.var))
+        return *bound;
+    throw std::runtime_error("Variable not found: " + variable.var.debug_name);
+}
+
 Value Interp::eval_atom(
-    const CpsAtom& atom, const std::shared_ptr<Environment>& env) const {
-    return atom.visit(overloaded {
-        [&](const CpsVar& variable) -> Value {
-            if (Value* bound = env->lookup(variable.var))
-                return *bound;
-            throw std::runtime_error(
-                "Variable not found: " + variable.var.debug_name);
-        },
+    const CpsAtom& atom, const std::shared_ptr<Env>& env) const {
+    return atom.visit(overloaded { [&](const CpsVar& variable) -> Value {
+                                      return lookup_variable(variable, env);
+                                  },
         [&](const CpsConstant& constant) -> Value {
             const auto& sexpr = _span_arena.expr(constant.value);
             return sexpr.visit(overloaded {
@@ -92,30 +153,43 @@ Value Interp::eval_atom(
 }
 
 Value Interp::eval(
-    CpsExprRef expr_ref, std::shared_ptr<Environment> env) const {
+    CpsExprRef expr_ref, std::shared_ptr<Env> env) const {
     while (true) {
         const auto& expr = _cps_arena.get(expr_ref);
         bool jumped = false;
 
         Value result = expr.visit(overloaded {
             [&](const CpsApp& app) -> Value {
-                Value function_value = eval_atom(app.func, env);
-                const Closure* closure = function_value.get<Closure>();
+                std::optional<Value> owned_function_value;
+                const Value* function_value;
+                if (const auto* variable = app.func.get<CpsVar>()) {
+                    function_value = &lookup_variable(*variable, env);
+                } else {
+                    owned_function_value.emplace(eval_atom(app.func, env));
+                    function_value = &*owned_function_value;
+                }
+
+                const Closure* closure = function_value->get<Closure>();
                 if (closure == nullptr) {
                     std::stringstream message;
                     message << "Application target is not a closure: "
-                            << function_value;
+                            << *function_value;
                     throw std::runtime_error(message.str());
                 }
 
-                auto call_env = std::make_shared<Environment>();
+                const auto* lambda
+                    = _cps_arena.get(closure->lambda_ref).get<CpsLambda>();
+                Assert(lambda != nullptr);
+
+                auto call_env = std::make_shared<Env>(
+                    lambda->params.size() + expected_local_bindings);
                 call_env->parent = closure->env;
 
-                if (closure->lambda.is_variadic) {
-                    Assert(closure->lambda.params.size() >= 2);
+                if (lambda->is_variadic) {
+                    Assert(lambda->params.size() >= 2);
 
                     const std::size_t fixed_param_count
-                        = closure->lambda.params.size() - 2;
+                        = lambda->params.size() - 2;
                     if (app.args.size() < fixed_param_count + 1) {
                         throw std::runtime_error(
                             "Arity mismatch in variadic application");
@@ -123,7 +197,7 @@ Value Interp::eval(
 
                     for (std::size_t index = 0; index < fixed_param_count;
                         ++index) {
-                        call_env->bind(closure->lambda.params[index].var,
+                        call_env->bind(lambda->params[index].var,
                             eval_atom(app.args[index], env));
                     }
 
@@ -137,40 +211,41 @@ Value Interp::eval(
                     }
 
                     call_env->bind(
-                        closure->lambda.params[fixed_param_count].var,
-                        std::move(rest));
-                    call_env->bind(closure->lambda.params.back().var,
+                        lambda->params[fixed_param_count].var, std::move(rest));
+                    call_env->bind(lambda->params.back().var,
                         eval_atom(app.args.back(), env));
                 } else {
-                    if (closure->lambda.params.size() != app.args.size()) {
+                    if (lambda->params.size() != app.args.size()) {
                         std::stringstream message;
                         message << "Arity mismatch: expected "
-                                << closure->lambda.params.size() << ", got "
+                                << lambda->params.size() << ", got "
                                 << app.args.size();
                         throw std::runtime_error(message.str());
                     }
 
-                    for (std::size_t index = 0;
-                        index < closure->lambda.params.size(); ++index) {
-                        call_env->bind(closure->lambda.params[index].var,
+                    for (std::size_t index = 0; index < lambda->params.size();
+                        ++index) {
+                        call_env->bind(lambda->params[index].var,
                             eval_atom(app.args[index], env));
                     }
                 }
 
-                expr_ref = closure->lambda.body;
+                expr_ref = lambda->body;
                 env = std::move(call_env);
                 jumped = true;
                 return Value(Undefined { });
             },
             [&](const CpsLet& let_expr) -> Value {
-                std::vector<Value> args;
-                args.reserve(let_expr.args.size());
-                for (const CpsAtom& arg : let_expr.args)
-                    args.push_back(eval_atom(arg, env));
+                EvaluatedArgs args(let_expr.args.size());
+                for (const CpsAtom& arg : let_expr.args) {
+                    if (const auto* variable = arg.get<CpsVar>())
+                        args.push_borrowed(lookup_variable(*variable, env));
+                    else
+                        args.push_owned(eval_atom(arg, env));
+                }
 
-                auto expect_arity
-                    = [&]([[maybe_unused]] std::size_t expected) {
-                          Assert(args.size() == expected);
+                auto expect_arity = [&]([[maybe_unused]] std::size_t expected) {
+                    Assert(args.size() == expected);
                 };
 
                 Value primop_result;
@@ -322,8 +397,7 @@ Value Interp::eval(
                             "alloc size must be non-negative");
 
                     const auto field_count = args.size() - 2;
-                    Assert(
-                        static_cast<std::size_t>(size) == field_count);
+                    Assert(static_cast<std::size_t>(size) == field_count);
 
                     if (tag == 0) {
                         if (size != 2) {
@@ -338,8 +412,10 @@ Value Interp::eval(
                     } else {
                         auto vector_ref = std::make_shared<Vector>();
                         vector_ref->tag = static_cast<std::uint64_t>(tag);
-                        vector_ref->elements.insert(vector_ref->elements.end(),
-                            args.begin() + 2, args.end());
+                        vector_ref->elements.reserve(field_count);
+                        for (std::size_t index = 2; index < args.size();
+                            ++index)
+                            vector_ref->elements.push_back(args[index]);
 
                         primop_result = Value(vector_ref);
                     }
@@ -481,14 +557,23 @@ Value Interp::eval(
                 return Value(Undefined { });
             },
             [&](const CpsIf& if_expr) -> Value {
-                Value condition = eval_atom(if_expr.condition, env);
-                expr_ref = is_truthy(condition) ? if_expr.then_branch
-                                                : if_expr.else_branch;
+                std::optional<Value> owned_condition;
+                const Value* condition;
+                if (const auto* variable = if_expr.condition.get<CpsVar>())
+                    condition = &lookup_variable(*variable, env);
+                else {
+                    owned_condition.emplace(eval_atom(if_expr.condition, env));
+                    condition = &*owned_condition;
+                }
+
+                expr_ref = is_truthy(*condition) ? if_expr.then_branch
+                                                 : if_expr.else_branch;
                 jumped = true;
                 return Value(Undefined { });
             },
             [&](const CpsFix& fix) -> Value {
-                auto fix_env = std::make_shared<Environment>();
+                auto fix_env = std::make_shared<Env>(
+                    fix.functions.size() + expected_local_bindings);
                 fix_env->parent = env;
 
                 for (CpsExprRef function_ref : fix.functions) {
@@ -497,7 +582,8 @@ Value Interp::eval(
                     Assert(lambda != nullptr);
 
                     fix_env->bind(lambda->name.var,
-                        Value(Closure { .lambda = *lambda, .env = fix_env }));
+                        Value(Closure {
+                            .lambda_ref = function_ref, .env = fix_env }));
                 }
 
                 expr_ref = fix.body;
@@ -508,8 +594,8 @@ Value Interp::eval(
             [&](const CpsHalt& halt) -> Value {
                 return eval_atom(halt.value, env);
             },
-            [&](const CpsLambda& lambda) -> Value {
-                return Value(Closure { lambda, env });
+            [&](const CpsLambda&) -> Value {
+                return Value(Closure { .lambda_ref = expr_ref, .env = env });
             } });
 
         if (!jumped)

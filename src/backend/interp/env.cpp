@@ -15,10 +15,8 @@ using namespace lpc::utils;
 using namespace lpc::syntax;
 using namespace lpc::sema;
 
-
-
 bool Closure::operator==(const Closure& other) const {
-    return lambda.name == other.lambda.name && env.get() == other.env.get();
+    return lambda_ref == other.lambda_ref && env.get() == other.env.get();
 }
 
 bool Nil::operator==(const Nil&) const {
@@ -84,16 +82,22 @@ std::ostream& operator<<(std::ostream& os, const Value& value) {
     return os << "#<unknown>";
 }
 
-Value* Environment::lookup(const VarId& id) {
-    if (auto it = values.find(id); it != values.end())
-        return &it->second;
-    if (parent)
-        return parent->lookup(id);
+Value* Env::lookup(const VarId& id) {
+    for (Env* env = this; env != nullptr; env = env->parent.get())
+        for (auto& [bound_id, value] : env->values)
+            if (bound_id == id.id)
+                return &value;
     return nullptr;
 }
 
-void Environment::bind(const VarId& id, Value value) {
-    values[id] = std::move(value);
+void Env::bind(const VarId& id, Value value) {
+    for (auto& [bound_id, bound_value] : values) {
+        if (bound_id == id.id) {
+            bound_value = std::move(value);
+            return;
+        }
+    }
+    values.emplace_back(id.id, std::move(value));
 }
 
 } // namespace lpc::backend

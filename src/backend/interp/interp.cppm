@@ -15,14 +15,14 @@ using namespace lpc::sema;
 using namespace lpc::syntax;
 using namespace lpc::utils;
 
-export struct Environment;
+export struct Env;
 export struct Cons;
 export struct Box;
 export struct Vector;
 
 export struct Closure {
-    CpsLambda lambda;
-    std::shared_ptr<Environment> env;
+    CpsExprRef lambda_ref;
+    std::shared_ptr<Env> env;
 
     [[nodiscard]] bool operator==(const Closure& other) const;
 };
@@ -59,9 +59,13 @@ export struct Vector {
 
 export std::ostream& operator<<(std::ostream& os, const Value& value);
 
-export struct Environment {
-    std::unordered_map<VarId, Value> values;
-    std::shared_ptr<Environment> parent;
+export struct Env {
+    explicit Env(std::size_t expected_bindings = 0) {
+        values.reserve(expected_bindings);
+    }
+
+    std::vector<std::pair<std::uint32_t, Value>> values;
+    std::shared_ptr<Env> parent;
 
     [[nodiscard]] Value* lookup(const VarId& id);
     void bind(const VarId& id, Value value);
@@ -78,10 +82,12 @@ private:
     const SpanArena& _span_arena;
 
     [[nodiscard]] static std::int64_t as_int(const Value& value);
+    [[nodiscard]] static Value& lookup_variable(
+        const CpsVar& variable, const std::shared_ptr<Env>& env);
     [[nodiscard]] Value eval_atom(
-        const CpsAtom& atom, const std::shared_ptr<Environment>& env) const;
+        const CpsAtom& atom, const std::shared_ptr<Env>& env) const;
     [[nodiscard]] Value eval(
-        CpsExprRef expr_ref, std::shared_ptr<Environment> env) const;
+        CpsExprRef expr_ref, std::shared_ptr<Env> env) const;
 };
 
 export using Interpreter = Interp;
