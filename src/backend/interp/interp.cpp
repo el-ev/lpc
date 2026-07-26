@@ -79,8 +79,8 @@ Interp::Interp(const CpsArena& cps_arena, const SpanArena& span_arena)
 }
 
 Value Interp::run(CpsExprRef root) {
-    auto root_env = std::make_shared<Env>(expected_local_bindings);
-    return eval(root, std::move(root_env));
+    Env* root_env = make_env(expected_local_bindings, nullptr);
+    return eval(root, root_env);
 }
 
 std::int64_t Interp::as_int(const Value& value) {
@@ -92,15 +92,13 @@ std::int64_t Interp::as_int(const Value& value) {
     throw std::runtime_error(message.str());
 }
 
-Value& Interp::lookup_variable(
-    const CpsVar& variable, const std::shared_ptr<Env>& env) {
+Value& Interp::lookup_variable(const CpsVar& variable, Env* env) {
     if (Value* bound = env->lookup(variable.var))
         return *bound;
     throw std::runtime_error("Variable not found: " + variable.var.debug_name);
 }
 
-Value Interp::eval_atom(
-    const CpsAtom& atom, const std::shared_ptr<Env>& env) const {
+Value Interp::eval_atom(const CpsAtom& atom, Env* env) const {
     return atom.visit(overloaded { [&](const CpsVar& variable) -> Value {
                                       return lookup_variable(variable, env);
                                   },
@@ -152,8 +150,7 @@ Value Interp::eval_atom(
         [](const CpsUnit&) -> Value { return Value(Undefined { }); } });
 }
 
-Value Interp::eval(
-    CpsExprRef expr_ref, std::shared_ptr<Env> env) const {
+Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
     while (true) {
         const auto& expr = _cps_arena.get(expr_ref);
         bool jumped = false;
@@ -181,9 +178,9 @@ Value Interp::eval(
                     = _cps_arena.get(closure->lambda_ref).get<CpsLambda>();
                 Assert(lambda != nullptr);
 
-                auto call_env = std::make_shared<Env>(
-                    lambda->params.size() + expected_local_bindings);
-                call_env->parent = closure->env;
+                Env* call_env = make_env(
+                    lambda->params.size() + expected_local_bindings,
+                    closure->env);
 
                 if (lambda->is_variadic) {
                     Assert(lambda->params.size() >= 2);
@@ -231,7 +228,7 @@ Value Interp::eval(
                 }
 
                 expr_ref = lambda->body;
-                env = std::move(call_env);
+                env = call_env;
                 jumped = true;
                 return Value(Undefined { });
             },
@@ -572,9 +569,8 @@ Value Interp::eval(
                 return Value(Undefined { });
             },
             [&](const CpsFix& fix) -> Value {
-                auto fix_env = std::make_shared<Env>(
-                    fix.functions.size() + expected_local_bindings);
-                fix_env->parent = env;
+                Env* fix_env = make_env(
+                    fix.functions.size() + expected_local_bindings, env);
 
                 for (CpsExprRef function_ref : fix.functions) {
                     const auto& function_expr = _cps_arena.get(function_ref);
@@ -587,7 +583,7 @@ Value Interp::eval(
                 }
 
                 expr_ref = fix.body;
-                env = std::move(fix_env);
+                env = fix_env;
                 jumped = true;
                 return Value(Undefined { });
             },

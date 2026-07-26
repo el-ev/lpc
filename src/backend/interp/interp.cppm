@@ -22,7 +22,7 @@ export struct Vector;
 
 export struct Closure {
     CpsExprRef lambda_ref;
-    std::shared_ptr<Env> env;
+    Env* env = nullptr;
 
     [[nodiscard]] bool operator==(const Closure& other) const;
 };
@@ -65,7 +65,7 @@ export struct Env {
     }
 
     std::vector<std::pair<std::uint32_t, Value>> values;
-    std::shared_ptr<Env> parent;
+    Env* parent = nullptr;
 
     [[nodiscard]] Value* lookup(const VarId& id);
     void bind(const VarId& id, Value value);
@@ -80,14 +80,19 @@ public:
 private:
     const CpsArena& _cps_arena;
     const SpanArena& _span_arena;
+    mutable std::deque<Env> _envs;
+
+    [[nodiscard]] Env* make_env(std::size_t expected_bindings, Env* parent) const {
+        auto& env = _envs.emplace_back(expected_bindings);
+        env.parent = parent;
+        return &env;
+    }
 
     [[nodiscard]] static std::int64_t as_int(const Value& value);
     [[nodiscard]] static Value& lookup_variable(
-        const CpsVar& variable, const std::shared_ptr<Env>& env);
-    [[nodiscard]] Value eval_atom(
-        const CpsAtom& atom, const std::shared_ptr<Env>& env) const;
-    [[nodiscard]] Value eval(
-        CpsExprRef expr_ref, std::shared_ptr<Env> env) const;
+        const CpsVar& variable, Env* env);
+    [[nodiscard]] Value eval_atom(const CpsAtom& atom, Env* env) const;
+    [[nodiscard]] Value eval(CpsExprRef expr_ref, Env* env) const;
 };
 
 export using Interpreter = Interp;

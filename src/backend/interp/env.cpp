@@ -16,7 +16,7 @@ using namespace lpc::syntax;
 using namespace lpc::sema;
 
 bool Closure::operator==(const Closure& other) const {
-    return lambda_ref == other.lambda_ref && env.get() == other.env.get();
+    return lambda_ref == other.lambda_ref && env == other.env;
 }
 
 bool Nil::operator==(const Nil&) const {
@@ -83,7 +83,7 @@ std::ostream& operator<<(std::ostream& os, const Value& value) {
 }
 
 Value* Env::lookup(const VarId& id) {
-    for (Env* env = this; env != nullptr; env = env->parent.get())
+    for (Env* env = this; env != nullptr; env = env->parent)
         for (auto& [bound_id, value] : env->values)
             if (bound_id == id.id)
                 return &value;
