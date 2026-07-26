@@ -274,7 +274,17 @@ namespace {
         bool _changed = false;
         CpsArena& _arena;
 
+        // Free variables of the lambdas bound by enclosing CpsFixes. Reads
+        // of a variable may live inside those lambda bodies rather than in
+        // the textually following code, so they must count as uses when
+        // dead lets are eliminated inside a fix body.
         std::unordered_set<CpsVar> _extra_used;
+
+        // Boxes read by any BoxGet in the program. BoxSet elimination must
+        // not rely on lexical order: a BoxGet textually above the write (or
+        // inside an enclosing lambda body that is re-entered on a later
+        // call) still observes the mutation.
+        std::unordered_set<CpsVar> _read_boxes;
 
         [[nodiscard]] static bool can_eliminate_dead_let(PrimOp op) noexcept {
             switch (op) {
@@ -295,14 +305,40 @@ namespace {
             }
         }
 
-        [[nodiscard]] bool can_eliminate_dead_box_set(const CpsLet& l,
-            const std::unordered_set<CpsVar>& free_vars) const noexcept {
+        [[nodiscard]] bool can_eliminate_dead_box_set(
+            const CpsLet& l) const noexcept {
             if (l.op != PrimOp::BoxSet)
                 return false;
             Assert(l.args.size() == 2);
             const auto* box = l.args[0].get<CpsVar>();
             Assert(box != nullptr);
-            return !free_vars.contains(*box) && !_extra_used.contains(*box);
+            return !_read_boxes.contains(*box);
+        }
+
+        void collect_read_boxes(CpsExprRef ref) {
+            const auto& expr = _arena.get(ref);
+
+            if (const auto* let_expr = expr.get<CpsLet>()) {
+                if (let_expr->op == PrimOp::BoxGet)
+                    collect_used_from_atom(let_expr->args[0], _read_boxes);
+                collect_read_boxes(let_expr->body);
+                return;
+            }
+            if (const auto* if_expr = expr.get<CpsIf>()) {
+                collect_read_boxes(if_expr->then_branch);
+                collect_read_boxes(if_expr->else_branch);
+                return;
+            }
+            if (const auto* lambda = expr.get<CpsLambda>()) {
+                collect_read_boxes(lambda->body);
+                return;
+            }
+            if (const auto* fix = expr.get<CpsFix>()) {
+                for (const auto& function_ref : fix->functions)
+                    collect_read_boxes(function_ref);
+                collect_read_boxes(fix->body);
+                return;
+            }
         }
 
         static void collect_used_from_atom(
@@ -414,7 +450,7 @@ namespace {
                 && !_extra_used.contains(l.target);
             if (dead_target
                 && (can_eliminate_dead_let(l.op)
-                    || can_eliminate_dead_box_set(l, free_vars))) {
+                    || can_eliminate_dead_box_set(l))) {
                 _arena.get(ref) = clone_expr(l.body);
                 _changed = true;
                 return run_impl(ref);
@@ -472,6 +508,8 @@ namespace {
 
         [[nodiscard]] bool run(CpsExprRef expr) {
             _changed = false;
+            _read_boxes.clear();
+            collect_read_boxes(expr);
             static_cast<void>(run_impl(expr));
             return _changed;
         }
