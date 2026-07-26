@@ -1,0 +1,2 @@
+sema: internal definitions must appear before commands
+pass failed: sema

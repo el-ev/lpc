@@ -1,0 +1,2 @@
+define-syntax: invalid syntax-rule: duplicate pattern variable: x
+pass failed: expand

@@ -1,0 +1,15 @@
+arity mismatch: expected at least 3 arguments, got 2
+arity mismatch: improper list
+arity mismatch: expected 2 arguments, got 1
+arity mismatch: expected 2 arguments, got 3
+arity mismatch: expected 3 arguments, got 2
+arity mismatch: expected at most 4 arguments, got 5
+arity mismatch: expected 3 arguments, got 1
+arity mismatch: expected 3 arguments, got 2
+arity mismatch: expected 3 arguments, got 4
+arity mismatch: expected at least 3 arguments, got 1
+arity mismatch: expected at least 3 arguments, got 2
+define-syntax: missing name or transformer path
+define-syntax: expected (syntax-rules ...)
+let-syntax: missing bindings or body
+pass failed: expand

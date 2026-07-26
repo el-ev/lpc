@@ -1,0 +1,2 @@
+Invalid character literal: "#\12" at %s:2:1
+pass failed: lex

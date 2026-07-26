@@ -1,10 +1,15 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-PROJECT_ROOT="$(dirname "$(realpath "$0")")/.."
+set -euo pipefail
 
-getopts "dra" opt;
-if [ -z "$opt" ]; then
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+usage() {
     echo "Usage: $0 (-d (debug) | -r (release) | -a (all))"
+}
+
+if ! getopts ":dra" opt || [[ $# -ne 1 ]]; then
+    usage >&2
     exit 1
 fi
 
@@ -20,7 +25,7 @@ case $opt in
         cmake --build "$PROJECT_ROOT/build/release" --target test_cpp
         ;;
     *)
-        echo "Usage: $0 (-d (debug) | -r (release) | -a (all))"
+        usage >&2
         exit 1
         ;;
 esac

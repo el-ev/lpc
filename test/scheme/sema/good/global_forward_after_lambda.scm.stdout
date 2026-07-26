@@ -1,0 +1,4 @@
+(define f (lambda (x) x))
+(define g y)
+(define y '1)
+g

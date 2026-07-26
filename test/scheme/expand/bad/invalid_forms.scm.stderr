@@ -1,0 +1,19 @@
+lambda: expected identifier in parameter list
+lambda: expected one identifier or a list of identifiers
+set!: expected identifier for variable
+define: expected identifier or list
+define: expected identifier for function name
+define: expected identifier for function name
+define-syntax: expected identifier for macro name
+define-syntax: expected (syntax-rules ...)
+define-syntax: expected syntax-rules keyword
+define-syntax: invalid syntax-rule: capture list is not a list
+define-syntax: invalid syntax-rule: not an identifier
+define-syntax: invalid syntax-rule: pattern must be a list, got 1
+let-syntax: expected (name transformer) for each binding
+let-syntax: expected identifier for macro name
+let-syntax: expected (syntax-rules ...)
+define-syntax: define-syntax allowed only at top level
+let-syntax: expected (syntax-rules ...)
+let-syntax: expected list of bindings
+pass failed: expand

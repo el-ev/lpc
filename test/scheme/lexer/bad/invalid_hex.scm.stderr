@@ -1,0 +1,2 @@
+Invalid number literal at %s:2:1. Expected radix-16 digit, found 'G'
+pass failed: lex

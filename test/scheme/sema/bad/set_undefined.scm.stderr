@@ -1,0 +1,2 @@
+sema: set! on undefined variable: x
+pass failed: sema

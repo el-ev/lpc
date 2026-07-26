@@ -1,0 +1,8 @@
+#t
+42
+(if 1 (if 2 3 #f) #f)
+(if (if a b #f) (if c d #f) #f)
+#f
+42
+((lambda (x) (if x x 2)) 1)
+((lambda (x) (if x x ((lambda (x.1) (if x.1 x.1 3)) 2))) 1)

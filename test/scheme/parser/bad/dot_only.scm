@@ -1,0 +1,2 @@
+; %lpc --print parse %s
+( . )

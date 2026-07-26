@@ -1,0 +1,3 @@
+(define x 1)
+((lambda (x.1) x.1) 2)
+((lambda (tmp other) ((lambda (tmp.1) (set! tmp other) (set! other tmp.1)) tmp) (list tmp other)) 1 2)

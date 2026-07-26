@@ -1,0 +1,3 @@
+sema: undefined variable: y
+sema: undefined variable: z
+pass failed: sema

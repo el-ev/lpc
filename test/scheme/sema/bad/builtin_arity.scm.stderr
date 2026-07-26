@@ -1,0 +1,3 @@
+sema: builtin '__cons' requires 2 arguments, got 1
+sema: builtin '__car' requires 1 arguments, got 2
+pass failed: sema

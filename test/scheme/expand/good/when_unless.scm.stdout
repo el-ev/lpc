@@ -1,0 +1,4 @@
+(if #t (begin (display "hello") (newline)))
+(if (< 1 2) (begin (display "yes") (newline)))
+(if #f (void) (begin 1 2 3))
+(if #t (void) (begin (a) (b) (c)))

@@ -1,0 +1,2 @@
+expand: maximum macro expansion depth exceeded (possible infinite recursion)
+pass failed: expand

@@ -1,0 +1,2 @@
+define-syntax: define-syntax allowed only at top level
+pass failed: expand

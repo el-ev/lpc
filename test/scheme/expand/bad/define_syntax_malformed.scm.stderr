@@ -1,0 +1,6 @@
+define-syntax: missing name or transformer path
+define-syntax: expected (syntax-rules ...)
+define-syntax: expected syntax-rules keyword
+define-syntax: expected syntax-rules keyword
+define-syntax: invalid syntax-rule: capture list is not a list
+pass failed: expand

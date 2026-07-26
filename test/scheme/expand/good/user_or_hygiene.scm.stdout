@@ -1,0 +1,1 @@
+((lambda (t) (if t t ((lambda (t.1) (if t.1 t.1 42)) #f))) #f)

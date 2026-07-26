@@ -1,0 +1,2 @@
+syntax-error: unquote-splicing outside of quasiquote
+pass failed: expand

@@ -1,0 +1,5 @@
+(define if 1)
+(define lambda 2)
+if
+lambda
+((lambda (y) (define a 1) (define foo 3) (foo b)) 2)
