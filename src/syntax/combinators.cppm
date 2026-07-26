@@ -13,15 +13,10 @@ using ParseResult = std::optional<std::vector<SpanRef>>;
 template <typename T>
 concept ParserRule = requires(T t) {
     { t(std::declval<Cursor&>()) } -> std::same_as<ParseResult>;
-    typename T::manages_rollback;
-    requires std::same_as<typename T::manages_rollback, std::true_type>
-        || std::same_as<typename T::manages_rollback, std::false_type>;
 };
 
 template <typename Wrapper>
 struct Def {
-    using manages_rollback = std::true_type;
-
     explicit constexpr Def() noexcept = default;
 
     [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept {
@@ -31,7 +26,6 @@ struct Def {
 
 template <TokenType T>
 struct OneToken {
-    using manages_rollback = std::true_type;
     explicit constexpr OneToken() noexcept = default;
 
     [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
@@ -39,21 +33,18 @@ struct OneToken {
 
 template <Keyword K>
 struct InsertKeyword {
-    using manages_rollback = std::true_type;
     explicit constexpr InsertKeyword() noexcept = default;
 
     [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
 
 struct GetIdentifier {
-    using manages_rollback = std::true_type;
     explicit constexpr GetIdentifier() noexcept = default;
 
     [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
 };
 
 struct GetConstant {
-    using manages_rollback = std::true_type;
     explicit constexpr GetConstant() noexcept = default;
 
     [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
@@ -61,7 +52,6 @@ struct GetConstant {
 
 template <ParserRule R>
 struct CreateList {
-    using manages_rollback = std::true_type;
     [[no_unique_address]] R r;
 
     explicit constexpr CreateList() noexcept = default;
@@ -72,7 +62,6 @@ struct CreateList {
 
 template <ParserRule R>
 struct CreateVector {
-    using manages_rollback = std::true_type;
     [[no_unique_address]] R r;
 
     explicit constexpr CreateVector() noexcept = default;
@@ -82,7 +71,6 @@ struct CreateVector {
 };
 
 struct CreateNil {
-    using manages_rollback = std::true_type;
     explicit constexpr CreateNil() noexcept = default;
 
     [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept;
@@ -90,7 +78,6 @@ struct CreateNil {
 
 template <ParserRule R, auto F>
 struct Map {
-    using manages_rollback = typename R::manages_rollback;
     R rule;
 
     explicit constexpr Map() noexcept = default;
@@ -107,7 +94,6 @@ struct Map {
 
 template <ParserRule... Rules>
 struct Choice {
-    using manages_rollback = std::true_type;
     std::tuple<Rules...> rules;
 
     explicit constexpr Choice() noexcept = default;
@@ -117,18 +103,8 @@ struct Choice {
     [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept {
         ParseResult result;
         auto try_rule = [&](const auto& rule) -> bool {
-            using R = std::decay_t<decltype(rule)>;
-            if constexpr (R::manages_rollback::value) {
-                result = rule(cursor);
-                return result.has_value();
-            } else {
-                auto save = cursor.save();
-                result = rule(cursor);
-                if (result)
-                    return true;
-                cursor.set(save);
-                return false;
-            }
+            result = rule(cursor);
+            return result.has_value();
         };
 
         bool found = std::apply(
@@ -143,7 +119,6 @@ struct Choice {
 
 template <ParserRule... Rules>
 struct Sequence {
-    using manages_rollback = std::false_type;
     std::tuple<Rules...> rules;
 
     explicit constexpr Sequence() noexcept = default;
@@ -151,6 +126,7 @@ struct Sequence {
         : rules(std::move(r)...) { }
 
     [[nodiscard]] ParseResult operator()(Cursor& cursor) const noexcept {
+        auto save = cursor.save();
         std::vector<SpanRef> combined;
         bool ok = std::apply(
             [&](const auto&... args) {
@@ -166,13 +142,13 @@ struct Sequence {
 
         if (ok)
             return combined;
+        cursor.set(save);
         return std::nullopt;
     }
 };
 
 template <ParserRule R>
 struct Maybe {
-    using manages_rollback = std::true_type;
     [[no_unique_address]] R r;
 
     explicit constexpr Maybe() noexcept = default;
@@ -183,7 +159,6 @@ struct Maybe {
 
 template <ParserRule R>
 struct Many {
-    using manages_rollback = std::true_type;
     [[no_unique_address]] R r;
 
     explicit constexpr Many() noexcept = default;
@@ -194,7 +169,6 @@ struct Many {
 
 template <ParserRule R>
 struct Must {
-    using manages_rollback = std::true_type;
     [[no_unique_address]] R r;
 
     explicit constexpr Must() noexcept = default;
@@ -243,19 +217,9 @@ ParseResult CreateList<R>::operator()(Cursor& cursor) const noexcept {
     if (cursor.is_failed())
         return std::nullopt;
     LocRef loc = cursor.loc();
-    ParseResult res;
-    if constexpr (R::manages_rollback::value) {
-        res = r(cursor);
-        if (!res)
-            return std::nullopt;
-    } else {
-        auto save = cursor.save();
-        res = r(cursor);
-        if (!res) {
-            cursor.set(save);
-            return std::nullopt;
-        }
-    }
+    auto res = r(cursor);
+    if (!res)
+        return std::nullopt;
     SpanRef node
         = cursor.arena().from_loc(loc, SExprList(std::move(res.value())));
     return std::vector<SpanRef> { node };
@@ -266,19 +230,9 @@ ParseResult CreateVector<R>::operator()(Cursor& cursor) const noexcept {
     if (cursor.is_failed())
         return std::nullopt;
     LocRef loc = cursor.loc();
-    ParseResult res;
-    if constexpr (R::manages_rollback::value) {
-        res = r(cursor);
-        if (!res)
-            return std::nullopt;
-    } else {
-        auto save = cursor.save();
-        res = r(cursor);
-        if (!res) {
-            cursor.set(save);
-            return std::nullopt;
-        }
-    }
+    auto res = r(cursor);
+    if (!res)
+        return std::nullopt;
     SpanRef node
         = cursor.arena().from_loc(loc, SExprVector(std::move(res.value())));
     return std::vector<SpanRef> { node };
@@ -291,36 +245,17 @@ ParseResult CreateNil::operator()(Cursor& cursor) const noexcept {
 
 template <ParserRule R>
 ParseResult Maybe<R>::operator()(Cursor& cursor) const noexcept {
-    if constexpr (R::manages_rollback::value) {
-        auto result = r(cursor);
-        if (result)
-            return std::move(result.value());
-        return {};
-    } else {
-        auto save = cursor.save();
-        auto result = r(cursor);
-        if (!result) {
-            cursor.set(save);
-            return {};
-        }
+    auto result = r(cursor);
+    if (result)
         return std::move(result.value());
-    }
+    return {};
 }
 
 template <ParserRule R>
 ParseResult Many<R>::operator()(Cursor& cursor) const noexcept {
     std::vector<SpanRef> result;
-    if constexpr (R::manages_rollback::value) {
-        while (auto nl = r(cursor))
-            result.append_range(*nl);
-    } else {
-        auto save = cursor.save();
-        while (auto nl = r(cursor)) {
-            result.append_range(*nl);
-            save = cursor.save();
-        }
-        cursor.set(save);
-    }
+    while (auto nl = r(cursor))
+        result.append_range(*nl);
     return result;
 }
 

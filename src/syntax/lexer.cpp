@@ -63,6 +63,8 @@ bool Lexer::advance() {
         return read_sharp();
     if (read_operator() || read_ident() || read_string() || read_number(0))
         return true;
+    if (_failed)
+        return false;
 
     Error("Unrecognized token starting with '{}' at {}", _cursor[0],
         loc_string());
@@ -358,30 +360,43 @@ bool Lexer::read_string() {
         return true;
     }
 
-    std::string_view unescaped_value = content_view.substr(0, end);
+    std::string_view escaped_value = content_view.substr(0, end);
 
-    auto unescape = [](std::string_view str) {
-        if (str.find('\\') == std::string_view::npos)
+    auto unescape = [this](std::string_view str) -> std::optional<std::string> {
+        if (!str.contains('\\'))
             return std::string(str);
 
         std::string result;
         result.reserve(str.size());
         for (std::size_t i = 0; i < str.size(); ++i) {
-            if (str[i] == '\\') {
-                if (i + 1 < str.size()) {
-                    result += str[i + 1];
-                    ++i;
-                }
-            } else {
+            if (str[i] != '\\') {
                 result += str[i];
+                continue;
+            }
+            if (i + 1 >= str.size())
+                break;
+            switch (str[++i]) {
+            case 'n': result += '\n'; break;
+            case 't': result += '\t'; break;
+            case 'r': result += '\r'; break;
+            case '\\': result += '\\'; break;
+            case '"': result += '"'; break;
+            default:
+                Error("Invalid escape sequence: \"\\{}\" at {}", str[i],
+                    loc_string());
+                return std::nullopt;
             }
         }
         return result;
     };
 
+    auto value = unescape(escaped_value);
+    if (!value) {
+        _failed = true;
+        return false;
+    }
     _tokens.emplace_back(TokenType::STRING,
-        loc(std::string(_cursor.substr(0, end + 2))),
-        unescape(unescaped_value));
+        loc(std::string(_cursor.substr(0, end + 2))), std::move(*value));
     _cursor.remove_prefix(end + 2);
     return true;
 }

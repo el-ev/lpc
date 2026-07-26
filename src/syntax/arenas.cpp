@@ -238,7 +238,21 @@ std::string SpanArena::dump_root(SpanRef root) const {
 std::string SpanArena::dump(SpanRef ref) const {
     return expr(ref).visit(SExprVisitor {
         [](const LispIdent& id) { return id.name; },
-        [](const LispString& str) { return "\"" + str + "\""; },
+        [](const LispString& str) {
+            std::string result = "\"";
+            for (char c : str) {
+                switch (c) {
+                case '"': result += "\\\""; break;
+                case '\\': result += "\\\\"; break;
+                case '\n': result += "\\n"; break;
+                case '\t': result += "\\t"; break;
+                case '\r': result += "\\r"; break;
+                default: result += c; break;
+                }
+            }
+            result += "\"";
+            return result;
+        },
         [](const LispNumber& num) { return std::to_string(num); },
         [](const LispChar& c) -> std::string {
             switch (c) {

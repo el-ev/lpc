@@ -33,7 +33,7 @@ public:
     Parser(const Parser&) = delete;
     Parser& operator=(const Parser&) = delete;
 
-    Parser(Parser&&) noexcept = default;
+    Parser(Parser&&) = delete;
 
     [[nodiscard]] inline bool is_failed() const noexcept {
         return _cursor.is_failed();
