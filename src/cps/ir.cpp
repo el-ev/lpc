@@ -2,11 +2,13 @@ module lpc.cps.ir;
 
 import std;
 
+import lpc.utils.error_handler;
 import lpc.utils.tagged_union;
 
 namespace lpc::cps {
 
 using lpc::utils::overloaded;
+using lpc::utils::Assert;
 
 namespace {
 
@@ -93,7 +95,8 @@ std::string CpsDumpVisitor::operator()(const CpsIf& i) const {
 std::string CpsDumpVisitor::operator()(const CpsLambda& l) const {
     auto next_indent = indent + "  ";
 
-    if (l.is_variadic && l.params.size() >= 2) {
+    if (l.is_variadic) {
+        Assert(l.params.size() >= 2);
         const auto fixed_count = l.params.size() - 2;
         const auto& rest_name = l.params[fixed_count].var.debug_name;
         const auto& cont_name = l.params.back().var.debug_name;
@@ -147,9 +150,9 @@ std::string CpsDumpVisitor::operator()(const CpsFix& f) const {
     std::string out = "(letrec (\n";
     for (std::size_t i = 0; i < f.functions.size(); ++i) {
         auto function_ref = f.functions[i];
-        std::string function_name = std::format("__fun_{}", i);
-        if (const auto* lambda = arena.get(function_ref).get<CpsLambda>())
-            function_name = lambda->name.var.debug_name;
+        const auto* lambda = arena.get(function_ref).get<CpsLambda>();
+        Assert(lambda != nullptr);
+        const std::string& function_name = lambda->name.var.debug_name;
 
         out += std::format("{}({} {})", next_indent, function_name,
             dump(function_ref, next_indent + "  "));

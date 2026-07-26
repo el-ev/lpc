@@ -5,6 +5,7 @@ import std;
 import lpc.context;
 import lpc.syntax.lexer;
 import lpc.syntax.syntax;
+import lpc.utils.error_handler;
 import lpc.utils.logging;
 
 namespace lpc::sema {
@@ -12,6 +13,7 @@ namespace lpc::sema {
 using namespace lpc::syntax;
 
 using lpc::utils::Error;
+using lpc::utils::Assert;
 
 [[nodiscard]] SpanRef Expander::add_scope(SpanRef expr, ScopeID scope) {
     if (!expr.is_valid())
@@ -72,14 +74,12 @@ bool Expander::is_identifier_active(SpanRef id_ref) {
 
     auto matches = [&](SpanRef k) {
         if (const auto* list = _arena.get<SExprList>(k)) {
-            if (!list->elem.empty()) {
-                if (const auto* kid = _arena.get<LispIdent>(list->elem[0])) {
-                    const auto* binding = _env.find_binding(
-                        kid->name, _arena.scopes(list->elem[0]));
-                    if (!binding)
-                        return false;
-                    return binding == id_binding;
-                }
+            if (const auto* kid = _arena.get<LispIdent>(list->elem[0])) {
+                const auto* binding = _env.find_binding(
+                    kid->name, _arena.scopes(list->elem[0]));
+                if (!binding)
+                    return false;
+                return binding == id_binding;
             }
         }
         return false;
@@ -288,9 +288,6 @@ std::vector<SpanRef> Expander::expand_define(
 
     if (const auto* var_list = _arena.get<SExprList>(var)) {
         auto elems = var_list->elem;
-        if (elems.empty())
-            return { SpanRef::invalid() };
-
         auto func_name = elems[0];
 
         if (!_arena.is_ident(func_name)) {
@@ -385,11 +382,6 @@ std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
         return std::nullopt;
     }
     const auto spec_list = _arena.get<SExprList>(transformer_spec)->elem;
-    if (spec_list.empty()) {
-        report_error(
-            transformer_spec, "{}: expected (syntax-rules ...)", form_prefix);
-        return std::nullopt;
-    }
     if (!_arena.is_ident(spec_list[0])) {
         report_error(
             transformer_spec, "{}: expected syntax-rules keyword", form_prefix);
@@ -668,9 +660,6 @@ std::vector<SpanRef> Expander::expand(SpanRef root) {
 
     if (const auto* list_ptr = _arena.get<SExprList>(root)) {
         const auto list = *list_ptr;
-        if (list.elem.empty())
-            return { root };
-
         if (const auto* ident_ptr = _arena.get<LispIdent>(list.elem[0])) {
             const auto ident = *ident_ptr;
             const auto* binding = _env.find_binding(ident.name,
@@ -766,16 +755,16 @@ void ExpandPass::load_core(CompilerContext& ctx) {
 
     auto core_root = parser.root();
 
-    if (const auto* list_ptr = user_arena.get<SExprList>(core_root)) {
-        const auto list = *list_ptr;
-        bool dummy_error = false;
-        for (const auto& form : list.elem) {
-            auto res = Expander(_env, ctx, dummy_error).expand(form);
-            if (std::ranges::any_of(
-                    res, [](const auto& r) { return !r.is_valid(); }))
-                continue;
-            _core_forms.append_range(res);
-        }
+    const auto* list_ptr = user_arena.get<SExprList>(core_root);
+    Assert(list_ptr != nullptr);
+    const auto list = *list_ptr;
+    bool dummy_error = false;
+    for (const auto& form : list.elem) {
+        auto res = Expander(_env, ctx, dummy_error).expand(form);
+        if (std::ranges::any_of(
+                res, [](const auto& r) { return !r.is_valid(); }))
+            continue;
+        _core_forms.append_range(res);
     }
     _core_loaded = true;
 }
@@ -788,26 +777,25 @@ void ExpandPass::load_core(CompilerContext& ctx) {
     _had_error = false;
     Expander expander(_env, ctx, _had_error);
 
-    if (const auto* list_ptr = arena.get<SExprList>(root)) {
-        const auto list = *list_ptr;
-        std::vector<SpanRef> out;
-        out.reserve(list.elem.size() + _core_forms.size());
-        out.append_range(_core_forms);
-        for (const auto& el : list.elem) {
-            auto r = expander.expand(el);
-            if (std::ranges::any_of(
-                    r, [](const auto& r) { return !r.is_valid(); }))
-                continue;
-            out.append_range(r);
-        }
-        SExprRef final_expr
-            = arena.expr_arena().emplace(SExpr(SExprList(std::move(out))));
-        auto expanded = arena.from_loc(arena.loc_ref(root), final_expr);
-        if (_had_error)
-            return SpanRef::invalid();
-        return expanded;
+    const auto* list_ptr = arena.get<SExprList>(root);
+    Assert(list_ptr != nullptr);
+    const auto list = *list_ptr;
+    std::vector<SpanRef> out;
+    out.reserve(list.elem.size() + _core_forms.size());
+    out.append_range(_core_forms);
+    for (const auto& el : list.elem) {
+        auto r = expander.expand(el);
+        if (std::ranges::any_of(
+                r, [](const auto& r) { return !r.is_valid(); }))
+            continue;
+        out.append_range(r);
     }
-    std::unreachable();
+    SExprRef final_expr
+        = arena.expr_arena().emplace(SExpr(SExprList(std::move(out))));
+    auto expanded = arena.from_loc(arena.loc_ref(root), final_expr);
+    if (_had_error)
+        return SpanRef::invalid();
+    return expanded;
 }
 
 ExpandPass::ExpandPass() {

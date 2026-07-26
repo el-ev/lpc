@@ -5,12 +5,14 @@ import std;
 import lpc.context;
 import lpc.sema.core_form;
 import lpc.syntax.ast;
+import lpc.utils.error_handler;
 import lpc.utils.logging;
 
 namespace lpc::sema {
 
 using namespace lpc::syntax;
 using lpc::utils::Error;
+using lpc::utils::Assert;
 
 void SymbolTable::init_builtins() {
 #ifndef PRIM
@@ -30,8 +32,6 @@ void Lowerer::report_error(SpanRef ref, std::string_view msg) {
 }
 
 const std::string* Lowerer::head_name(const SExprList& list) const {
-    if (list.elem.empty())
-        return nullptr;
     if (const auto* id = _spans.get<LispIdent>(list.elem[0]))
         return &id->name;
     return nullptr;
@@ -76,11 +76,6 @@ CoreExprRef Lowerer::lower_literal(SpanRef ref) {
 }
 
 CoreExprRef Lowerer::lower_list(SpanRef ref, const SExprList& list) {
-    if (list.elem.empty()) {
-        report_error(ref, "sema: empty list, should not happen");
-        return CoreExprRef::invalid();
-    }
-
     const auto* name = head_name(list);
     if (name != nullptr) {
         if (*name == "lambda")
@@ -117,8 +112,8 @@ CoreExprRef Lowerer::lower_lambda(SpanRef ref, const SExprList& list) {
 
             if (const auto* pid = _spans.get<LispIdent>(p)) {
                 bool is_last_elem = (i == param_list->elem.size() - 1);
-                bool has_nil_sentinel = !param_list->elem.empty()
-                    && _spans.is_nil(param_list->elem.back());
+                bool has_nil_sentinel
+                    = _spans.is_nil(param_list->elem.back());
                 bool is_rest = is_last_elem && !has_nil_sentinel;
 
                 auto var = _syms.define(pid->name);
@@ -165,6 +160,7 @@ CoreExprRef Lowerer::lower_lambda(SpanRef ref, const SExprList& list) {
 
     _syms.pop_scope();
 
+    Assert(!body_exprs.empty());
     CoreExprRef body;
     if (body_exprs.size() == 1)
         body = body_exprs[0];
@@ -209,6 +205,7 @@ CoreExprRef Lowerer::lower_set(SpanRef ref, const SExprList& list) {
     // (set! var expr)
     // list.elem = [set!, var, expr, nil]
     const auto* target_id = _spans.get<LispIdent>(list.elem[1]);
+    Assert(target_id != nullptr);
     auto resolved = _syms.resolve(target_id->name);
     if (!resolved) {
         report_error(list.elem[1], "sema: set! on undefined variable: {}",
@@ -239,6 +236,7 @@ CoreExprRef Lowerer::lower_define(SpanRef ref, const SExprList& list) {
     // (define var expr)
     // list.elem = [define, var, expr, nil]
     const auto* target_id = _spans.get<LispIdent>(list.elem[1]);
+    Assert(target_id != nullptr);
 
     auto var = _syms.define(target_id->name);
 
@@ -327,6 +325,7 @@ CoreExprRef Lowerer::lower_application(SpanRef ref, const SExprList& list) {
 CoreExprRef Lowerer::lower_program(SpanRef root) {
     _core.init_builtins(_syms.get_builtins());
     const auto* top_list = _spans.get<SExprList>(root);
+    Assert(top_list != nullptr);
     std::vector<CoreExprRef> forms;
     bool seen_command = false;
     for (const auto& form : top_list->elem) {

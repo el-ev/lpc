@@ -1,6 +1,7 @@
 export module lpc.utils.arena;
 
 import std;
+import lpc.utils.error_handler;
 
 namespace lpc::utils {
 
@@ -129,16 +130,14 @@ Arena<Tag, T, IndexType>::elem_ref Arena<Tag, T, IndexType>::emplace(T&& value) 
 
 template <typename Tag, typename T, typename IndexType>
 constexpr T& Arena<Tag, T, IndexType>::at(Arena<Tag, T, IndexType>::elem_ref ref) {
-    if (ref._index >= _data.size())
-        throw std::out_of_range("Index out of range");
+    Assert(ref._index < _data.size());
     return _data[ref._index];
 }
 
 template <typename Tag, typename T, typename IndexType>
 constexpr const T& Arena<Tag, T, IndexType>::at(
     Arena<Tag, T, IndexType>::elem_ref ref) const {
-    if (ref._index >= _data.size())
-        throw std::out_of_range("Index out of range");
+    Assert(ref._index < _data.size());
     return _data[ref._index];
 }
 

@@ -8,10 +8,12 @@ import lpc.sema.core_form;
 import lpc.syntax.arenas;
 import lpc.syntax.ast;
 import lpc.syntax.refs;
+import lpc.utils.error_handler;
 
 namespace lpc::sema {
 
 using namespace lpc::syntax;
+using lpc::utils::Assert;
 
 class SymbolTable {
     struct Scope {
@@ -123,8 +125,8 @@ public:
     }
 
     void pop_scope() {
-        if (_current == nullptr || _scope_depth == 0)
-            return;
+        Assert(_current != nullptr);
+        Assert(_scope_depth > 0);
         _current = _current->parent;
         _scope_depth--;
     }

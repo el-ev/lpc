@@ -5,10 +5,12 @@ import std;
 import lpc.syntax.ast;
 import lpc.syntax.span;
 import lpc.utils.arena;
+import lpc.utils.error_handler;
 import lpc.utils.logging;
 
 namespace lpc::syntax {
 
+using lpc::utils::Assert;
 using lpc::utils::Error;
 
 namespace {
@@ -26,10 +28,8 @@ namespace {
         for (std::size_t L = 1; L <= n / 2; ++L) {
             const auto pattern = std::span(seq).last(L);
             std::size_t k = 1;
-            for (std::size_t j = 1; j * L < n; ++j) {
+            for (std::size_t j = 1; (j + 1) * L <= n; ++j) {
                 const auto start = n - ((j + 1) * L);
-                if (start + L > n)
-                    break;
                 const auto subrange = seq.subspan(start, L);
                 if (!std::ranges::equal(subrange, pattern))
                     break;
@@ -225,6 +225,7 @@ std::string SpanArena::dump_root(SpanRef root) const {
     if (!root.is_valid())
         return "";
     const auto* children = expr(root).get<SExprList>();
+    lpc::utils::Assert(children != nullptr);
     std::string result;
     for (const auto& child : children->elem) {
         if (is_nil(child))
@@ -265,17 +266,15 @@ std::string SpanArena::dump(SpanRef ref) const {
                     return ",@" + dump(list.elem[1]);
             }
             std::string result = "(";
-            if (!list.elem.empty()) {
-                for (std::size_t i = 0; i + 1 < list.elem.size(); ++i) {
-                    if (i > 0)
-                        result += " ";
-                    result += dump(list.elem[i]);
-                }
-                if (!is_nil(list.elem.back())) {
-                    if (list.elem.size() > 1)
-                        result += " . ";
-                    result += dump(list.elem.back());
-                }
+            for (std::size_t i = 0; i + 1 < list.elem.size(); ++i) {
+                if (i > 0)
+                    result += " ";
+                result += dump(list.elem[i]);
+            }
+            if (!is_nil(list.elem.back())) {
+                if (list.elem.size() > 1)
+                    result += " . ";
+                result += dump(list.elem.back());
             }
             result += ")";
             return result;

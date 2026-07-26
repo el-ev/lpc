@@ -1,6 +1,10 @@
 module lpc.backend.interp;
 
+import lpc.utils.error_handler;
+
 namespace lpc::backend {
+
+using lpc::utils::Assert;
 
 namespace {
     [[nodiscard]] bool is_truthy(const Value& value) {
@@ -55,9 +59,6 @@ Value Interp::eval_atom(
                 [](const LispString& text) -> Value { return Value(text); },
                 [](const LispNil&) -> Value { return Value(Nil { }); },
                 [&](const SExprList& list) -> Value {
-                    if (list.elem.empty())
-                        return Value(Nil { });
-
                     Value tail = eval_atom(
                         CpsAtom(CpsConstant { list.elem.back() }), env);
                     for (std::size_t index = list.elem.size() - 1; index > 0;
@@ -111,11 +112,7 @@ Value Interp::eval(
                 call_env->parent = closure->env;
 
                 if (closure->lambda.is_variadic) {
-                    if (closure->lambda.params.size() < 2) {
-                        throw std::runtime_error(
-                            "Variadic lambda must have rest and continuation "
-                            "parameters");
-                    }
+                    Assert(closure->lambda.params.size() >= 2);
 
                     const std::size_t fixed_param_count
                         = closure->lambda.params.size() - 2;
@@ -171,15 +168,9 @@ Value Interp::eval(
                 for (const CpsAtom& arg : let_expr.args)
                     args.push_back(eval_atom(arg, env));
 
-                auto expect_arity = [&](std::size_t expected) {
-                    if (args.size() != expected) {
-                        std::stringstream message;
-                        message << "Arity mismatch in primop "
-                                << static_cast<int>(let_expr.op)
-                                << ": expected " << expected << ", got "
-                                << args.size();
-                        throw std::runtime_error(message.str());
-                    }
+                auto expect_arity
+                    = [&]([[maybe_unused]] std::size_t expected) {
+                          Assert(args.size() == expected);
                 };
 
                 Value primop_result;
@@ -302,10 +293,7 @@ Value Interp::eval(
                     primop_result = Value(args[0].isa<Closure>());
                     break;
                 case PrimOp::MakeVector: {
-                    if (args.empty() || args.size() > 2) {
-                        throw std::runtime_error(
-                            "make-vector expects one or two arguments");
-                    }
+                    Assert(!args.empty() && args.size() <= 2);
 
                     const std::int64_t size = as_int(args[0]);
                     if (size < 0)
@@ -322,9 +310,7 @@ Value Interp::eval(
                     break;
                 }
                 case PrimOp::Alloc: {
-                    if (args.size() < 2)
-                        throw std::runtime_error(
-                            "alloc expects at least tag and size");
+                    Assert(args.size() >= 2);
 
                     const std::int64_t tag = as_int(args[0]);
                     const std::int64_t size = as_int(args[1]);
@@ -336,10 +322,8 @@ Value Interp::eval(
                             "alloc size must be non-negative");
 
                     const auto field_count = args.size() - 2;
-                    if (static_cast<std::size_t>(size) != field_count) {
-                        throw std::runtime_error(
-                            "alloc size does not match field count");
-                    }
+                    Assert(
+                        static_cast<std::size_t>(size) == field_count);
 
                     if (tag == 0) {
                         if (size != 2) {
@@ -510,9 +494,7 @@ Value Interp::eval(
                 for (CpsExprRef function_ref : fix.functions) {
                     const auto& function_expr = _cps_arena.get(function_ref);
                     const auto* lambda = function_expr.get<CpsLambda>();
-                    if (lambda == nullptr)
-                        throw std::runtime_error(
-                            "Fix expects lambda definitions");
+                    Assert(lambda != nullptr);
 
                     fix_env->bind(lambda->name.var,
                         Value(Closure { .lambda = *lambda, .env = fix_env }));

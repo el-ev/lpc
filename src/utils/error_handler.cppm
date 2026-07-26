@@ -3,12 +3,17 @@ module;
 #include <unistd.h>
 #include <csignal>
 #include <cstdio>
+#include <cassert>
 
-export module lpc.utils.crash_handler;
+export module lpc.utils.error_handler;
 
 import std;
 
 namespace lpc::utils {
+
+export inline constexpr void Assert([[maybe_unused]] bool condition) noexcept {
+    assert(condition);
+}
 
 void signal_handler(int sig) {
     std::array<void*, 64> array{};

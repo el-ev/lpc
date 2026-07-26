@@ -3,10 +3,12 @@ module lpc.sema.transformer;
 import std;
 
 import lpc.syntax.ast;
+import lpc.utils.error_handler;
 
 namespace lpc::sema {
 
 using namespace lpc::syntax;
+using lpc::utils::Assert;
 
 static bool is_ellipsis(SpanRef ref, SpanArena& arena) {
     if (const auto* expr = arena.get<LispIdent>(ref))
@@ -33,12 +35,8 @@ static void collect_pattern_vars(
 
 static SpanRef get_tail(const SExprList& list, std::size_t start,
     SpanArena& arena, SpanRef parent) {
-    bool is_improper = !list.elem.empty() && !arena.is_nil(list.elem.back());
-    if (start >= list.elem.size()) {
-        if (is_improper)
-            return list.elem.back();
-        return arena.nil(arena.loc_ref(list.elem.back()), parent);
-    }
+    Assert(start < list.elem.size());
+    bool is_improper = !arena.is_nil(list.elem.back());
 
     if (is_improper && start == list.elem.size() - 1)
         return list.elem.back();
@@ -105,10 +103,8 @@ bool Transformer::match(
             }
         }
 
-        bool p_improper
-            = !p_list->elem.empty() && !_arena.is_nil(p_list->elem.back());
-        bool i_improper
-            = !i_list->elem.empty() && !_arena.is_nil(i_list->elem.back());
+        bool p_improper = !_arena.is_nil(p_list->elem.back());
+        bool i_improper = !_arena.is_nil(i_list->elem.back());
 
         if (!p_improper) {
             if (i_improper)
@@ -246,7 +242,7 @@ SpanRef Transformer::instantiate(SpanRef element, const Bindings& bindings,
 
     if (const auto* list = expr.get<SExprList>()) {
         std::size_t tmpl_logical = list->elem.size();
-        if (!list->elem.empty() && _arena.is_nil(list->elem.back()))
+        if (_arena.is_nil(list->elem.back()))
             tmpl_logical--;
 
         std::vector<SpanRef> out;
@@ -290,9 +286,9 @@ SpanRef Transformer::instantiate(SpanRef element, const Bindings& bindings,
             }
         }
 
-        bool tmpl_improper
-            = !list->elem.empty() && !_arena.is_nil(list->elem.back());
-        if (tmpl_improper && !out.empty()) {
+        bool tmpl_improper = !_arena.is_nil(list->elem.back());
+        if (tmpl_improper) {
+            Assert(!out.empty());
             auto tail = out.back();
             if (const auto* tail_list = _arena.get<SExprList>(tail)) {
                 out.pop_back();

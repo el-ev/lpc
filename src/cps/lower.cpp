@@ -9,6 +9,7 @@ import lpc.syntax.arenas;
 import lpc.syntax.ast;
 import lpc.syntax.refs;
 import lpc.syntax.token;
+import lpc.utils.error_handler;
 import lpc.utils.logging;
 import lpc.utils.tagged_union;
 
@@ -16,6 +17,7 @@ namespace lpc::cps {
 
 using namespace lpc::sema;
 using lpc::utils::overloaded;
+using lpc::utils::Assert;
 
 using Continuation = const std::function<CpsExprRef(CpsAtom)>&;
 
@@ -62,14 +64,11 @@ private:
         if (auto it = _mapping.find(var); it != _mapping.end())
             return it->second;
 
-        if (var.kind == CoreVarKind::Global
-            || var.kind == CoreVarKind::Builtin) {
-            auto fresh = CpsAtom(next_var(var.id.debug_name));
-            _mapping.emplace(var, fresh);
-            return fresh;
-        }
-
-        throw std::out_of_range("Unbound local variable in CPS lowering");
+        Assert(var.kind == CoreVarKind::Global
+            || var.kind == CoreVarKind::Builtin);
+        auto fresh = CpsAtom(next_var(var.id.debug_name));
+        _mapping.emplace(var, fresh);
+        return fresh;
     }
 
     void extend(const CoreVar& var, CpsAtom cps_val) {
@@ -459,8 +458,7 @@ CpsExprRef CpsConverter::lower_program(CoreExprRef root) {
 CpsExprRef LowerPass::run(CoreExprRef root, CompilerContext& ctx) {
     CpsConverter lowerer(ctx);
     auto entry = lowerer.lower_program(root);
-    if (entry == CpsExprRef::invalid())
-        _failed = true;
+    Assert(entry.is_valid());
     return entry;
 }
 

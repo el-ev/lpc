@@ -3,10 +3,12 @@ module lpc.syntax.syntax;
 import std;
 
 import lpc.syntax.combinators;
+import lpc.utils.error_handler;
 import lpc.utils.logging;
 
 namespace lpc::syntax {
 
+using lpc::utils::Assert;
 using lpc::utils::Error;
 
 // clang-format off
@@ -107,6 +109,8 @@ void Parser::parse() {
         _cursor.fail();
         return;
     }
+    Assert(program.has_value());
+    Assert(program->size() == 1);
     _root = program.value()[0];
 }
 

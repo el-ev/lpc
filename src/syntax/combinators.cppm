@@ -311,16 +311,11 @@ template <ParserRule R>
 ParseResult Many<R>::operator()(Cursor& cursor) const noexcept {
     std::vector<SpanRef> result;
     if constexpr (R::manages_rollback::value) {
-        while (auto nl = r(cursor)) {
-            if (result.capacity() - result.size() < nl->size())
-                result.reserve(result.capacity() * 2);
+        while (auto nl = r(cursor))
             result.append_range(*nl);
-        }
     } else {
         auto save = cursor.save();
         while (auto nl = r(cursor)) {
-            if (result.capacity() - result.size() < nl->size())
-                result.reserve(result.capacity() * 2);
             result.append_range(*nl);
             save = cursor.save();
         }

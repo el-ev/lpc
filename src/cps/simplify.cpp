@@ -5,10 +5,13 @@ import std;
 import lpc.context;
 import lpc.cps.ir;
 import lpc.passes;
+import lpc.utils.error_handler;
 import lpc.utils.logging;
 import lpc.utils.tagged_union;
 
 namespace lpc::cps {
+
+using lpc::utils::Assert;
 
 namespace {
 
@@ -45,16 +48,12 @@ namespace {
                 run_impl(func);
             run_impl(f.body);
 
-            int iterations = 0;
             while (true) {
                 auto& body_expr = _arena.get(f.body);
                 if (auto* nested = body_expr.get<CpsFix>()) {
                     f.functions.append_range(nested->functions);
                     f.body = nested->body;
                     _changed = true;
-                    if (++iterations > 1000) {
-                        break;
-                    }
                 } else {
                     break;
                 }
@@ -101,8 +100,7 @@ namespace {
 
         [[nodiscard]] std::optional<CpsAtom> try_reduce(
             const CpsLambda& lam) const {
-            if (!lam.body.is_valid())
-                return std::nullopt;
+            Assert(lam.body.is_valid());
             const auto& body_expr = _arena.get(lam.body);
             if (const auto* app = body_expr.get<CpsApp>()) {
                 if (app->args.size() != lam.params.size())
@@ -144,6 +142,7 @@ namespace {
             std::unordered_map<CpsVar, CpsAtom> local;
             for (const auto& func_ref : f.functions) {
                 const auto& lam = _arena.get(func_ref).get<CpsLambda>();
+                Assert(lam != nullptr);
                 if (auto target = try_reduce(*lam)) {
                     local.emplace(lam->name, resolve(*target));
                 }
@@ -154,6 +153,7 @@ namespace {
 
             for (const auto& func_ref : f.functions) {
                 const auto& lam = _arena.get(func_ref).get<CpsLambda>();
+                Assert(lam != nullptr);
                 auto vid = lam->name;
 
                 if (auto it = local.find(vid); it != local.end()) {
@@ -295,11 +295,11 @@ namespace {
 
         [[nodiscard]] static bool can_eliminate_dead_box_set(const CpsLet& l,
             const std::unordered_set<CpsVar>& free_vars) noexcept {
-            if (l.op != PrimOp::BoxSet || l.args.size() < 2)
+            if (l.op != PrimOp::BoxSet)
                 return false;
+            Assert(l.args.size() == 2);
             const auto* box = l.args[0].get<CpsVar>();
-            if (box == nullptr)
-                return false;
+            Assert(box != nullptr);
             return !free_vars.contains(*box);
         }
 
@@ -334,9 +334,8 @@ namespace {
 
             for (const auto& function_ref : f.functions) {
                 const auto* lambda = _arena.get(function_ref).get<CpsLambda>();
+                Assert(lambda != nullptr);
                 auto free_vars = run_impl(function_ref);
-                if (lambda == nullptr)
-                    continue;
 
                 index_by_name.emplace(lambda->name, lambda_infos.size());
                 function_names.insert(lambda->name);
@@ -376,7 +375,8 @@ namespace {
             kept.reserve(f.functions.size());
             for (const auto& function_ref : f.functions) {
                 const auto* lambda = _arena.get(function_ref).get<CpsLambda>();
-                if (lambda == nullptr || reachable.contains(lambda->name)) {
+                Assert(lambda != nullptr);
+                if (reachable.contains(lambda->name)) {
                     kept.push_back(function_ref);
                 }
             }
@@ -387,16 +387,14 @@ namespace {
 
             auto free_vars = std::move(body_free_vars);
             for (const auto& function_ref : f.functions) {
-                if (const auto* lambda
-                    = _arena.get(function_ref).get<CpsLambda>()) {
-                    if (auto it = index_by_name.find(lambda->name);
-                        it != index_by_name.end()) {
-                        merge_sets(
-                            free_vars, lambda_infos[it->second].free_vars);
-                    }
-                    continue;
+                const auto* lambda
+                    = _arena.get(function_ref).get<CpsLambda>();
+                Assert(lambda != nullptr);
+                if (auto it = index_by_name.find(lambda->name);
+                    it != index_by_name.end()) {
+                    merge_sets(
+                        free_vars, lambda_infos[it->second].free_vars);
                 }
-                merge_sets(free_vars, run_impl(function_ref));
             }
             for (const auto& function_name : function_names)
                 free_vars.erase(function_name);

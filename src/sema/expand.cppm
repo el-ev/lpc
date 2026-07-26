@@ -8,6 +8,7 @@ import lpc.sema.transformer;
 import lpc.syntax.arenas;
 import lpc.syntax.ast;
 import lpc.syntax.refs;
+import lpc.utils.error_handler;
 import lpc.utils.tagged_union;
 
 namespace lpc::sema {
@@ -15,6 +16,7 @@ namespace lpc::sema {
 using namespace lpc::syntax;
 
 using lpc::utils::TaggedUnion;
+using lpc::utils::Assert;
 
 struct VarBinding {
     LispIdent id;
@@ -56,8 +58,7 @@ public:
     }
 
     void leave_scope() {
-        if (_active_scopes.empty())
-            return;
+        Assert(!_active_scopes.empty());
         for (const auto& name : _active_scopes.back()) {
             _active_counts[name]--;
         }
@@ -83,8 +84,7 @@ public:
 
     void push_name(const std::string& name) {
         _active_counts[name]++;
-        if (_active_scopes.empty())
-            _active_scopes.emplace_back();
+        Assert(!_active_scopes.empty());
         _active_scopes.back().push_back(name);
     }
 
@@ -306,11 +306,9 @@ public:
 
     [[nodiscard]] std::string dump(
         const SpanRef& result, CompilerContext& ctx) const final {
-        if (!result.is_valid())
-            return "";
+        Assert(result.is_valid());
         const auto* list = ctx.span_arena().expr(result).get<SExprList>();
-        if (list == nullptr)
-            return "";
+        Assert(list != nullptr);
 
         std::string s;
         for (std::size_t i = _core_forms.size(); i < list->elem.size(); ++i) {

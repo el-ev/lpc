@@ -4,10 +4,12 @@ import std;
 
 export import lpc.syntax.token;
 import lpc.syntax.refs;
+import lpc.utils.error_handler;
 import lpc.utils.tagged_union;
 
 namespace lpc::syntax {
 
+using lpc::utils::Assert;
 using lpc::utils::TaggedUnion;
 
 export class LispNil { };
@@ -36,9 +38,10 @@ export class SExpr;
 export struct SExprList {
     std::vector<SpanRef> elem;
 
-    [[nodiscard]] explicit SExprList() noexcept = default;
     [[nodiscard]] explicit SExprList(std::vector<SpanRef>&& elements) noexcept
-        : elem(std::move(elements)) { };
+        : elem(std::move(elements)) {
+        lpc::utils::Assert(!elem.empty());
+    };
 };
 
 export inline constexpr bool operator==(
