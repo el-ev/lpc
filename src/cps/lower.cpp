@@ -30,6 +30,11 @@ public:
 #define X(name, str) _prim_mapping[str] = PrimOp::name;
 #include "primops.def"
 #undef X
+#define PRIM(str, min, max, op) _builtin_arity[str] = max;
+#define BUILTIN(str, min, max) _builtin_arity[str] = max;
+#include "../sema/builtins.def"
+#undef PRIM
+#undef BUILTIN
     }
 
     template <typename T>
@@ -56,6 +61,7 @@ private:
     CoreExprArena& _core_arena;
     std::unordered_map<CoreVar, CpsAtom> _mapping;
     std::unordered_map<std::string, PrimOp> _prim_mapping;
+    std::unordered_map<std::string, std::uint32_t> _builtin_arity;
     std::unordered_map<std::string, std::uint32_t> _name_counts;
     std::uint32_t _next_var_id = 0;
     std::optional<CpsVar> _forced_lambda_var;
@@ -79,13 +85,11 @@ private:
         const auto& expr = _core_arena[ref];
         if (expr.isa<CoreConstant>())
             return CpsAtom(CpsConstant { expr.get<CoreConstant>()->value });
-        if (expr.isa<CoreVar>()) {
-            const auto* var = expr.get<CoreVar>();
-            if (var->kind == CoreVarKind::Builtin)
-                return lookup(*var);
-        }
         return std::nullopt;
     }
+
+    [[nodiscard]] CpsExprRef eta_expand_builtin(
+        const std::string& name, Continuation k);
 
     [[nodiscard]] CpsExprRef try_builtin(
         const std::string& name, std::vector<CpsAtom> args, Continuation k) {
@@ -108,6 +112,12 @@ private:
             return emit_primop(PrimOp::Load, std::move(args), k);
         if (name == "__vector-set!")
             return emit_primop(PrimOp::Store, std::move(args), k);
+        if (name == "__set-car!")
+            return emit_primop(PrimOp::Store,
+                { args[0], CpsAtom(CpsConstant { make_int(0) }), args[1] }, k);
+        if (name == "__set-cdr!")
+            return emit_primop(PrimOp::Store,
+                { args[0], CpsAtom(CpsConstant { make_int(1) }), args[1] }, k);
 
         if (name == "__call/cc") {
             auto escape_var = next_var("escape");
@@ -126,6 +136,19 @@ private:
                 CpsApp(args[0], { CpsAtom(escape_var), CpsAtom(kv) }));
             auto with_k = _arena.emplace(CpsFix({ k_lambda }, app));
             return _arena.emplace(CpsFix({ escape_lambda }, with_k));
+        }
+
+        if (name == "__apply") {
+            auto kv = next_var("k");
+            auto rv = next_var("res");
+            auto k_lambda
+                = _arena.emplace(CpsLambda(kv, { rv }, k(CpsAtom(rv))));
+
+            auto apply = _arena.emplace(CpsLet { .target = next_var("_"),
+                .op = PrimOp::Apply,
+                .args = { args[0], args[1], CpsAtom(kv) },
+                .body = _arena.emplace(CpsHalt { CpsAtom(CpsUnit()) }) });
+            return _arena.emplace(CpsFix({ k_lambda }, apply));
         }
 
         if (auto it = _prim_mapping.find(name); it != _prim_mapping.end())
@@ -177,6 +200,38 @@ template <>
 CpsExprRef CpsConverter::convert<CoreConstant>(
     const CoreConstant& c, Continuation k) {
     return k(CpsAtom(CpsConstant { c.value }));
+}
+
+CpsExprRef CpsConverter::eta_expand_builtin(
+    const std::string& name, Continuation k) {
+    // A builtin referenced as a value becomes a closure that forwards its
+    // arguments to the builtin: (lambda (a0 ... an k) (builtin a0 ... an k))
+    const auto it = _builtin_arity.find(name);
+    Assert(it != _builtin_arity.end());
+
+    std::vector<CpsVar> params;
+    std::vector<CpsAtom> args;
+    params.reserve(it->second + 1);
+    args.reserve(it->second);
+    for (std::uint32_t index = 0; index < it->second; ++index) {
+        auto param = next_var("a");
+        params.push_back(param);
+        args.emplace_back(param);
+    }
+
+    CpsVar k_dyn = next_var("k");
+    params.push_back(k_dyn);
+
+    auto body_cont = [&](const CpsAtom& result) {
+        return _arena.emplace(CpsApp(CpsAtom(k_dyn), { result }));
+    };
+    auto body = try_builtin(name, std::move(args), body_cont);
+
+    auto lambda_var = next_var(name);
+    auto lambda = _arena.emplace(CpsLambda { .name = lambda_var,
+        .params = std::move(params),
+        .body = body });
+    return _arena.emplace(CpsFix({ lambda }, k(CpsAtom(lambda_var))));
 }
 
 template <>
@@ -271,7 +326,7 @@ CpsExprRef CpsConverter::convert<CoreLambda>(
 template <>
 CpsExprRef CpsConverter::convert<CoreVar>(const CoreVar& c, Continuation k) {
     if (c.kind == CoreVarKind::Builtin)
-        return k(lookup(c));
+        return eta_expand_builtin(c.id.debug_name, k);
 
     auto val = lookup(c);
     if (c.kind != CoreVarKind::Global && !_ctx.core_arena().is_mutated(c))

@@ -32,6 +32,11 @@
   (syntax-rules ()
     ((let ((name val) ...) body1 body2 ...)
      ((lambda (name ...) body1 body2 ...)
+      val ...))
+    ; named let
+    ((let tag ((name val) ...) body1 body2 ...)
+     ((letrec ((tag (lambda (name ...) body1 body2 ...)))
+              tag)
       val ...))))
 
 (define-syntax let*
@@ -75,15 +80,65 @@
       body ...))))
 
 (define-syntax cond
-  (syntax-rules (else)
+  (syntax-rules (else =>)
     ((cond (else result1 result2 ...))
      (begin result1 result2 ...))
+    ((cond (test => result))
+     (let ((t test))
+       (if t (result t) (if #f #f))))
+    ((cond (test => result) clause1 clause2 ...)
+     (let ((t test))
+       (if t (result t)
+           (cond clause1 clause2 ...))))
+    ((cond (test))
+     test)
+    ((cond (test) clause1 clause2 ...)
+     (let ((t test))
+       (if t t (cond clause1 clause2 ...))))
     ((cond (test result1 result2 ...))
      (if test (begin result1 result2 ...)))
     ((cond (test result1 result2 ...) clause1 clause2 ...)
      (if test
          (begin result1 result2 ...)
          (cond clause1 clause2 ...)))))
+
+(define-syntax case
+  (syntax-rules (else =>)
+    ((case key)
+     (begin key (void)))
+    ((case key (else => result))
+     (result key))
+    ((case key (else result1 result2 ...))
+     (begin key result1 result2 ...))
+    ((case key ((datum ...) => result) clause ...)
+     (let ((k key))
+       (if (memv k '(datum ...))
+           (result k)
+           (case k clause ...))))
+    ((case key ((datum ...) result1 result2 ...) clause ...)
+     (let ((k key))
+       (if (memv k '(datum ...))
+           (begin result1 result2 ...)
+           (case k clause ...))))))
+
+(define-syntax do
+  (syntax-rules ()
+    ((do ((var init . step) ...) (test expr ...) command ...)
+     (letrec ((loop
+                (lambda (var ...)
+                  (if test
+                      (begin (if #f #f) expr ...)
+                      (begin
+                        command ...
+                        (loop (__do-step var step) ...))))))
+       (loop init ...)))))
+
+(define-syntax __do-step
+  (syntax-rules ()
+    ((__do-step var ())
+     var)
+    ((__do-step var (step))
+     step)))
 
 (define-syntax quasiquote
   (syntax-rules 
@@ -156,18 +211,15 @@
     ((delay expr)
      (__memo (lambda () expr)))))
 
-; (define (force promise)
-;   (promise))
-
-; (define (__memo proc)
-;   (let ((run_once? #f)
-;         (result #f))
-;     (lambda ()
-;       (if (not run_once?)
-;           (begin (set! result (proc))
-;                  (set! run_once? #t)
-;                  result)
-;           result))))
+(define (__memo proc)
+  (let ((run_once? #f)
+        (result #f))
+    (lambda ()
+      (if (not run_once?)
+          (begin (set! result (proc))
+                 (set! run_once? #t)
+                 result)
+          result))))
 
 ;; Builtin functions
 
@@ -197,10 +249,7 @@
       (__make-vector k)
       (__make-vector k (car fill))))
 
-;; vector as macro for now
-(define-syntax vector
-  (syntax-rules ()
-    ((_ . args) (__vector . args))))
+(define (vector . args) (list->vector args))
 
 (define (void) (__void)) ; undefined value, also available as (if #f #f)
 (define (list . args) args)
@@ -320,14 +369,44 @@
 (define (append . lists)
   (__fold-right __append-2 '() lists))
 
-(define (map proc lst)
-  (if (null? lst) '()
-      (cons (proc (car lst)) (map proc (cdr lst)))))
+(define (__any-null? lists)
+  (cond ((null? lists) #f)
+        ((null? (car lists)) #t)
+        (else (__any-null? (cdr lists)))))
 
-(define (for-each proc lst)
-  (if (null? lst) (void)
-      (begin (proc (car lst))
-             (for-each proc (cdr lst)))))
+(define (__cars lists)
+  (if (null? lists)
+      '()
+      (cons (car (car lists)) (__cars (cdr lists)))))
+
+(define (__cdrs lists)
+  (if (null? lists)
+      '()
+      (cons (cdr (car lists)) (__cdrs (cdr lists)))))
+
+(define (map proc . lists)
+  (if (null? (cdr lists))
+      (let loop ((lst (car lists)))
+        (if (null? lst)
+            '()
+            (cons (proc (car lst)) (loop (cdr lst)))))
+      (let loop ((lists lists))
+        (if (__any-null? lists)
+            '()
+            (cons (apply proc (__cars lists))
+                  (loop (__cdrs lists)))))))
+
+(define (for-each proc . lists)
+  (if (null? (cdr lists))
+      (let loop ((lst (car lists)))
+        (if (null? lst)
+            (void)
+            (begin (proc (car lst)) (loop (cdr lst)))))
+      (let loop ((lists lists))
+        (if (__any-null? lists)
+            (void)
+            (begin (apply proc (__cars lists))
+                   (loop (__cdrs lists)))))))
 
 (define (reverse lst)
   (letrec ((loop (lambda (l acc)
@@ -406,5 +485,156 @@
 
 (define (call-with-current-continuation f) (__call/cc f))
 (define (call/cc f) (__call/cc f))
+
+(define (__apply-args args)
+  (cond ((null? args) '())
+        ((null? (cdr args)) (car args))
+        (else (cons (car args) (__apply-args (cdr args))))))
+
+(define (apply f . args) (__apply f (__apply-args args)))
+
+;; Pair mutation
+
+(define (set-car! p obj) (__set-car! p obj))
+(define (set-cdr! p obj) (__set-cdr! p obj))
+
+;; Output
+
+(define (display obj) (__display obj))
+(define (write obj) (__write obj))
+(define (newline) (__newline))
+
+;; Characters
+
+(define (char->integer c) (__char->integer c))
+(define (integer->char n) (__integer->char n))
+
+(define (char=? . args) (__chain-cmp __char=? args))
+(define (char<? . args) (__chain-cmp __char<? args))
+(define (__char>? a b) (__char<? b a))
+(define (__char<=? a b) (not (__char<? b a)))
+(define (__char>=? a b) (not (__char<? a b)))
+(define (char>? . args) (__chain-cmp __char>? args))
+(define (char<=? . args) (__chain-cmp __char<=? args))
+(define (char>=? . args) (__chain-cmp __char>=? args))
+
+(define (char-upcase c)
+  (if (and (__char>=? c #\a) (__char<=? c #\z))
+      (integer->char (- (char->integer c) 32))
+      c))
+
+(define (char-downcase c)
+  (if (and (__char>=? c #\A) (__char<=? c #\Z))
+      (integer->char (+ (char->integer c) 32))
+      c))
+
+(define (__char-ci=? a b) (char=? (char-upcase a) (char-upcase b)))
+(define (__char-ci<? a b) (char<? (char-upcase a) (char-upcase b)))
+(define (__char-ci>? a b) (__char-ci<? b a))
+(define (__char-ci<=? a b) (not (__char-ci<? b a)))
+(define (__char-ci>=? a b) (not (__char-ci<? a b)))
+(define (char-ci=? . args) (__chain-cmp __char-ci=? args))
+(define (char-ci<? . args) (__chain-cmp __char-ci<? args))
+(define (char-ci>? . args) (__chain-cmp __char-ci>? args))
+(define (char-ci<=? . args) (__chain-cmp __char-ci<=? args))
+(define (char-ci>=? . args) (__chain-cmp __char-ci>=? args))
+
+(define (char-alphabetic? c)
+  (or (and (__char>=? c #\a) (__char<=? c #\z))
+      (and (__char>=? c #\A) (__char<=? c #\Z))))
+
+(define (char-numeric? c)
+  (and (__char>=? c #\0) (__char<=? c #\9)))
+
+(define (char-whitespace? c)
+  (if (memv (char->integer c) '(9 10 11 12 13 32)) #t #f))
+
+(define (char-upper-case? c)
+  (and (__char>=? c #\A) (__char<=? c #\Z)))
+
+(define (char-lower-case? c)
+  (and (__char>=? c #\a) (__char<=? c #\z)))
+
+;; Strings
+
+(define (make-string k . fill)
+  (if (null? fill)
+      (__make-string k #\space)
+      (__make-string k (car fill))))
+
+(define (string . chars) (list->string chars))
+
+(define (string-ref s k) (__string-ref s k))
+(define (string-set! s k c) (__string-set! s k c))
+
+(define (string=? . args) (__chain-cmp __string=? args))
+(define (string<? . args) (__chain-cmp __string<? args))
+(define (__string>? a b) (__string<? b a))
+(define (__string<=? a b) (not (__string<? b a)))
+(define (__string>=? a b) (not (__string<? a b)))
+(define (string>? . args) (__chain-cmp __string>? args))
+(define (string<=? . args) (__chain-cmp __string<=? args))
+(define (string>=? . args) (__chain-cmp __string>=? args))
+
+(define (__string-ci-compare s1 s2)
+  ; returns -1, 0 or 1; a proper prefix is less than its extension
+  (let ((n1 (string-length s1))
+        (n2 (string-length s2)))
+    (let loop ((i 0))
+      (cond ((= i n1) (if (= i n2) 0 -1))
+            ((= i n2) 1)
+            (else
+             (let ((c1 (char-downcase (string-ref s1 i)))
+                   (c2 (char-downcase (string-ref s2 i))))
+               (cond ((__char-ci<? c1 c2) -1)
+                     ((__char-ci<? c2 c1) 1)
+                     (else (loop (+ i 1))))))))))
+
+(define (__string-ci=? a b) (= (__string-ci-compare a b) 0))
+(define (__string-ci<? a b) (< (__string-ci-compare a b) 0))
+(define (__string-ci>? a b) (> (__string-ci-compare a b) 0))
+(define (__string-ci<=? a b) (<= (__string-ci-compare a b) 0))
+(define (__string-ci>=? a b) (>= (__string-ci-compare a b) 0))
+(define (string-ci=? . args) (__chain-cmp __string-ci=? args))
+(define (string-ci<? . args) (__chain-cmp __string-ci<? args))
+(define (string-ci>? . args) (__chain-cmp __string-ci>? args))
+(define (string-ci<=? . args) (__chain-cmp __string-ci<=? args))
+(define (string-ci>=? . args) (__chain-cmp __string-ci>=? args))
+
+(define (substring s start end) (__substring s start end))
+
+(define (string-append . strs) (__fold-left __string-append "" strs))
+
+(define (string->list s)
+  (let loop ((i (- (string-length s) 1))
+             (acc '()))
+    (if (< i 0)
+        acc
+        (loop (- i 1) (cons (string-ref s i) acc)))))
+
+(define (list->string chars) (__list->string chars))
+
+(define (string-copy s) (substring s 0 (string-length s)))
+
+(define (string-fill! s c)
+  (let loop ((i 0))
+    (if (= i (string-length s))
+        (void)
+        (begin (string-set! s i c)
+               (loop (+ i 1))))))
+
+;; Symbols
+
+(define (symbol->string s) (__symbol->string s))
+(define (string->symbol s) (__string->symbol s))
+
+;; Vectors
+
+(define (vector-fill! v obj)
+  (let loop ((i 0))
+    (if (= i (vector-length v))
+        (void)
+        (begin (vector-set! v i obj)
+               (loop (+ i 1))))))
 
 ;)CORE";

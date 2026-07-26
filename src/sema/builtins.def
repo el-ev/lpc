@@ -46,3 +46,28 @@ BUILTIN("__vector-ref", 2, 2)
 BUILTIN("__vector-set!", 3, 3)
 BUILTIN("__call/cc", 1, 1)
 
+BUILTIN("__set-car!", 2, 2)
+BUILTIN("__set-cdr!", 2, 2)
+
+PRIM("__display", 1, 1, Display)
+PRIM("__write", 1, 1, Write)
+PRIM("__newline", 0, 0, Newline)
+
+PRIM("__char->integer", 1, 1, CharToInteger)
+PRIM("__integer->char", 1, 1, IntegerToChar)
+PRIM("__char=?", 2, 2, CharEq)
+PRIM("__char<?", 2, 2, CharLt)
+
+PRIM("__make-string", 2, 2, MakeString)
+PRIM("__string-ref", 2, 2, StringRef)
+PRIM("__string-set!", 3, 3, StringSet)
+PRIM("__substring", 3, 3, Substring)
+PRIM("__string=?", 2, 2, StringEq)
+PRIM("__string<?", 2, 2, StringLt)
+PRIM("__string-append", 2, 2, StringAppend)
+PRIM("__list->string", 1, 1, ListToString)
+PRIM("__symbol->string", 1, 1, SymbolToString)
+PRIM("__string->symbol", 1, 1, StringToSymbol)
+
+BUILTIN("__apply", 2, 2)
+

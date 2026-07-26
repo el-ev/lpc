@@ -92,6 +92,72 @@ std::int64_t Interp::as_int(const Value& value) {
     throw std::runtime_error(message.str());
 }
 
+char Interp::as_char(const Value& value) {
+    if (const auto* char_value = value.get<char>())
+        return *char_value;
+
+    std::stringstream message;
+    message << "Expected character, got: " << value;
+    throw std::runtime_error(message.str());
+}
+
+std::string& Interp::as_string(Value& value) {
+    if (auto* string_value = value.get<std::shared_ptr<std::string>>())
+        return **string_value;
+
+    std::stringstream message;
+    message << "Expected string, got: " << value;
+    throw std::runtime_error(message.str());
+}
+
+template <typename Args>
+Env* Interp::bind_call(const Closure& closure, const Args& args) const {
+    const auto* lambda
+        = _cps_arena.get(closure.lambda_ref).get<CpsLambda>();
+    Assert(lambda != nullptr);
+
+    Env* call_env = make_env(
+        lambda->params.size() + expected_local_bindings, closure.env);
+
+    if (lambda->is_variadic) {
+        Assert(lambda->params.size() >= 2);
+
+        const std::size_t fixed_param_count = lambda->params.size() - 2;
+        if (args.size() < fixed_param_count + 1) {
+            throw std::runtime_error(
+                "Arity mismatch in variadic application");
+        }
+
+        for (std::size_t index = 0; index < fixed_param_count; ++index)
+            call_env->bind(lambda->params[index].var, args[index]);
+
+        Value rest(Value(Nil { }));
+        for (std::size_t index = args.size() - 1; index > fixed_param_count;
+            --index) {
+            auto pair = std::make_shared<Cons>();
+            pair->car = args[index - 1];
+            pair->cdr = std::move(rest);
+            rest = Value(pair);
+        }
+
+        call_env->bind(
+            lambda->params[fixed_param_count].var, std::move(rest));
+        call_env->bind(lambda->params.back().var, args[args.size() - 1]);
+    } else {
+        if (lambda->params.size() != args.size()) {
+            std::stringstream message;
+            message << "Arity mismatch: expected " << lambda->params.size()
+                    << ", got " << args.size();
+            throw std::runtime_error(message.str());
+        }
+
+        for (std::size_t index = 0; index < lambda->params.size(); ++index)
+            call_env->bind(lambda->params[index].var, args[index]);
+    }
+
+    return call_env;
+}
+
 Value& Interp::lookup_variable(const CpsVar& variable, Env* env) {
     if (Value* bound = env->lookup(variable.var))
         return *bound;
@@ -115,7 +181,9 @@ Value Interp::eval_atom(const CpsAtom& atom, Env* env) const {
                     return Value(static_cast<char>(character));
                 },
                 [](const LispIdent& ident) -> Value { return Value(ident); },
-                [](const LispString& text) -> Value { return Value(text); },
+                [](const LispString& text) -> Value {
+                    return Value(std::make_shared<std::string>(text));
+                },
                 [](const LispNil&) -> Value { return Value(Nil { }); },
                 [&](const SExprList& list) -> Value {
                     Value tail = eval_atom(
@@ -178,54 +246,15 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                     = _cps_arena.get(closure->lambda_ref).get<CpsLambda>();
                 Assert(lambda != nullptr);
 
-                Env* call_env = make_env(
-                    lambda->params.size() + expected_local_bindings,
-                    closure->env);
-
-                if (lambda->is_variadic) {
-                    Assert(lambda->params.size() >= 2);
-
-                    const std::size_t fixed_param_count
-                        = lambda->params.size() - 2;
-                    if (app.args.size() < fixed_param_count + 1) {
-                        throw std::runtime_error(
-                            "Arity mismatch in variadic application");
-                    }
-
-                    for (std::size_t index = 0; index < fixed_param_count;
-                        ++index) {
-                        call_env->bind(lambda->params[index].var,
-                            eval_atom(app.args[index], env));
-                    }
-
-                    Value rest(Value(Nil { }));
-                    for (std::size_t index = app.args.size() - 1;
-                        index > fixed_param_count; --index) {
-                        auto pair = std::make_shared<Cons>();
-                        pair->car = eval_atom(app.args[index - 1], env);
-                        pair->cdr = std::move(rest);
-                        rest = Value(pair);
-                    }
-
-                    call_env->bind(
-                        lambda->params[fixed_param_count].var, std::move(rest));
-                    call_env->bind(lambda->params.back().var,
-                        eval_atom(app.args.back(), env));
-                } else {
-                    if (lambda->params.size() != app.args.size()) {
-                        std::stringstream message;
-                        message << "Arity mismatch: expected "
-                                << lambda->params.size() << ", got "
-                                << app.args.size();
-                        throw std::runtime_error(message.str());
-                    }
-
-                    for (std::size_t index = 0; index < lambda->params.size();
-                        ++index) {
-                        call_env->bind(lambda->params[index].var,
-                            eval_atom(app.args[index], env));
-                    }
+                EvaluatedArgs args(app.args.size());
+                for (const CpsAtom& arg : app.args) {
+                    if (const auto* variable = arg.get<CpsVar>())
+                        args.push_borrowed(lookup_variable(*variable, env));
+                    else
+                        args.push_owned(eval_atom(arg, env));
                 }
+
+                Env* call_env = bind_call(*closure, args);
 
                 expr_ref = lambda->body;
                 env = call_env;
@@ -244,6 +273,42 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                 auto expect_arity = [&]([[maybe_unused]] std::size_t expected) {
                     Assert(args.size() == expected);
                 };
+
+                if (let_expr.op == PrimOp::Apply) {
+                    expect_arity(3);
+
+                    const Value& function_value = args[0];
+                    const auto* closure = function_value.get<Closure>();
+                    if (closure == nullptr) {
+                        std::stringstream message;
+                        message << "Application target is not a closure: "
+                                << function_value;
+                        throw std::runtime_error(message.str());
+                    }
+
+                    const auto* lambda
+                        = _cps_arena.get(closure->lambda_ref).get<CpsLambda>();
+                    Assert(lambda != nullptr);
+
+                    std::vector<Value> spread_args;
+                    const Value* cursor = &args[1];
+                    while (const auto* pair
+                        = cursor->get<std::shared_ptr<Cons>>()) {
+                        spread_args.push_back((*pair)->car);
+                        cursor = &(*pair)->cdr;
+                    }
+                    if (!cursor->isa<Nil>())
+                        throw std::runtime_error(
+                            "apply expects a proper list of arguments");
+                    spread_args.push_back(args[2]);
+
+                    Env* call_env = bind_call(*closure, spread_args);
+
+                    expr_ref = lambda->body;
+                    env = call_env;
+                    jumped = true;
+                    return Value(Undefined { });
+                }
 
                 Value primop_result;
                 switch (let_expr.op) {
@@ -358,7 +423,8 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                     break;
                 case PrimOp::IsString:
                     expect_arity(1);
-                    primop_result = Value(args[0].isa<std::string>());
+                    primop_result = Value(
+                        args[0].isa<std::shared_ptr<std::string>>());
                     break;
                 case PrimOp::IsProcedure:
                     expect_arity(1);
@@ -517,13 +583,147 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                         primop_result = Value(static_cast<std::int64_t>(
                             (*args[0].get<std::shared_ptr<Vector>>())
                                 ->elements.size()));
-                    } else if (args[0].isa<std::string>()) {
+                    } else if (args[0].isa<std::shared_ptr<std::string>>()) {
                         primop_result = Value(static_cast<std::int64_t>(
-                            args[0].get<std::string>()->size()));
+                            (*args[0].get<std::shared_ptr<std::string>>())
+                                ->size()));
                     } else {
                         throw std::runtime_error(
                             "length expects a vector or string");
                     }
+                    break;
+                case PrimOp::Display:
+                    expect_arity(1);
+                    print_value(std::cout, args[0], PrintMode::Display);
+                    primop_result = Value(Undefined { });
+                    break;
+                case PrimOp::Write:
+                    expect_arity(1);
+                    print_value(std::cout, args[0], PrintMode::Write);
+                    primop_result = Value(Undefined { });
+                    break;
+                case PrimOp::Newline:
+                    expect_arity(0);
+                    std::cout << '\n';
+                    primop_result = Value(Undefined { });
+                    break;
+                case PrimOp::CharToInteger:
+                    expect_arity(1);
+                    primop_result = Value(
+                        static_cast<std::int64_t>(as_char(args[0])));
+                    break;
+                case PrimOp::IntegerToChar:
+                    expect_arity(1);
+                    primop_result
+                        = Value(static_cast<char>(as_int(args[0])));
+                    break;
+                case PrimOp::CharEq:
+                    expect_arity(2);
+                    primop_result
+                        = Value(as_char(args[0]) == as_char(args[1]));
+                    break;
+                case PrimOp::CharLt:
+                    expect_arity(2);
+                    primop_result
+                        = Value(as_char(args[0]) < as_char(args[1]));
+                    break;
+                case PrimOp::MakeString: {
+                    expect_arity(2);
+                    const std::int64_t size = as_int(args[0]);
+                    if (size < 0)
+                        throw std::runtime_error(
+                            "make-string size must be non-negative");
+                    primop_result = Value(std::make_shared<std::string>(
+                        static_cast<std::size_t>(size), as_char(args[1])));
+                    break;
+                }
+                case PrimOp::StringRef: {
+                    expect_arity(2);
+                    const auto& str = as_string(args[0]);
+                    const std::int64_t index = as_int(args[1]);
+                    if (index < 0
+                        || static_cast<std::size_t>(index) >= str.size())
+                        throw std::runtime_error(
+                            "string-ref index out of bounds");
+                    primop_result
+                        = Value(str[static_cast<std::size_t>(index)]);
+                    break;
+                }
+                case PrimOp::StringSet: {
+                    expect_arity(3);
+                    auto& str = as_string(args[0]);
+                    const std::int64_t index = as_int(args[1]);
+                    if (index < 0
+                        || static_cast<std::size_t>(index) >= str.size())
+                        throw std::runtime_error(
+                            "string-set! index out of bounds");
+                    str[static_cast<std::size_t>(index)] = as_char(args[2]);
+                    primop_result = Value(Undefined { });
+                    break;
+                }
+                case PrimOp::Substring: {
+                    expect_arity(3);
+                    const auto& str = as_string(args[0]);
+                    const std::int64_t start = as_int(args[1]);
+                    const std::int64_t end = as_int(args[2]);
+                    if (start < 0 || end < start
+                        || static_cast<std::size_t>(end) > str.size())
+                        throw std::runtime_error(
+                            "substring index out of bounds");
+                    primop_result = Value(std::make_shared<std::string>(
+                        str.substr(static_cast<std::size_t>(start),
+                            static_cast<std::size_t>(end - start))));
+                    break;
+                }
+                case PrimOp::StringEq:
+                    expect_arity(2);
+                    primop_result
+                        = Value(as_string(args[0]) == as_string(args[1]));
+                    break;
+                case PrimOp::StringLt:
+                    expect_arity(2);
+                    primop_result
+                        = Value(as_string(args[0]) < as_string(args[1]));
+                    break;
+                case PrimOp::StringAppend:
+                    expect_arity(2);
+                    primop_result = Value(std::make_shared<std::string>(
+                        as_string(args[0]) + as_string(args[1])));
+                    break;
+                case PrimOp::ListToString: {
+                    expect_arity(1);
+                    std::string result;
+                    const Value* cursor = &args[0];
+                    while (const auto* pair
+                        = cursor->get<std::shared_ptr<Cons>>()) {
+                        const Value& element = (*pair)->car;
+                        const auto* character = element.get<char>();
+                        if (character == nullptr)
+                            throw std::runtime_error(
+                                "list->string expects a list of characters");
+                        result.push_back(*character);
+                        cursor = &(*pair)->cdr;
+                    }
+                    if (!cursor->isa<Nil>())
+                        throw std::runtime_error(
+                            "list->string expects a proper list");
+                    primop_result = Value(
+                        std::make_shared<std::string>(std::move(result)));
+                    break;
+                }
+                case PrimOp::SymbolToString:
+                    expect_arity(1);
+                    if (const auto* ident = args[0].get<LispIdent>()) {
+                        primop_result = Value(
+                            std::make_shared<std::string>(ident->name));
+                    } else {
+                        throw std::runtime_error(
+                            "symbol->string expects a symbol");
+                    }
+                    break;
+                case PrimOp::StringToSymbol:
+                    expect_arity(1);
+                    primop_result = Value(LispIdent(as_string(args[0])));
                     break;
                 case PrimOp::Print:
                     expect_arity(1);
@@ -541,7 +741,14 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                 }
                 case PrimOp::Eq:
                     expect_arity(2);
-                    primop_result = Value(args[0] == args[1]);
+                    if (args[0].isa<std::shared_ptr<std::string>>()
+                        && args[1].isa<std::shared_ptr<std::string>>()) {
+                        primop_result = Value(
+                            **args[0].get<std::shared_ptr<std::string>>()
+                            == **args[1].get<std::shared_ptr<std::string>>());
+                    } else {
+                        primop_result = Value(args[0] == args[1]);
+                    }
                     break;
                 default:
                     throw std::runtime_error("Unknown primop: "

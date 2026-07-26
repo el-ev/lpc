@@ -38,7 +38,7 @@ export struct Undefined {
 export class Value
     : public TaggedUnion<Undefined, Nil, std::int64_t, bool, char, Closure,
           std::shared_ptr<Cons>, std::shared_ptr<Box>, std::shared_ptr<Vector>,
-          LispIdent, std::string> {
+          LispIdent, std::shared_ptr<std::string>> {
 public:
     using TaggedUnion::TaggedUnion;
 };
@@ -56,6 +56,10 @@ export struct Vector {
     std::uint64_t tag;
     std::vector<Value> elements;
 };
+
+export enum class PrintMode : std::uint8_t { Display, Write };
+
+export void print_value(std::ostream& os, const Value& value, PrintMode mode);
 
 export std::ostream& operator<<(std::ostream& os, const Value& value);
 
@@ -89,8 +93,12 @@ private:
     }
 
     [[nodiscard]] static std::int64_t as_int(const Value& value);
+    [[nodiscard]] static char as_char(const Value& value);
+    [[nodiscard]] static std::string& as_string(Value& value);
     [[nodiscard]] static Value& lookup_variable(
         const CpsVar& variable, Env* env);
+    template <typename Args>
+    [[nodiscard]] Env* bind_call(const Closure& closure, const Args& args) const;
     [[nodiscard]] Value eval_atom(const CpsAtom& atom, Env* env) const;
     [[nodiscard]] Value eval(CpsExprRef expr_ref, Env* env) const;
 };
