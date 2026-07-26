@@ -1,17 +1,30 @@
 cmake_minimum_required(VERSION 3.28)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -stdlib=libc++")
+project(lpc VERSION 0.1.0 LANGUAGES CXX)
 
-if(APPLE)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --config-system-dir=/opt/homebrew/etc/clang")
-  # Ensure the linker uses Homebrew's libc++ (not Apple's system libc++)
-  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -L/opt/homebrew/opt/llvm/lib/c++ -Wl,-rpath,/opt/homebrew/opt/llvm/lib/c++")
+if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  message(FATAL_ERROR
+    "lpc requires Clang with libc++ (for C++26 std modules); "
+    "got ${CMAKE_CXX_COMPILER_ID}. "
+    "Set CC/CXX or CMAKE_CXX_COMPILER accordingly.")
 endif()
 
-set(CMAKE_C_COMPILER "/opt/homebrew/opt/llvm/bin/clang")
-set(CMAKE_CXX_COMPILER "/opt/homebrew/opt/llvm/bin/clang++")
+add_compile_options(-stdlib=libc++ -fdiagnostics-color=always)
+add_link_options(-stdlib=libc++)
 
-project(lpc VERSION 0.1.0 LANGUAGES CXX)
+if(DEFINED ENV{NIX_CC})
+  foreach(_implicit_dir IN LISTS CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES)
+    add_compile_options("SHELL:-isystem ${_implicit_dir}")
+  endforeach()
+  unset(_implicit_dir)
+endif()
+
+if(APPLE AND EXISTS "/opt/homebrew/etc/clang")
+  add_compile_options(--config-system-dir=/opt/homebrew/etc/clang)
+  if(EXISTS "/opt/homebrew/opt/llvm/lib/c++")
+    add_link_options(-L/opt/homebrew/opt/llvm/lib/c++ -Wl,-rpath,/opt/homebrew/opt/llvm/lib/c++)
+  endif()
+endif()
 
 set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -19,36 +32,46 @@ set(CMAKE_CXX_EXTENSIONS ON)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-execute_process(
-  COMMAND "${CMAKE_CXX_COMPILER}" -print-library-module-manifest-path
-  OUTPUT_VARIABLE _libcxx_manifest
-  OUTPUT_STRIP_TRAILING_WHITESPACE
-  ERROR_QUIET
-)
+set(LIBCXX_MODULES_JSON "" CACHE FILEPATH "Path to libc++.modules.json")
 
-if(NOT IS_ABSOLUTE "${_libcxx_manifest}" OR NOT EXISTS "${_libcxx_manifest}")
-  # Fallback: search known paths (Homebrew LLVM)
+if(NOT LIBCXX_MODULES_JSON AND DEFINED ENV{LIBCXX_MODULES_JSON})
+  set(LIBCXX_MODULES_JSON "$ENV{LIBCXX_MODULES_JSON}")
+endif()
+
+if(NOT LIBCXX_MODULES_JSON)
+  execute_process(
+    COMMAND "${CMAKE_CXX_COMPILER}" -print-library-module-manifest-path
+    OUTPUT_VARIABLE _libcxx_manifest
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+  )
+  if(IS_ABSOLUTE "${_libcxx_manifest}" AND EXISTS "${_libcxx_manifest}")
+    set(LIBCXX_MODULES_JSON "${_libcxx_manifest}")
+  endif()
   unset(_libcxx_manifest)
-  unset(_libcxx_manifest CACHE)
-  find_file(_libcxx_manifest
+endif()
+
+if(NOT LIBCXX_MODULES_JSON)
+  get_filename_component(_cxx_dir "${CMAKE_CXX_COMPILER}" DIRECTORY)
+  find_file(LIBCXX_MODULES_JSON
     NAMES libc++.modules.json
     PATHS
+      "${_cxx_dir}/../lib/c++"
+      "${_cxx_dir}/../lib"
       "/opt/homebrew/opt/llvm/lib/c++"
       "/opt/homebrew/lib/c++"
       "/usr/local/lib/c++"
       "/usr/lib/c++"
     NO_DEFAULT_PATH
   )
+  unset(_cxx_dir)
 endif()
 
-if(EXISTS "${_libcxx_manifest}")
-  message(STATUS "Found libc++ modules manifest: ${_libcxx_manifest}")
-  get_filename_component(_libcxx_manifest_dir "${_libcxx_manifest}" DIRECTORY)
+if(LIBCXX_MODULES_JSON AND EXISTS "${LIBCXX_MODULES_JSON}")
+  message(STATUS "Found libc++ modules manifest: ${LIBCXX_MODULES_JSON}")
+  get_filename_component(_libcxx_manifest_dir "${LIBCXX_MODULES_JSON}" DIRECTORY)
 
-  # Read the manifest to find std module source paths
-  file(READ "${_libcxx_manifest}" _manifest_json)
-  # Extract the source paths from the JSON (they're relative to the manifest dir)
-  string(JSON _modules_array GET "${_manifest_json}" "modules")
+  file(READ "${LIBCXX_MODULES_JSON}" _manifest_json)
   string(JSON _modules_len LENGTH "${_manifest_json}" "modules")
 
   set(_std_module_sources "")
@@ -59,7 +82,6 @@ if(EXISTS "${_libcxx_manifest}")
     cmake_path(ABSOLUTE_PATH _source_path BASE_DIRECTORY "${_libcxx_manifest_dir}" NORMALIZE)
     list(APPEND _std_module_sources "${_source_path}")
 
-    # Extract include directories if present
     string(JSON _has_local ERROR_VARIABLE _local_err GET "${_manifest_json}" "modules" ${_idx} "local-arguments" "system-include-directories")
     if(NOT _local_err)
       string(JSON _inc_len LENGTH "${_manifest_json}" "modules" ${_idx} "local-arguments" "system-include-directories")
@@ -78,7 +100,8 @@ if(EXISTS "${_libcxx_manifest}")
 else()
   message(FATAL_ERROR
     "Could not find libc++.modules.json. "
-    "Ensure LLVM/libc++ is installed (e.g., brew install llvm).")
+    "Set -DLIBCXX_MODULES_JSON=<path> or export LIBCXX_MODULES_JSON, "
+    "or ensure LLVM/libc++ is installed (e.g., brew install llvm).")
 endif()
 
 # Build a static library providing the std module
@@ -114,8 +137,6 @@ target_sources(${PROJECT_NAME}
 )
 target_link_libraries(${PROJECT_NAME} PRIVATE std_module)
 set_target_properties(${PROJECT_NAME} PROPERTIES CXX_MODULE_STD OFF)
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fdiagnostics-color=always")
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
