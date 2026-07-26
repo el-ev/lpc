@@ -9,6 +9,17 @@ if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     "Set CC/CXX or CMAKE_CXX_COMPILER accordingly.")
 endif()
 
+# Apple ar/ranlib cannot index LLVM bitcode produced by -flto.  Use the
+# archiver tools paired with Clang so Release static libraries remain valid.
+if(APPLE AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+  if(CMAKE_AR STREQUAL "/usr/bin/ar" AND CMAKE_CXX_COMPILER_AR)
+    set(CMAKE_AR "${CMAKE_CXX_COMPILER_AR}")
+  endif()
+  if(CMAKE_RANLIB STREQUAL "/usr/bin/ranlib" AND CMAKE_CXX_COMPILER_RANLIB)
+    set(CMAKE_RANLIB "${CMAKE_CXX_COMPILER_RANLIB}")
+  endif()
+endif()
+
 add_compile_options(-stdlib=libc++ -fdiagnostics-color=always)
 add_link_options(-stdlib=libc++)
 
@@ -128,7 +139,7 @@ target_compile_options(std_module PRIVATE
 # std_module must be compiled with the same target features as consumers,
 # otherwise the precompiled module (.pcm) will have a configuration mismatch.
 target_compile_options(std_module PRIVATE $<$<CONFIG:Debug>:-g -O0>)
-target_compile_options(std_module PRIVATE $<$<CONFIG:Release>:-march=native -O3 -flto -DNDEBUG>)
+target_compile_options(std_module PRIVATE $<$<CONFIG:Release>:-g -march=native -O3 -flto -DNDEBUG>)
 target_link_options(std_module PRIVATE $<$<CONFIG:Debug>:-fsanitize=address>)
 set_target_properties(std_module PROPERTIES CXX_MODULE_STD OFF)
 
