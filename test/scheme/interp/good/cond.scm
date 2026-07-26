@@ -1,0 +1,12 @@
+; %lpc %s
+(__print (cond ((assv 2 '((1 . a) (2 . b))) => cdr)
+               (else 'none)))
+(__print (cond ((assv 9 '((1 . a) (2 . b))) => cdr)
+               (else 'none)))
+(__print (cond (#f 'no)
+               ((+ 1 1))
+               (else 'other)))
+(__print (cond (#t 'yes)))
+(__print (cond (#f 'no)))
+(__print (cond ((memv 3 '(1 2 3)) => car)
+               (else 0)))

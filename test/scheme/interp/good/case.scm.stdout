@@ -1,0 +1,8 @@
+zero
+odd
+(even 4)
+big
+one
+#<void>
+2
+(fallback x)

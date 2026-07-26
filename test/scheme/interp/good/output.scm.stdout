@@ -1,0 +1,12 @@
+no quotes
+"with \"quotes\" and \\backslash"
+(1 "two" #\c (3 . 4))
+(1 two c (3 . 4))
+#\space#\newline#\a
+z
+#(1 "s" #\x)
+#(1 s x)
+sym
+42
+#t
+()
