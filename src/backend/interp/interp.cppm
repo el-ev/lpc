@@ -64,7 +64,7 @@ export struct Environment {
     std::shared_ptr<Environment> parent;
 
     [[nodiscard]] Value* lookup(const VarId& id);
-    void bind(VarId id, Value value);
+    void bind(const VarId& id, Value value);
 };
 
 export class Interp {
@@ -77,7 +77,7 @@ private:
     const CpsArena& _cps_arena;
     const SpanArena& _span_arena;
 
-    [[nodiscard]] std::int64_t as_int(const Value& value) const;
+    [[nodiscard]] static std::int64_t as_int(const Value& value);
     [[nodiscard]] Value eval_atom(
         const CpsAtom& atom, const std::shared_ptr<Environment>& env) const;
     [[nodiscard]] Value eval(

@@ -99,8 +99,9 @@ void App::parse(std::vector<std::string_view> args) {
         }
 
         if (found_option == nullptr) {
-            Error("Unknown option: {}", *it);
-            std::println("Run with '--help' to see available options.");
+            Error("Unknown option: {}\nRun with '--help' to see available "
+                  "options.",
+                *it);
             std::quick_exit(1);
         }
 

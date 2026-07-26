@@ -3,7 +3,6 @@ module;
 #include <unistd.h>
 #include <csignal>
 #include <cstdio>
-#include <print>
 
 export module lpc.utils.crash_handler;
 

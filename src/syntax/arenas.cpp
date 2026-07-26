@@ -41,7 +41,8 @@ namespace {
         return { 0, 0 };
     }
 
-    void flush_expansion_segment(std::vector<std::string>& segment) {
+    void flush_expansion_segment(
+        std::vector<std::string>& segment, std::string& report) {
         if (segment.empty())
             return;
         const auto [cycle_len, num_reps] = find_cycle_suffix(segment);
@@ -52,23 +53,25 @@ namespace {
             std::size_t run = 1;
             while (i + run < cycle_start && segment[i + run] == segment[i])
                 ++run;
-            std::println(std::cerr, "  in expansion of: {}", segment[i]);
+            std::format_to(std::back_inserter(report),
+                "\n  in expansion of: {}", segment[i]);
             if (run > 1)
-                std::println(
-                    std::cerr, "  ({} identical frames omitted)", run - 1);
+                std::format_to(std::back_inserter(report),
+                    "\n  ({} identical frames omitted)", run - 1);
             i += run;
         }
         if (cycle_len > 0 && num_reps >= 2) {
             for (std::size_t i = 0; i < cycle_len; ++i)
-                std::println(std::cerr, "  in expansion of: {}",
+                std::format_to(std::back_inserter(report),
+                    "\n  in expansion of: {}",
                     segment[cycle_start + i]);
             const auto to_omit = (num_reps - 1) * cycle_len;
             if (cycle_len == 1)
-                std::println(
-                    std::cerr, "  ({} identical frames omitted)", to_omit);
+                std::format_to(std::back_inserter(report),
+                    "\n  ({} identical frames omitted)", to_omit);
             else
-                std::println(
-                    std::cerr, "  ({} similar frames omitted)", to_omit);
+                std::format_to(std::back_inserter(report),
+                    "\n  ({} similar frames omitted)", to_omit);
         }
         segment.clear();
     }
@@ -115,20 +118,14 @@ void SpanArena::walk(SpanRef ref, const std::function<void(SpanRef)>& f) {
 
 bool SpanArena::report_error(
     SpanRef failed_expr, std::string_view msg, bool show_core) const {
-    auto failed_str = dump(failed_expr);
-
-    Error("{}", msg);
-    std::println(std::cerr, "  for: {}", failed_str);
-
-    dump_backtrace(at(failed_expr).parent(), show_core);
-
-    auto location = loc(failed_expr);
-    std::println(std::cerr, "  at {}", location.source_location());
+    Error("{}\n  for: {}{}\n  at {}", msg, dump(failed_expr),
+        dump_backtrace(at(failed_expr).parent(), show_core),
+        loc(failed_expr).source_location());
 
     return false;
 }
 
-void SpanArena::dump_backtrace(SpanRef parent, bool show_core) const {
+std::string SpanArena::dump_backtrace(SpanRef parent, bool show_core) const {
     struct Frame {
         int core_omitted;
         std::string dump;
@@ -147,18 +144,22 @@ void SpanArena::dump_backtrace(SpanRef parent, bool show_core) const {
         core_omitted = 0;
         cur = at(cur).parent();
     }
+    std::string report;
     if (core_omitted > 0)
-        std::println(std::cerr, "  ({} frames omitted)", core_omitted);
+        std::format_to(std::back_inserter(report),
+            "\n  ({} frames omitted)", core_omitted);
 
     std::vector<std::string> segment;
     for (const auto& [core, dump] : frames) {
         if (core > 0) {
-            flush_expansion_segment(segment);
-            std::println(std::cerr, "  ({} frames omitted)", core);
+            flush_expansion_segment(segment, report);
+            std::format_to(std::back_inserter(report),
+                "\n  ({} frames omitted)", core);
         }
         segment.push_back(dump);
     }
-    flush_expansion_segment(segment);
+    flush_expansion_segment(segment, report);
+    return report;
 }
 
 Location SpanArena::loc(SpanRef ref) const noexcept {

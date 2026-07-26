@@ -48,7 +48,7 @@ auto main(int argc, char* argv[]) -> int {
                     session.set_max_expansion_depth(
                         std::stoul(std::string(depth)));
                 } catch (...) {
-                    std::println(std::cerr, "Invalid depth: {}", depth);
+                    Error("Invalid depth: {}", depth);
                     std::quick_exit(1);
                 }
             })

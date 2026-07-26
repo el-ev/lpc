@@ -21,7 +21,7 @@ Value Interp::run(CpsExprRef root) {
     return eval(root, std::move(root_env));
 }
 
-std::int64_t Interp::as_int(const Value& value) const {
+std::int64_t Interp::as_int(const Value& value) {
     if (const auto* int_value = value.get<std::int64_t>())
         return *int_value;
 
@@ -475,7 +475,7 @@ Value Interp::eval(
                     break;
                 case PrimOp::Exit:
                     expect_arity(1);
-                    std::exit(static_cast<int>(as_int(args[0])));
+                    std::quick_exit(static_cast<int>(as_int(args[0])));
                 case PrimOp::Exception: {
                     expect_arity(1);
                     std::stringstream message;
@@ -509,13 +509,13 @@ Value Interp::eval(
 
                 for (CpsExprRef function_ref : fix.functions) {
                     const auto& function_expr = _cps_arena.get(function_ref);
-                    const CpsLambda* lambda = function_expr.get<CpsLambda>();
+                    const auto* lambda = function_expr.get<CpsLambda>();
                     if (lambda == nullptr)
                         throw std::runtime_error(
                             "Fix expects lambda definitions");
 
-                    fix_env->bind(
-                        lambda->name.var, Value(Closure { *lambda, fix_env }));
+                    fix_env->bind(lambda->name.var,
+                        Value(Closure { .lambda = *lambda, .env = fix_env }));
                 }
 
                 expr_ref = fix.body;

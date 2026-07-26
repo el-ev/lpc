@@ -3,8 +3,11 @@ export module lpc.session;
 import std;
 
 import lpc.context;
+import lpc.utils.logging;
 
 namespace lpc {
+
+using lpc::utils::Error;
 
 export class Session {
 private:
@@ -41,7 +44,7 @@ public:
 
     bool set_backend(std::string_view backend) {
         if (backend != "interp") {
-            std::println(std::cerr, "Unsupported backend: {}", backend);
+            Error("Unsupported backend: {}", backend);
             return false;
         }
         _options.backend = std::string(backend);

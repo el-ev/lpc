@@ -195,7 +195,8 @@ public:
             failed_expr, std::format(fmt, std::forward<Args>(args)...), show_core);
     }
 
-    void dump_backtrace(SpanRef parent, bool show_core = false) const;
+    [[nodiscard]] std::string dump_backtrace(
+        SpanRef parent, bool show_core = false) const;
 
     [[nodiscard]] std::string dump_root(SpanRef root) const;
     [[nodiscard]] std::string dump(SpanRef ref) const;

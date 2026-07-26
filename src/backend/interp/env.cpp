@@ -92,7 +92,7 @@ Value* Environment::lookup(const VarId& id) {
     return nullptr;
 }
 
-void Environment::bind(VarId id, Value value) {
+void Environment::bind(const VarId& id, Value value) {
     values[id] = std::move(value);
 }
 
