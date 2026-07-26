@@ -138,9 +138,9 @@ target_compile_options(std_module PRIVATE
 )
 # std_module must be compiled with the same target features as consumers,
 # otherwise the precompiled module (.pcm) will have a configuration mismatch.
-target_compile_options(std_module PRIVATE $<$<CONFIG:Debug>:-g -O0>)
-target_compile_options(std_module PRIVATE $<$<CONFIG:Release>:-g -march=native -O3 -flto -DNDEBUG>)
-target_link_options(std_module PRIVATE $<$<CONFIG:Debug>:-fsanitize=address>)
+target_compile_options(std_module PRIVATE $<$<CONFIG:Debug>:-g -O0 -fsanitize=address,undefined>)
+target_compile_options(std_module PRIVATE $<$<CONFIG:Release>:-march=native -O3 -flto -DNDEBUG>)
+target_link_options(std_module PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
 set_target_properties(std_module PROPERTIES CXX_MODULE_STD OFF)
 
 file(GLOB_RECURSE MAIN "src/main.cpp")
@@ -167,10 +167,10 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build (Debug/Release)" FORCE)
 endif()
 
-target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-g -O0>)
+target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-g -fsanitize=address,undefined -O0>)
 target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release>:-march=native -O3 -flto -DNDEBUG>)
 
-target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address>)
+target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
 
 # --- Test targets ---
 file(GLOB TEST_SOURCES "test/cpp/*.cpp")
@@ -188,9 +188,9 @@ foreach(TEST_SOURCE ${TEST_SOURCES})
     set_target_properties(${TEST_NAME} PROPERTIES CXX_MODULE_STD OFF)
 
     target_compile_options(${TEST_NAME} PRIVATE -Wall -Wextra -Wpedantic)
-    target_compile_options(${TEST_NAME} PRIVATE $<$<CONFIG:Debug>:-g -O0>)
+    target_compile_options(${TEST_NAME} PRIVATE $<$<CONFIG:Debug>:-g -O0 -fsanitize=address,undefined>)
     target_compile_options(${TEST_NAME} PRIVATE $<$<CONFIG:Release>:-march=native -O3 -flto -DNDEBUG>)
-    target_link_options(${TEST_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address>)
+    target_link_options(${TEST_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
 
     list(APPEND TEST_TARGETS ${TEST_NAME})
 endforeach()
