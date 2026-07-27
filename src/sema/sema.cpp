@@ -213,14 +213,6 @@ CoreExprRef Lowerer::lower_set(SpanRef ref, const SExprList& list) {
         return CoreExprRef::invalid();
     }
 
-    // FIXME: bad & no longer works
-    // if (resolved->kind == CoreVarKind::Builtin) {
-    //     report_error(list.elem[1], "sema: cannot mutate builtin procedure:
-    //     {}",
-    //         target_id->name);
-    //     return CoreExprRef::invalid();
-    // }
-
     auto value = lower(list.elem[2]);
     if (!value.is_valid())
         return CoreExprRef::invalid();

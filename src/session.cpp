@@ -4,6 +4,7 @@ import std;
 
 import lpc.backend.interp;
 import lpc.context;
+import lpc.cps.closure_convert;
 import lpc.cps.lower;
 import lpc.cps.simplify;
 import lpc.passes;
@@ -65,6 +66,7 @@ int Session::run() {
                           .add<MutabilityPass>()
                           .add<LowerPass>()
                           .add<SimplifyPass>()
+                          .add<ClosureConvertPass>()
                           .build()
                           .run({ }, ctx);
 

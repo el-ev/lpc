@@ -79,8 +79,7 @@ Interp::Interp(const CpsArena& cps_arena, const SpanArena& span_arena)
 }
 
 Value Interp::run(CpsExprRef root) {
-    Env* root_env = make_env(expected_local_bindings, nullptr);
-    return eval(root, root_env);
+    return eval(root, make_env(expected_local_bindings, nullptr));
 }
 
 std::int64_t Interp::as_int(const Value& value) {
@@ -111,13 +110,12 @@ std::string& Interp::as_string(Value& value) {
 }
 
 template <typename Args>
-Env* Interp::bind_call(const Closure& closure, const Args& args) const {
-    const auto* lambda
-        = _cps_arena.get(closure.lambda_ref).get<CpsLambda>();
+Env* Interp::bind_call(CpsExprRef lambda_ref, const Args& args) const {
+    const auto* lambda = _cps_arena.get(lambda_ref).get<CpsLambda>();
     Assert(lambda != nullptr);
 
     Env* call_env = make_env(
-        lambda->params.size() + expected_local_bindings, closure.env);
+        lambda->params.size() + expected_local_bindings, nullptr);
 
     if (lambda->is_variadic) {
         Assert(lambda->params.size() >= 2);
@@ -137,7 +135,7 @@ Env* Interp::bind_call(const Closure& closure, const Args& args) const {
             auto pair = std::make_shared<Cons>();
             pair->car = args[index - 1];
             pair->cdr = std::move(rest);
-            rest = Value(pair);
+            rest = Value(std::move(pair));
         }
 
         call_env->bind(
@@ -194,7 +192,7 @@ Value Interp::eval_atom(const CpsAtom& atom, Env* env) const {
                         pair->car = eval_atom(
                             CpsAtom(CpsConstant { list.elem[index - 1] }), env);
                         pair->cdr = std::move(tail);
-                        tail = Value(pair);
+                        tail = Value(std::move(pair));
                     }
 
                     return tail;
@@ -206,7 +204,7 @@ Value Interp::eval_atom(const CpsAtom& atom, Env* env) const {
                     for (SpanRef element : vector_value.elem)
                         vector_ref->elements.push_back(
                             eval_atom(CpsAtom(CpsConstant { element }), env));
-                    return Value(vector_ref);
+                    return Value(std::move(vector_ref));
                 },
                 [&](const auto& unsupported) -> Value {
                     std::stringstream message;
@@ -215,7 +213,10 @@ Value Interp::eval_atom(const CpsAtom& atom, Env* env) const {
                     throw std::runtime_error(message.str());
                 } });
         },
-        [](const CpsUnit&) -> Value { return Value(Undefined { }); } });
+        [&](const CpsUnit&) -> Value { return Value(Undefined { }); },
+        [](const CpsLabel& label) -> Value {
+            return Value(Label { label.lambda_ref });
+        } });
 }
 
 Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
@@ -234,8 +235,8 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                     function_value = &*owned_function_value;
                 }
 
-                const Closure* closure = function_value->get<Closure>();
-                if (closure == nullptr) {
+                const Label* label = function_value->get<Label>();
+                if (label == nullptr) {
                     std::stringstream message;
                     message << "Application target is not a closure: "
                             << *function_value;
@@ -243,7 +244,7 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                 }
 
                 const auto* lambda
-                    = _cps_arena.get(closure->lambda_ref).get<CpsLambda>();
+                    = _cps_arena.get(label->lambda_ref).get<CpsLambda>();
                 Assert(lambda != nullptr);
 
                 EvaluatedArgs args(app.args.size());
@@ -254,7 +255,7 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                         args.push_owned(eval_atom(arg, env));
                 }
 
-                Env* call_env = bind_call(*closure, args);
+                Env* call_env = bind_call(label->lambda_ref, args);
 
                 expr_ref = lambda->body;
                 env = call_env;
@@ -278,8 +279,26 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                     expect_arity(3);
 
                     const Value& function_value = args[0];
-                    const auto* closure = function_value.get<Closure>();
-                    if (closure == nullptr) {
+
+                    // After closure conversion the application target is a
+                    // closure record: slot 0 holds the code label and the
+                    // record itself is passed as the implicit env argument.
+                    // A bare Label (unconverted code) is also accepted.
+                    const Label* label = function_value.get<Label>();
+                    const Value* record = nullptr;
+                    if (label == nullptr) {
+                        const auto* vector_ref
+                            = function_value.get<std::shared_ptr<Vector>>();
+                        if (vector_ref != nullptr
+                            && (*vector_ref)->tag
+                                == static_cast<std::uint64_t>(
+                                    CLOSURE_TAG)
+                            && !(*vector_ref)->elements.empty()) {
+                            record = &function_value;
+                            label = (*vector_ref)->elements[0].get<Label>();
+                        }
+                    }
+                    if (label == nullptr) {
                         std::stringstream message;
                         message << "Application target is not a closure: "
                                 << function_value;
@@ -287,10 +306,12 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                     }
 
                     const auto* lambda
-                        = _cps_arena.get(closure->lambda_ref).get<CpsLambda>();
+                        = _cps_arena.get(label->lambda_ref).get<CpsLambda>();
                     Assert(lambda != nullptr);
 
                     std::vector<Value> spread_args;
+                    if (record != nullptr)
+                        spread_args.push_back(*record);
                     const Value* cursor = &args[1];
                     while (const auto* pair
                         = cursor->get<std::shared_ptr<Cons>>()) {
@@ -302,7 +323,7 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                             "apply expects a proper list of arguments");
                     spread_args.push_back(args[2]);
 
-                    Env* call_env = bind_call(*closure, spread_args);
+                    Env* call_env = bind_call(label->lambda_ref, spread_args);
 
                     expr_ref = lambda->body;
                     env = call_env;
@@ -402,8 +423,14 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                     break;
                 case PrimOp::IsVector:
                     expect_arity(1);
-                    primop_result
-                        = Value(args[0].isa<std::shared_ptr<Vector>>());
+                    if (const auto* vector_ref
+                        = args[0].get<std::shared_ptr<Vector>>()) {
+                        primop_result = Value(
+                            (*vector_ref)->tag
+                            != static_cast<std::uint64_t>(CLOSURE_TAG));
+                    } else {
+                        primop_result = Value(false);
+                    }
                     break;
                 case PrimOp::IsNil:
                     expect_arity(1);
@@ -428,7 +455,16 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                     break;
                 case PrimOp::IsProcedure:
                     expect_arity(1);
-                    primop_result = Value(args[0].isa<Closure>());
+                    if (args[0].isa<Label>()) {
+                        primop_result = Value(true);
+                    } else if (const auto* vector_ref
+                        = args[0].get<std::shared_ptr<Vector>>()) {
+                        primop_result = Value(
+                            (*vector_ref)->tag
+                            == static_cast<std::uint64_t>(CLOSURE_TAG));
+                    } else {
+                        primop_result = Value(false);
+                    }
                     break;
                 case PrimOp::MakeVector: {
                     Assert(!args.empty() && args.size() <= 2);
@@ -444,7 +480,7 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                     vector_ref->tag = 0;
                     vector_ref->elements.resize(
                         static_cast<std::size_t>(size), fill);
-                    primop_result = Value(vector_ref);
+                    primop_result = Value(std::move(vector_ref));
                     break;
                 }
                 case PrimOp::Alloc: {
@@ -471,7 +507,7 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                         auto pair = std::make_shared<Cons>();
                         pair->car = args[2];
                         pair->cdr = args[3];
-                        primop_result = Value(pair);
+                        primop_result = Value(std::move(pair));
                     } else {
                         auto vector_ref = std::make_shared<Vector>();
                         vector_ref->tag = static_cast<std::uint64_t>(tag);
@@ -480,7 +516,7 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                             ++index)
                             vector_ref->elements.push_back(args[index]);
 
-                        primop_result = Value(vector_ref);
+                        primop_result = Value(std::move(vector_ref));
                     }
                     break;
                 }
@@ -776,21 +812,15 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                 return Value(Undefined { });
             },
             [&](const CpsFix& fix) -> Value {
-                Env* fix_env = make_env(
-                    fix.functions.size() + expected_local_bindings, env);
-
                 for (CpsExprRef function_ref : fix.functions) {
                     const auto& function_expr = _cps_arena.get(function_ref);
                     const auto* lambda = function_expr.get<CpsLambda>();
                     Assert(lambda != nullptr);
 
-                    fix_env->bind(lambda->name.var,
-                        Value(Closure {
-                            .lambda_ref = function_ref, .env = fix_env }));
+                    env->bind(lambda->name.var, Value(Label { function_ref }));
                 }
 
                 expr_ref = fix.body;
-                env = fix_env;
                 jumped = true;
                 return Value(Undefined { });
             },
@@ -798,7 +828,7 @@ Value Interp::eval(CpsExprRef expr_ref, Env* env) const {
                 return eval_atom(halt.value, env);
             },
             [&](const CpsLambda&) -> Value {
-                return Value(Closure { .lambda_ref = expr_ref, .env = env });
+                return Value(Label { expr_ref });
             } });
 
         if (!jumped)

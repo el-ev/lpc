@@ -182,7 +182,6 @@ private:
     }
 
     syntax::SpanRef make_int(syntax::LispNumber value) {
-        // FIXME Location
         return _ctx.span_arena().from_loc(syntax::LocRef::invalid(), value);
     }
 

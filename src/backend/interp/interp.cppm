@@ -20,11 +20,10 @@ export struct Cons;
 export struct Box;
 export struct Vector;
 
-export struct Closure {
+export struct Label {
     CpsExprRef lambda_ref;
-    Env* env = nullptr;
 
-    [[nodiscard]] bool operator==(const Closure& other) const;
+    [[nodiscard]] bool operator==(const Label&) const = default;
 };
 
 export struct Nil {
@@ -36,7 +35,7 @@ export struct Undefined {
 };
 
 export class Value
-    : public TaggedUnion<Undefined, Nil, std::int64_t, bool, char, Closure,
+    : public TaggedUnion<Undefined, Nil, std::int64_t, bool, char, Label,
           std::shared_ptr<Cons>, std::shared_ptr<Box>, std::shared_ptr<Vector>,
           LispIdent, std::shared_ptr<std::string>> {
 public:
@@ -98,7 +97,8 @@ private:
     [[nodiscard]] static Value& lookup_variable(
         const CpsVar& variable, Env* env);
     template <typename Args>
-    [[nodiscard]] Env* bind_call(const Closure& closure, const Args& args) const;
+    [[nodiscard]] Env* bind_call(
+        CpsExprRef lambda_ref, const Args& args) const;
     [[nodiscard]] Value eval_atom(const CpsAtom& atom, Env* env) const;
     [[nodiscard]] Value eval(CpsExprRef expr_ref, Env* env) const;
 };

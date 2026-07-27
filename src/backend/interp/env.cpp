@@ -15,10 +15,6 @@ using namespace lpc::utils;
 using namespace lpc::syntax;
 using namespace lpc::sema;
 
-bool Closure::operator==(const Closure& other) const {
-    return lambda_ref == other.lambda_ref && env == other.env;
-}
-
 bool Nil::operator==(const Nil&) const {
     return true;
 }
@@ -100,7 +96,7 @@ namespace {
             print_char(os, character, mode);
         }
 
-        void operator()(const Closure&) const {
+        void operator()(const Label&) const {
             os << "#<closure>";
         }
 
@@ -108,19 +104,21 @@ namespace {
             os << "(";
 
             bool first = true;
-            Value current(pair);
-            while (const auto* cons = current.get<std::shared_ptr<Cons>>()) {
+            const Value* current = nullptr;
+            const auto* cons = &pair;
+            while (cons != nullptr) {
                 if (!first)
                     os << " ";
 
                 print_value(os, (*cons)->car, mode);
-                current = (*cons)->cdr;
+                current = &(*cons)->cdr;
+                cons = current->get<std::shared_ptr<Cons>>();
                 first = false;
             }
 
-            if (!current.isa<Nil>()) {
+            if (!current->isa<Nil>()) {
                 os << " . ";
-                print_value(os, current, mode);
+                print_value(os, *current, mode);
             }
             os << ")";
         }
@@ -132,6 +130,10 @@ namespace {
         }
 
         void operator()(const std::shared_ptr<Vector>& vector) const {
+            if (vector->tag == static_cast<std::uint64_t>(CLOSURE_TAG)) {
+                os << "#<closure>";
+                return;
+            }
             os << "#(";
             for (std::size_t index = 0; index < vector->elements.size();
                 ++index) {

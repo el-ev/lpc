@@ -56,6 +56,9 @@ std::string CpsDumpVisitor::atom_to_string(const CpsAtom& atom) const {
             return value;
         },
         [](const CpsUnit&) { return std::string("(void)"); },
+        [](const CpsLabel& l) {
+            return std::format("<label:{}>", l.lambda_ref._index);
+        },
     });
 }
 

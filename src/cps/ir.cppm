@@ -20,6 +20,11 @@ export struct CpsExprTag { };
 export using CpsExprRef
     = lpc::utils::ElementReference<CpsExprTag, std::uint32_t>;
 
+// Heap tag for closure records (tag 0 is used for pairs). A closure record
+// is a tagged heap object whose slot 0 holds a CpsLabel code pointer and
+// whose remaining slots hold the captured variables.
+export constexpr std::int64_t CLOSURE_TAG = 1;
+
 export using CpsUnit = std::monostate;
 
 export struct CpsVar {
@@ -42,7 +47,14 @@ export struct CpsConstant {
     }
 };
 
-export class CpsAtom : public TaggedUnion<CpsVar, CpsConstant, CpsUnit> {
+// Code pointer to a (closed) CpsLambda. Only produced by closure conversion.
+export struct CpsLabel {
+    CpsExprRef lambda_ref;
+
+    [[nodiscard]] bool operator==(const CpsLabel&) const = default;
+};
+
+export class CpsAtom : public TaggedUnion<CpsVar, CpsConstant, CpsUnit, CpsLabel> {
 public:
     CpsAtom() = default;
 
