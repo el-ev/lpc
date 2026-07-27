@@ -4,11 +4,15 @@ let
   llvm = pkgs.llvmPackages_latest;
 in
 (pkgs.mkShell.override { stdenv = llvm.libcxxStdenv; }) {
+  hardeningDisable = [ "fortify" "fortify3" ];
+
   packages = [
     pkgs.cmake
     pkgs.ninja
     pkgs.python3
     llvm.clang-tools
+    pkgs.cargo-flamegraph
+    pkgs.guile
   ];
 
   shellHook = ''

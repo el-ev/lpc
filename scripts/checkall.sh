@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 PROJECT_ROOT="$(dirname "$(realpath "$0")")/.."
 cd "$PROJECT_ROOT" || exit 1

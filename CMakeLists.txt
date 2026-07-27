@@ -171,6 +171,7 @@ target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-g -fsanitize=a
 target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release>:-march=native -O3 -flto -DNDEBUG>)
 
 target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
+target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Release>:-flto>)
 
 # --- Test targets ---
 file(GLOB TEST_SOURCES "test/cpp/*.cpp")
@@ -191,6 +192,7 @@ foreach(TEST_SOURCE ${TEST_SOURCES})
     target_compile_options(${TEST_NAME} PRIVATE $<$<CONFIG:Debug>:-g -O0 -fsanitize=address,undefined>)
     target_compile_options(${TEST_NAME} PRIVATE $<$<CONFIG:Release>:-march=native -O3 -flto -DNDEBUG>)
     target_link_options(${TEST_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
+    target_link_options(${TEST_NAME} PRIVATE $<$<CONFIG:Release>:-flto>)
 
     list(APPEND TEST_TARGETS ${TEST_NAME})
 endforeach()
