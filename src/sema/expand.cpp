@@ -374,23 +374,23 @@ std::vector<SpanRef> Expander::expand_define(
         ScopeSetRef::invalid(), SExprList(std::move(out))) };
 }
 
-std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
+std::unique_ptr<Transformer> Expander::parse_syntax_rules(
     SpanRef transformer_spec, std::string_view form_prefix) {
     if (!_arena.is_list(transformer_spec)) {
         report_error(
             transformer_spec, "{}: expected (syntax-rules ...)", form_prefix);
-        return std::nullopt;
+        return nullptr;
     }
     const auto spec_list = _arena.get<SExprList>(transformer_spec)->elem;
     if (!_arena.is_ident(spec_list[0])) {
         report_error(
             transformer_spec, "{}: expected syntax-rules keyword", form_prefix);
-        return std::nullopt;
+        return nullptr;
     }
     if (_arena.get<LispIdent>(spec_list[0])->name != "syntax-rules") {
         report_error(
             transformer_spec, "{}: expected syntax-rules keyword", form_prefix);
-        return std::nullopt;
+        return nullptr;
     }
     std::vector<std::string> literals;
     std::unordered_map<std::string, std::string> literal_binding_keys;
@@ -411,7 +411,7 @@ std::optional<std::unique_ptr<Transformer>> Expander::parse_syntax_rules(
             report_error(transformer_spec,
                 "{}: invalid syntax-rule: capture list is not a list",
                 form_prefix);
-            return std::nullopt;
+            return nullptr;
         }
     }
     std::vector<Transformer::SyntaxRule> rules;
@@ -541,7 +541,7 @@ std::vector<SpanRef> Expander::expand_define_syntax(
     if (!transformer)
         return { SpanRef::invalid() };
     _env.add_binding(macro_name.name, _arena.scopes(name_ex),
-        Binding(MacroBinding { .transformer = std::move(*transformer),
+        Binding(MacroBinding { .transformer = std::move(transformer),
             .output_excluded_scope = std::nullopt }));
     return { };
 }
@@ -601,7 +601,7 @@ std::vector<SpanRef> Expander::expand_let_letrec_syntax(
             return { SpanRef::invalid() };
 
         _env.add_binding(macro_ident.name, _arena.scopes(scoped_name),
-            Binding(MacroBinding { .transformer = std::move(*transformer),
+            Binding(MacroBinding { .transformer = std::move(transformer),
                 .output_excluded_scope
                 = is_letrec ? std::nullopt : std::optional(scope) }));
     }

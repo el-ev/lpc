@@ -256,7 +256,7 @@ private:
         const SExprList& list, SpanRef root, bool is_letrec);
     std::vector<SpanRef> expand_macro(SpanRef root, const MacroBinding& macro);
 
-    std::optional<std::unique_ptr<Transformer>> parse_syntax_rules(
+    std::unique_ptr<Transformer> parse_syntax_rules(
         SpanRef transformer_spec,
         std::string_view form_prefix = "define-syntax");
 
